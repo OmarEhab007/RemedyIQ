@@ -1,0 +1,773 @@
+openapi: 3.1.0
+info:
+  title: RemedyIQ API
+  version: 1.0.0
+  description: AR Server Log Analysis Platform API
+  contact:
+    name: RemedyIQ Team
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+  - url: https://api.remedyiq.com/api/v1
+    description: Production
+
+security:
+  - ClerkAuth: []
+
+components:
+  securitySchemes:
+    ClerkAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Clerk-issued JWT token
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+    LogFile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        size_bytes:
+          type: integer
+          format: int64
+        detected_types:
+          type: array
+          items:
+            type: string
+            enum: [API, SQL, FLTR, ESCL]
+        uploaded_at:
+          type: string
+          format: date-time
+
+    AnalysisJob:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        file_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, parsing, analyzing, storing, complete, failed]
+        progress_pct:
+          type: integer
+          minimum: 0
+          maximum: 100
+        api_count:
+          type: integer
+          format: int64
+        sql_count:
+          type: integer
+          format: int64
+        filter_count:
+          type: integer
+          format: int64
+        esc_count:
+          type: integer
+          format: int64
+        log_start:
+          type: string
+          format: date-time
+        log_end:
+          type: string
+          format: date-time
+        log_duration:
+          type: string
+        error_message:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+
+    AnalysisJobCreate:
+      type: object
+      required: [file_id]
+      properties:
+        file_id:
+          type: string
+          format: uuid
+        jar_flags:
+          type: object
+          properties:
+            top_n:
+              type: integer
+              default: 50
+            group_by:
+              type: array
+              items:
+                type: string
+                enum: [USER, QUEUE]
+            sort_by:
+              type: string
+              enum: [AVG, COUNT, MAX, MIN, SUM]
+              default: AVG
+            user_filter:
+              type: string
+            exclude_users:
+              type: array
+              items:
+                type: string
+            begin_time:
+              type: string
+            end_time:
+              type: string
+            locale:
+              type: string
+            date_format:
+              type: string
+            skip_api:
+              type: boolean
+            skip_sql:
+              type: boolean
+            skip_esc:
+              type: boolean
+            skip_fltr:
+              type: boolean
+            include_fts:
+              type: boolean
+
+    DashboardData:
+      type: object
+      properties:
+        general_stats:
+          type: object
+          properties:
+            total_lines:
+              type: integer
+              format: int64
+            api_count:
+              type: integer
+              format: int64
+            sql_count:
+              type: integer
+              format: int64
+            filter_count:
+              type: integer
+              format: int64
+            esc_count:
+              type: integer
+              format: int64
+            unique_users:
+              type: integer
+            unique_forms:
+              type: integer
+            unique_tables:
+              type: integer
+            log_start:
+              type: string
+              format: date-time
+            log_end:
+              type: string
+              format: date-time
+            log_duration:
+              type: string
+        top_api_calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopNEntry'
+        top_sql_statements:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopNEntry'
+        top_filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopNEntry'
+        top_escalations:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopNEntry'
+        time_series:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSeriesPoint'
+        distribution:
+          type: object
+          properties:
+            by_type:
+              type: object
+              additionalProperties:
+                type: integer
+            by_queue:
+              type: object
+              additionalProperties:
+                type: integer
+
+    TopNEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        line_number:
+          type: integer
+        file_number:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        trace_id:
+          type: string
+        rpc_id:
+          type: string
+        queue:
+          type: string
+        identifier:
+          type: string
+          description: "API code, SQL table, filter name, or escalation name"
+        form:
+          type: string
+        user:
+          type: string
+        duration_ms:
+          type: integer
+        queue_time_ms:
+          type: integer
+        success:
+          type: boolean
+        details:
+          type: string
+
+    TimeSeriesPoint:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        api_count:
+          type: integer
+        sql_count:
+          type: integer
+        filter_count:
+          type: integer
+        esc_count:
+          type: integer
+        avg_duration_ms:
+          type: number
+        error_count:
+          type: integer
+
+    LogEntry:
+      type: object
+      properties:
+        entry_id:
+          type: string
+        line_number:
+          type: integer
+        file_number:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        log_type:
+          type: string
+          enum: [API, SQL, FLTR, ESCL]
+        trace_id:
+          type: string
+        rpc_id:
+          type: string
+        thread_id:
+          type: string
+        queue:
+          type: string
+        user:
+          type: string
+        duration_ms:
+          type: integer
+        success:
+          type: boolean
+        form:
+          type: string
+        sql_table:
+          type: string
+        filter_name:
+          type: string
+        esc_name:
+          type: string
+        raw_text:
+          type: string
+        error_message:
+          type: string
+
+    SearchResult:
+      type: object
+      properties:
+        total_count:
+          type: integer
+          format: int64
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogEntry'
+        facets:
+          type: object
+          properties:
+            types:
+              type: object
+              additionalProperties:
+                type: integer
+            queues:
+              type: object
+              additionalProperties:
+                type: integer
+            users:
+              type: object
+              additionalProperties:
+                type: integer
+        took_ms:
+          type: integer
+
+    AIQueryRequest:
+      type: object
+      required: [question, job_id]
+      properties:
+        question:
+          type: string
+          maxLength: 2000
+        job_id:
+          type: string
+          format: uuid
+        skill:
+          type: string
+          enum: [nl_query, error_explainer, root_cause, performance, anomaly, summarizer]
+          default: nl_query
+
+    AIQueryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        answer:
+          type: string
+        references:
+          type: array
+          items:
+            type: object
+            properties:
+              line_number:
+                type: integer
+              file_number:
+                type: integer
+              timestamp:
+                type: string
+              summary:
+                type: string
+              relevance:
+                type: string
+        confidence:
+          type: string
+          enum: [high, medium, low]
+        follow_up_questions:
+          type: array
+          items:
+            type: string
+        tokens_used:
+          type: integer
+        latency_ms:
+          type: integer
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        total_count:
+          type: integer
+          format: int64
+        total_pages:
+          type: integer
+
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Health check
+      security: []
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy]
+                  version:
+                    type: string
+
+  /files/upload:
+    post:
+      operationId: uploadFile
+      summary: Upload a log file
+      tags: [Files]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Log file up to 2GB
+      responses:
+        '201':
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogFile'
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /files:
+    get:
+      operationId: listFiles
+      summary: List uploaded files
+      tags: [Files]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: File list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LogFile'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /analysis:
+    post:
+      operationId: createAnalysis
+      summary: Start a new analysis job
+      tags: [Analysis]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalysisJobCreate'
+      responses:
+        '202':
+          description: Analysis job queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisJob'
+    get:
+      operationId: listAnalyses
+      summary: List analysis jobs
+      tags: [Analysis]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [queued, parsing, analyzing, storing, complete, failed]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Job list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AnalysisJob'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /analysis/{job_id}:
+    get:
+      operationId: getAnalysis
+      summary: Get analysis job details
+      tags: [Analysis]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisJob'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /analysis/{job_id}/dashboard:
+    get:
+      operationId: getDashboard
+      summary: Get dashboard data for an analysis
+      tags: [Dashboard]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: top_n
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardData'
+
+  /analysis/{job_id}/search:
+    get:
+      operationId: searchLogs
+      summary: Search log entries with KQL
+      tags: [Search]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: KQL query string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [timestamp, duration_ms, line_number]
+            default: timestamp
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResult'
+
+  /analysis/{job_id}/entries/{entry_id}:
+    get:
+      operationId: getLogEntry
+      summary: Get a single log entry by ID
+      tags: [Search]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: entry_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Log entry details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogEntry'
+
+  /analysis/{job_id}/trace/{trace_id}:
+    get:
+      operationId: getTrace
+      summary: Get all log entries for a trace ID
+      tags: [Trace]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: trace_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Trace entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trace_id:
+                    type: string
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LogEntry'
+                  total_duration_ms:
+                    type: integer
+                  entry_count:
+                    type: integer
+
+  /analysis/{job_id}/ai:
+    post:
+      operationId: queryAI
+      summary: Ask AI about logs
+      tags: [AI]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIQueryRequest'
+      responses:
+        '200':
+          description: AI response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIQueryResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: AI service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /search/autocomplete:
+    get:
+      operationId: searchAutocomplete
+      summary: Get search field autocomplete suggestions
+      tags: [Search]
+      parameters:
+        - name: prefix
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: job_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Autocomplete suggestions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                        value:
+                          type: string
+                        count:
+                          type: integer
