@@ -25,7 +25,7 @@ const typeColors: Record<string, { bg: string; border: string; dot: string }> = 
 };
 
 export function Timeline({ entries, onEntryClick }: TimelineProps) {
-  if (entries.length === 0) {
+  if (!entries || entries.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground text-sm">
         No trace entries found
@@ -33,7 +33,7 @@ export function Timeline({ entries, onEntryClick }: TimelineProps) {
     );
   }
 
-  const maxDuration = Math.max(...entries.map((e) => e.duration_ms || 1));
+  const maxDuration = Math.max(...entries.map((e) => e.duration_ms || 1), 1);
 
   return (
     <div className="relative pl-8">
@@ -76,11 +76,13 @@ export function Timeline({ entries, onEntryClick }: TimelineProps) {
               </div>
               <div className="flex items-center justify-between mt-1">
                 <span className="text-xs text-muted-foreground">
-                  {entry.user && `User: ${entry.user}`}
-                  {entry.form && ` | Form: ${entry.form}`}
+                  {entry.user ? `User: ${entry.user}` : ''}
+                  {entry.user && entry.form ? ' | ' : ''}
+                  {entry.form ? `Form: ${entry.form}` : ''}
+                  {!entry.user && !entry.form ? 'No context' : ''}
                 </span>
                 <span className="text-xs font-mono">
-                  {entry.duration_ms}ms
+                  {entry.duration_ms ?? 0}ms
                   {!entry.success && (
                     <span className="ml-1 text-red-500">FAIL</span>
                   )}

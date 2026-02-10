@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -38,8 +40,9 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		if err.Error() == "http: request body too large" {
-			api.Error(w, http.StatusRequestEntityTooLarge, api.ErrCodeInvalidRequest, "file exceeds 2GB limit")
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			api.Error(w, http.StatusRequestEntityTooLarge, api.ErrCodeFileTooLarge, "file exceeds 2GB limit")
 			return
 		}
 		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "invalid multipart form")
@@ -69,7 +72,12 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tid, _ := uuid.Parse(tenantID)
+	tid, err := uuid.Parse(tenantID)
+	if err != nil {
+		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "invalid tenant_id format")
+		return
+	}
+
 	logFile := &domain.LogFile{
 		ID:             fileID,
 		TenantID:       tid,
@@ -84,6 +92,11 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.pg.CreateLogFile(r.Context(), logFile); err != nil {
+		// S3 upload succeeded but Postgres save failed -- clean up the orphan object.
+		if delErr := h.s3.Delete(r.Context(), s3Key); delErr != nil {
+			slog.Error("failed to delete orphan S3 object after Postgres save failure",
+				"s3_key", s3Key, "error", delErr)
+		}
 		api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "failed to save file metadata")
 		return
 	}

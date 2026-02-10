@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { getApiHeaders } from "@/lib/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
 
@@ -25,7 +26,7 @@ export interface SearchResponse {
   facets?: Record<string, FacetEntry[]>;
 }
 
-export function useSearch(jobId?: string) {
+export function useSearch(jobId?: string, filters?: Record<string, string[]>) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -55,11 +56,15 @@ export function useSearch(jobId?: string) {
         page_size: String(pageSize),
       });
 
+      // Apply filters if provided
+      if (filters) {
+        Object.entries(filters).forEach(([key, values]) => {
+          values.forEach(value => params.append(key, value));
+        });
+      }
+
       const res = await fetch(`${API_BASE}/search?${params}`, {
-        headers: {
-          "X-Dev-User-ID": "dev-user",
-          "X-Dev-Tenant-ID": "dev-tenant",
-        },
+        headers: getApiHeaders(),
       });
 
       if (!res.ok) {
@@ -74,7 +79,7 @@ export function useSearch(jobId?: string) {
     } finally {
       setLoading(false);
     }
-  }, [pageSize]);
+  }, [pageSize, filters]);
 
   const search = useCallback((q: string) => {
     setQuery(q);
@@ -94,8 +99,15 @@ export function useSearch(jobId?: string) {
 
   const goToPage = useCallback((p: number) => {
     setPage(p);
+
+    // Update URL with page parameter
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    params.set("page", String(p));
+    router.replace(`${pathname}?${params.toString()}`);
+
     executeSearch(query, p);
-  }, [query, executeSearch]);
+  }, [query, executeSearch, router, pathname]);
 
   // Initial search from URL params
   useEffect(() => {

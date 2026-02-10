@@ -79,7 +79,7 @@ services:
 
   # MinIO - S3-compatible object storage for uploaded logs and generated reports
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     container_name: remedyiq-minio
     ports:
       - "9002:9000"  # API (using 9002 to avoid conflict with ClickHouse)

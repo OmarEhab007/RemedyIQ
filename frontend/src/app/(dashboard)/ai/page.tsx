@@ -8,7 +8,7 @@ import { SkillSelector } from "@/components/ai/skill-selector";
 
 export default function AIPage() {
   const searchParams = useSearchParams();
-  const jobId = searchParams.get("job") || "default";
+  const jobId = searchParams.get("job_id") || "default";
   const { messages, loading, error, skills, sendMessage, clearMessages, fetchSkills } = useAI(jobId);
   const [selectedSkill, setSelectedSkill] = useState("nl_query");
 

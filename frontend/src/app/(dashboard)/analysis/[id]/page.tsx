@@ -38,6 +38,10 @@ export default function AnalysisPage() {
         setLoading(true);
         const dashboard = await getDashboard(params.id);
         setData(dashboard);
+
+        // TODO: Fetch anomalies from API when endpoint is available
+        // For now, anomalies can be extracted from dashboard response if available
+        // Example: if (dashboard.anomalies) setAnomalies(dashboard.anomalies);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load dashboard");
       } finally {

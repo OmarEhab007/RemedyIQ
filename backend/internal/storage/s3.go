@@ -26,23 +26,13 @@ func NewS3Client(ctx context.Context, endpoint, accessKey, secretKey, bucket str
 		return nil, fmt.Errorf("s3: bucket name is required")
 	}
 
-	resolver := aws.EndpointResolverWithOptionsFunc(
-		func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-			return aws.Endpoint{
-				URL:               endpoint,
-				HostnameImmutable: true,
-				SigningRegion:     "us-east-1",
-			}, nil
-		},
-	)
-
 	cfg := aws.Config{
-		Region:                      "us-east-1",
-		Credentials:                 credentials.NewStaticCredentialsProvider(accessKey, secretKey, ""),
-		EndpointResolverWithOptions: resolver,
+		Region:      "us-east-1",
+		Credentials: credentials.NewStaticCredentialsProvider(accessKey, secretKey, ""),
 	}
 
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(endpoint)
 		o.UsePathStyle = true
 		if !useSSL {
 			o.EndpointOptions.DisableHTTPS = true

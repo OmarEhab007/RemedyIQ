@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,6 +12,19 @@ import (
 
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/domain"
 )
+
+// IsNotFound returns true if the error indicates a record was not found.
+// This checks for both pgx.ErrNoRows and the "not found" error strings
+// produced by this package's query methods.
+func IsNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	if err == pgx.ErrNoRows {
+		return true
+	}
+	return strings.Contains(err.Error(), "not found")
+}
 
 // PostgresClient wraps a pgx connection pool and provides CRUD operations
 // for all relational data managed in PostgreSQL.

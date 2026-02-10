@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/blevesearch/bleve/v2"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/api"
@@ -24,6 +25,13 @@ func (h *TraceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	tenantID := middleware.GetTenantID(r.Context())
 	if tenantID == "" {
 		api.Error(w, http.StatusUnauthorized, api.ErrCodeUnauthorized, "missing tenant context")
+		return
+	}
+
+	// Validate job_id as a proper UUID.
+	jobIDStr := mux.Vars(r)["job_id"]
+	if _, err := uuid.Parse(jobIDStr); err != nil {
+		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "invalid job_id format")
 		return
 	}
 

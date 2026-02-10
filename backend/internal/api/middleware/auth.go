@@ -31,6 +31,10 @@ const (
 	errCodeUnauthorized = "unauthorized"
 )
 
+// clockSkewSeconds is the tolerance in seconds applied to both the `exp`
+// and `nbf` JWT claims to account for clock drift between servers.
+const clockSkewSeconds = 30
+
 // GetUserID extracts the user ID from the request context.
 func GetUserID(ctx context.Context) string {
 	v, _ := ctx.Value(UserIDKey).(string)
@@ -196,14 +200,19 @@ func (am *AuthMiddleware) validateJWT(tokenStr string) (clerkJWTClaims, error) {
 	// --- Validate standard claims ----------------------------------------
 	now := time.Now().Unix()
 
+	// Allow clockSkewSeconds of tolerance on the exp claim so that minor
+	// clock differences between the issuer and this server do not cause
+	// premature rejection.
 	if exp, ok := claims["exp"].(float64); ok {
-		if int64(exp) < now {
+		if int64(exp)+clockSkewSeconds < now {
 			return nil, fmt.Errorf("token expired")
 		}
 	}
 
+	// Allow clockSkewSeconds of tolerance on the nbf claim for the same
+	// reason.
 	if nbf, ok := claims["nbf"].(float64); ok {
-		if int64(nbf) > now+60 { // allow 60 seconds clock skew
+		if int64(nbf) > now+clockSkewSeconds {
 			return nil, fmt.Errorf("token not yet valid")
 		}
 	}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Dropzone } from "@/components/upload/dropzone";
 import { ProgressTracker } from "@/components/upload/progress-tracker";
@@ -48,10 +48,12 @@ export default function UploadPage() {
     }
   };
 
-  // Navigate to dashboard when complete.
-  if (job?.status === "complete" && jobId) {
-    router.push(`/analysis/${jobId}`);
-  }
+  // Navigate to dashboard when complete
+  useEffect(() => {
+    if (job?.status === "complete" && jobId) {
+      router.push(`/analysis/${jobId}`);
+    }
+  }, [job?.status, jobId, router]);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">

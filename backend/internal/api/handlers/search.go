@@ -84,7 +84,7 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if query == "" {
-		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "query parameter 'q' is required")
+		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "search query is required (use 'q' for GET or 'query' for POST)")
 		return
 	}
 

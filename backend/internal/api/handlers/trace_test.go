@@ -29,7 +29,7 @@ func TestTraceHandler_MissingTraceID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/analysis/job-1/trace/", nil)
 	ctx := context.WithValue(req.Context(), middleware.TenantIDKey, "test-tenant")
 	req = req.WithContext(ctx)
-	req = mux.SetURLVars(req, map[string]string{"trace_id": ""})
+	req = mux.SetURLVars(req, map[string]string{"job_id": "550e8400-e29b-41d4-a716-446655440000", "trace_id": ""})
 
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)

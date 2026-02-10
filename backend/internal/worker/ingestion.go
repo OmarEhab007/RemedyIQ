@@ -2,7 +2,6 @@ package worker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -17,12 +16,12 @@ import (
 
 // Pipeline orchestrates the ingestion flow: download -> JAR -> parse -> store.
 type Pipeline struct {
-	pg       *storage.PostgresClient
-	ch       *storage.ClickHouseClient
-	s3       *storage.S3Client
-	nats     *streaming.NATSClient
-	jar      *jar.Runner
-	anomaly  *AnomalyDetector
+	pg      *storage.PostgresClient
+	ch      *storage.ClickHouseClient
+	s3      *storage.S3Client
+	nats    *streaming.NATSClient
+	jar     *jar.Runner
+	anomaly *AnomalyDetector
 }
 
 func NewPipeline(
@@ -134,20 +133,11 @@ func (p *Pipeline) ProcessJob(ctx context.Context, job domain.AnalysisJob) error
 	}
 	_ = p.pg.UpdateJobProgress(ctx, job.TenantID, job.ID, 100, &dashboard.GeneralStats.TotalLines)
 
-	// 8b. Publish anomaly results via NATS if any were detected.
+	// 8b. Publish anomaly count via progress if any were detected.
 	if len(anomalies) > 0 {
-		anomalyMsg := map[string]interface{}{
-			"job_id":    jobID,
-			"tenant_id": tenantID,
-			"anomalies": anomalies,
-			"count":     len(anomalies),
-		}
-		anomalyJSON, err := json.Marshal(anomalyMsg)
-		if err == nil {
-			_ = p.nats.PublishJobProgress(ctx, tenantID, jobID, 95, string(domain.JobStatusStoring),
-				fmt.Sprintf("detected %d anomalies", len(anomalies)))
-			logger.Info("published anomaly results", "count", len(anomalies), "bytes", len(anomalyJSON))
-		}
+		_ = p.nats.PublishJobProgress(ctx, tenantID, jobID, 95, string(domain.JobStatusStoring),
+			fmt.Sprintf("detected %d anomalies", len(anomalies)))
+		logger.Info("anomaly detection results", "count", len(anomalies))
 	}
 
 	// 9. Publish completion event.

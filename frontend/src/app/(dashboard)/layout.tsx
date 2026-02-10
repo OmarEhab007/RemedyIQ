@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
+import { useState } from "react";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
@@ -18,10 +19,46 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
     <div className="flex h-screen">
-      <aside className="hidden md:flex w-64 flex-col border-r bg-muted/40">
+      {/* Mobile header with hamburger */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-background border-b p-4 flex items-center justify-between">
+        <h2 className="text-lg font-semibold tracking-tight">RemedyIQ</h2>
+        <button
+          onClick={() => setMobileNavOpen(!mobileNavOpen)}
+          className="p-2 text-muted-foreground hover:text-foreground"
+          aria-label="Toggle mobile navigation"
+          aria-expanded={mobileNavOpen}
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {mobileNavOpen ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            )}
+          </svg>
+        </button>
+      </div>
+
+      {/* Mobile sidebar overlay */}
+      {mobileNavOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/50"
+          onClick={() => setMobileNavOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed md:static inset-y-0 left-0 z-50
+        w-64 flex-col border-r bg-muted/40
+        transform transition-transform duration-200 ease-in-out
+        md:flex
+        ${mobileNavOpen ? 'flex translate-x-0' : 'hidden md:flex -translate-x-full md:translate-x-0'}
+      `}>
         <div className="p-4 border-b">
           <h2 className="text-lg font-semibold tracking-tight">RemedyIQ</h2>
           <p className="text-xs text-muted-foreground">AR Server Log Analysis</p>
@@ -33,6 +70,7 @@ export default function DashboardLayout({
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setMobileNavOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
                   isActive
                     ? "bg-accent text-accent-foreground font-medium"
@@ -54,10 +92,12 @@ export default function DashboardLayout({
           })}
         </nav>
         <div className="p-4 border-t">
-          <UserButton afterSignOutUrl="/" />
+          <UserButton />
         </div>
       </aside>
-      <main className="flex-1 overflow-auto">
+
+      {/* Main content */}
+      <main className="flex-1 overflow-auto pt-16 md:pt-0">
         <div className="p-6">{children}</div>
       </main>
     </div>

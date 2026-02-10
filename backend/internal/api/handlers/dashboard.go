@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -35,16 +36,25 @@ func (h *DashboardHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	jobIDStr := mux.Vars(r)["job_id"]
 	jobID, err := uuid.Parse(jobIDStr)
 	if err != nil {
-		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "invalid job_id")
+		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "invalid job_id format")
 		return
 	}
 
-	tid, _ := uuid.Parse(tenantID)
+	tid, err := uuid.Parse(tenantID)
+	if err != nil {
+		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "invalid tenant_id format")
+		return
+	}
 
 	// Verify the job exists and belongs to this tenant.
 	job, err := h.pg.GetJob(r.Context(), tid, jobID)
 	if err != nil {
-		api.Error(w, http.StatusNotFound, api.ErrCodeNotFound, "analysis job not found")
+		if storage.IsNotFound(err) {
+			api.Error(w, http.StatusNotFound, api.ErrCodeNotFound, "analysis job not found")
+		} else {
+			slog.Error("failed to retrieve job", "job_id", jobID, "error", err)
+			api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "failed to retrieve analysis job")
+		}
 		return
 	}
 

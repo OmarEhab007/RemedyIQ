@@ -474,20 +474,6 @@ func splitKeyValueNumeric(line string) (key string, count int, ok bool) {
 	return "", 0, false
 }
 
-// splitByTabs splits tab-delimited "Key\tValue" lines.
-func splitByTabs(line string) (key, value string, ok bool) {
-	parts := strings.SplitN(line, "\t", 2)
-	if len(parts) < 2 {
-		return "", "", false
-	}
-	key = strings.TrimSpace(parts[0])
-	value = strings.TrimSpace(parts[1])
-	if key == "" {
-		return "", "", false
-	}
-	return key, value, true
-}
-
 // splitPipeCells splits a pipe-delimited row into trimmed cell values.
 func splitPipeCells(line string) []string {
 	// Remove leading/trailing pipes and split.

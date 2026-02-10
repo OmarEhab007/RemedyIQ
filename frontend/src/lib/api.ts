@@ -115,6 +115,20 @@ export class ApiError extends Error {
   }
 }
 
+// --- Shared headers helper ---
+
+export function getApiHeaders(additionalHeaders?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = { ...additionalHeaders };
+
+  // In development, use dev bypass headers
+  if (process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_DEV_MODE !== "false") {
+    headers["X-Dev-User-ID"] = "dev-user";
+    headers["X-Dev-Tenant-ID"] = "dev-tenant";
+  }
+
+  return headers;
+}
+
 // --- Base fetch helper ---
 
 async function apiFetch<T>(
@@ -128,12 +142,9 @@ async function apiFetch<T>(
 
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  // In development, use dev bypass headers if no token.
-  if (!token && process.env.NODE_ENV === "development") {
-    headers["X-Dev-User-ID"] = "dev-user";
-    headers["X-Dev-Tenant-ID"] = "dev-tenant";
+  } else {
+    // Apply dev headers if no token
+    Object.assign(headers, getApiHeaders());
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
@@ -142,7 +153,18 @@ async function apiFetch<T>(
   });
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ code: "unknown", message: res.statusText }));
+    // Check content-type before parsing JSON
+    const contentType = res.headers.get("content-type");
+    let body: { code?: string; message?: string } = { code: "unknown", message: res.statusText };
+
+    if (contentType && contentType.includes("application/json")) {
+      try {
+        body = await res.json();
+      } catch {
+        // Fall back to default error
+      }
+    }
+
     throw new ApiError(res.status, body.code || "unknown", body.message || res.statusText);
   }
 

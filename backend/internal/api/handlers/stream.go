@@ -10,21 +10,49 @@ import (
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/streaming"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  4096,
-	WriteBufferSize: 4096,
-	CheckOrigin: func(r *http.Request) bool {
-		return true // CORS is handled by middleware
-	},
+// newUpgrader creates a websocket.Upgrader that validates the Origin header
+// against the provided allowlist. If allowedOrigins contains "*", all origins
+// are permitted (development convenience). Otherwise the request's Origin
+// header must match one of the listed values exactly.
+func newUpgrader(allowedOrigins []string) websocket.Upgrader {
+	allowAll := false
+	originSet := make(map[string]struct{}, len(allowedOrigins))
+	for _, o := range allowedOrigins {
+		if o == "*" {
+			allowAll = true
+			break
+		}
+		originSet[o] = struct{}{}
+	}
+
+	return websocket.Upgrader{
+		ReadBufferSize:  4096,
+		WriteBufferSize: 4096,
+		CheckOrigin: func(r *http.Request) bool {
+			if allowAll {
+				return true
+			}
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				return false
+			}
+			_, ok := originSet[origin]
+			return ok
+		},
+	}
 }
 
-// StreamHandler handles GET /api/v1/ws — upgrades to WebSocket.
+// StreamHandler handles GET /api/v1/ws -- upgrades to WebSocket.
 type StreamHandler struct {
-	hub *streaming.Hub
+	hub      *streaming.Hub
+	upgrader websocket.Upgrader
 }
 
-func NewStreamHandler(hub *streaming.Hub) *StreamHandler {
-	return &StreamHandler{hub: hub}
+func NewStreamHandler(hub *streaming.Hub, allowedOrigins []string) *StreamHandler {
+	return &StreamHandler{
+		hub:      hub,
+		upgrader: newUpgrader(allowedOrigins),
+	}
 }
 
 func (h *StreamHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +62,7 @@ func (h *StreamHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		slog.Error("websocket upgrade failed", "error", err)
 		return

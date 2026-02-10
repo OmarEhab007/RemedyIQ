@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { getApiHeaders } from "@/lib/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -39,10 +40,7 @@ export function useAI(jobId: string) {
   const fetchSkills = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/ai/skills`, {
-        headers: {
-          "X-Dev-User-ID": "dev-user",
-          "X-Dev-Tenant-ID": "dev-tenant",
-        },
+        headers: getApiHeaders(),
       });
       if (res.ok) {
         const data = await res.json();
@@ -67,11 +65,7 @@ export function useAI(jobId: string) {
     try {
       const res = await fetch(`${API_BASE}/api/v1/analysis/${jobId}/ai`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Dev-User-ID": "dev-user",
-          "X-Dev-Tenant-ID": "dev-tenant",
-        },
+        headers: getApiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ query, skill_name: skillName }),
       });
 

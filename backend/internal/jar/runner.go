@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"strings"
 	"sync"
@@ -49,10 +50,10 @@ func NewRunner(jarPath string, defaultHeapMB int, defaultTimeoutSec int) *Runner
 		defaultTimeoutSec = 1800
 	}
 	return &Runner{
-		jarPath:            jarPath,
-		defaultHeapMB:      defaultHeapMB,
-		defaultTimeoutSec:  defaultTimeoutSec,
-		javaCmd:            "java",
+		jarPath:           jarPath,
+		defaultHeapMB:     defaultHeapMB,
+		defaultTimeoutSec: defaultTimeoutSec,
+		javaCmd:           "java",
 	}
 }
 
@@ -116,6 +117,7 @@ func (r *Runner) Run(
 
 	// Read stdout line-by-line in a goroutine.
 	var stdoutBuf bytes.Buffer
+	var scanErr error
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -130,6 +132,10 @@ func (r *Runner) Run(
 			if lineCallback != nil {
 				lineCallback(line)
 			}
+		}
+		if err := scanner.Err(); err != nil {
+			scanErr = err
+			slog.Error("jar runner: stdout scanner error", "error", err)
 		}
 	}()
 
@@ -177,6 +183,11 @@ func (r *Runner) Run(
 
 		// Some other unexpected error.
 		return result, fmt.Errorf("jar runner: process failed: %w", waitErr)
+	}
+
+	// If the process exited successfully but scanning failed, report it.
+	if scanErr != nil {
+		return result, fmt.Errorf("jar runner: stdout scan error: %w", scanErr)
 	}
 
 	return result, nil

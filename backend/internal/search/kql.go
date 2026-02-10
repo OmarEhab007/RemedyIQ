@@ -510,7 +510,7 @@ func (q *QueryNode) toSQL() (string, []interface{}) {
 
 	// Leaf: fulltext.
 	if q.Op == OpFullText {
-		return "raw_text ILIKE ?", []interface{}{"%" + q.Value + "%"}
+		return "raw_text ILIKE ?", []interface{}{"%" + escapeLikePattern(q.Value) + "%"}
 	}
 
 	// Resolve column name.
@@ -530,11 +530,24 @@ func (q *QueryNode) toSQL() (string, []interface{}) {
 	case OpLessEqual:
 		return fmt.Sprintf("%s <= ?", col), []interface{}{castParam(col, q.Value)}
 	case OpWildcard:
-		pattern := strings.ReplaceAll(q.Value, "*", "%")
+		// Escape SQL LIKE metacharacters (% and _) in the user value before
+		// converting KQL wildcards (*) to SQL wildcards (%).
+		escaped := escapeLikePattern(q.Value)
+		pattern := strings.ReplaceAll(escaped, "*", "%")
 		return fmt.Sprintf("%s ILIKE ?", col), []interface{}{pattern}
 	default:
 		return fmt.Sprintf("%s = ?", col), []interface{}{q.Value}
 	}
+}
+
+// escapeLikePattern escapes the SQL LIKE metacharacters % and _ so they are
+// treated as literals. Backslash is used as the escape character (the
+// ClickHouse default for ILIKE/LIKE).
+func escapeLikePattern(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
 }
 
 // binarySQL generates SQL for a two-child boolean node.

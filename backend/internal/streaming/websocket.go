@@ -162,7 +162,6 @@ func (h *Hub) addClient(c *Client) {
 
 func (h *Hub) removeClient(c *Client) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
 
 	// Remove from tenant map.
 	if tenantClients, ok := h.clients[c.tenantID]; ok {
@@ -172,9 +171,16 @@ func (h *Hub) removeClient(c *Client) {
 		}
 	}
 
+	// Snapshot the client's subscriptions while holding the hub lock only.
+	// We read c.subscriptions here but do NOT acquire c.subsMu because
+	// removeClient is only called from the hub's Run goroutine after the
+	// client has fully disconnected, so no concurrent subscribe/unsubscribe
+	// can be in flight for this client.
+	subs := c.subscriptions
+	c.subscriptions = nil
+
 	// Remove from all topic subscriptions.
-	c.subsMu.Lock()
-	for topic := range c.subscriptions {
+	for topic := range subs {
 		if topicClients, ok := h.topics[topic]; ok {
 			delete(topicClients, c)
 			if len(topicClients) == 0 {
@@ -182,8 +188,8 @@ func (h *Hub) removeClient(c *Client) {
 			}
 		}
 	}
-	c.subscriptions = nil
-	c.subsMu.Unlock()
+
+	h.mu.Unlock()
 
 	close(c.send)
 
@@ -191,6 +197,8 @@ func (h *Hub) removeClient(c *Client) {
 }
 
 func (h *Hub) totalClientsLocked() int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	n := 0
 	for _, m := range h.clients {
 		n += len(m)
@@ -247,20 +255,24 @@ func (h *Hub) Broadcast(topic string, msg ServerMessage) {
 
 // subscribe adds a client to a topic. Returns an error if the client has
 // reached the maximum number of concurrent subscriptions.
+//
+// Lock ordering: hub mutex is always acquired before client subsMu to
+// prevent deadlocks with removeClient.
 func (h *Hub) subscribe(c *Client, topic string) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	c.subsMu.Lock()
+	defer c.subsMu.Unlock()
+
 	if len(c.subscriptions) >= maxSubscriptions {
-		c.subsMu.Unlock()
 		return fmt.Errorf("maximum subscriptions (%d) reached", maxSubscriptions)
 	}
 	if c.subscriptions == nil {
 		c.subscriptions = make(map[string]struct{})
 	}
 	c.subscriptions[topic] = struct{}{}
-	c.subsMu.Unlock()
 
-	h.mu.Lock()
-	defer h.mu.Unlock()
 	if h.topics[topic] == nil {
 		h.topics[topic] = make(map[*Client]struct{})
 	}
@@ -271,13 +283,16 @@ func (h *Hub) subscribe(c *Client, topic string) error {
 }
 
 // unsubscribe removes a client from a topic.
+//
+// Lock ordering: hub mutex is always acquired before client subsMu.
 func (h *Hub) unsubscribe(c *Client, topic string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	c.subsMu.Lock()
 	delete(c.subscriptions, topic)
 	c.subsMu.Unlock()
 
-	h.mu.Lock()
-	defer h.mu.Unlock()
 	if topicClients, ok := h.topics[topic]; ok {
 		delete(topicClients, c)
 		if len(topicClients) == 0 {
@@ -355,6 +370,9 @@ func (c *Client) ReadPump() {
 // WritePump writes messages from the send channel to the WebSocket
 // connection. It also sends periodic ping frames. It must run in its own
 // goroutine.
+//
+// Each queued message is sent as a separate WebSocket text frame so that
+// the client can JSON.parse each frame individually.
 func (c *Client) WritePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
@@ -372,21 +390,17 @@ func (c *Client) WritePump() {
 				return
 			}
 
-			w, err := c.conn.NextWriter(websocket.TextMessage)
-			if err != nil {
+			// Write the first message as its own frame.
+			if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
 				return
 			}
-			_, _ = w.Write(message)
 
-			// Drain queued messages into the same write frame for efficiency.
+			// Drain queued messages, sending each as a separate frame.
 			n := len(c.send)
 			for i := 0; i < n; i++ {
-				_, _ = w.Write([]byte("\n"))
-				_, _ = w.Write(<-c.send)
-			}
-
-			if err := w.Close(); err != nil {
-				return
+				if err := c.conn.WriteMessage(websocket.TextMessage, <-c.send); err != nil {
+					return
+				}
 			}
 
 		case <-ticker.C:

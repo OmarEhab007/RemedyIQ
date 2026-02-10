@@ -17,7 +17,8 @@ CREATE TABLE tenants (
 
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON tenants
-    USING (id::TEXT = current_setting('app.tenant_id', true));
+    USING (id::TEXT = current_setting('app.tenant_id', true))
+    WITH CHECK (id::TEXT = current_setting('app.tenant_id', true));
 
 -- Log Files
 CREATE TABLE log_files (
@@ -37,7 +38,8 @@ CREATE INDEX idx_files_tenant ON log_files(tenant_id);
 
 ALTER TABLE log_files ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON log_files
-    USING (tenant_id::TEXT = current_setting('app.tenant_id', true));
+    USING (tenant_id::TEXT = current_setting('app.tenant_id', true))
+    WITH CHECK (tenant_id::TEXT = current_setting('app.tenant_id', true));
 
 -- Analysis Jobs
 CREATE TABLE analysis_jobs (
@@ -73,7 +75,8 @@ CREATE INDEX idx_jobs_tenant_created ON analysis_jobs(tenant_id, created_at DESC
 
 ALTER TABLE analysis_jobs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON analysis_jobs
-    USING (tenant_id::TEXT = current_setting('app.tenant_id', true));
+    USING (tenant_id::TEXT = current_setting('app.tenant_id', true))
+    WITH CHECK (tenant_id::TEXT = current_setting('app.tenant_id', true));
 
 -- AI Interactions
 CREATE TABLE ai_interactions (
@@ -96,7 +99,8 @@ CREATE INDEX idx_ai_tenant ON ai_interactions(tenant_id, created_at DESC);
 
 ALTER TABLE ai_interactions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON ai_interactions
-    USING (tenant_id::TEXT = current_setting('app.tenant_id', true));
+    USING (tenant_id::TEXT = current_setting('app.tenant_id', true))
+    WITH CHECK (tenant_id::TEXT = current_setting('app.tenant_id', true));
 
 -- Saved Searches
 CREATE TABLE saved_searches (
@@ -110,6 +114,9 @@ CREATE TABLE saved_searches (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_saved_searches_tenant_id ON saved_searches(tenant_id);
+
 ALTER TABLE saved_searches ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON saved_searches
-    USING (tenant_id::TEXT = current_setting('app.tenant_id', true));
+    USING (tenant_id::TEXT = current_setting('app.tenant_id', true))
+    WITH CHECK (tenant_id::TEXT = current_setting('app.tenant_id', true));

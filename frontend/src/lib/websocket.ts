@@ -12,10 +12,31 @@ export class RemedyWSClient {
   private handlers: Map<string, Set<MessageHandler>> = new Map();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private token: string = "";
+  private isConnecting: boolean = false;
+  private reconnectAttempts: number = 0;
+  private maxReconnectDelay: number = 30000; // 30 seconds max
+  private pendingSubscriptions: WSMessage[] = [];
 
   connect(token: string): void {
+    // Prevent duplicate connections
+    if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING || this.isConnecting) {
+      return;
+    }
+
     this.token = token;
+    this.isConnecting = true;
     this.ws = new WebSocket(`${WS_BASE}?token=${encodeURIComponent(token)}`);
+
+    this.ws.onopen = () => {
+      this.isConnecting = false;
+      this.reconnectAttempts = 0;
+
+      // Replay pending subscriptions
+      this.pendingSubscriptions.forEach(msg => {
+        this.send(msg);
+      });
+      this.pendingSubscriptions = [];
+    };
 
     this.ws.onmessage = (event) => {
       try {
@@ -30,10 +51,18 @@ export class RemedyWSClient {
     };
 
     this.ws.onclose = () => {
-      this.reconnectTimer = setTimeout(() => this.connect(this.token), 3000);
+      this.isConnecting = false;
+      // Exponential backoff with jitter
+      this.reconnectAttempts++;
+      const baseDelay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), this.maxReconnectDelay);
+      const jitter = Math.random() * 1000;
+      const delay = baseDelay + jitter;
+
+      this.reconnectTimer = setTimeout(() => this.connect(this.token), delay);
     };
 
     this.ws.onerror = () => {
+      this.isConnecting = false;
       this.ws?.close();
     };
   }
@@ -51,7 +80,8 @@ export class RemedyWSClient {
     jobId: string,
     handler: (progress: { progress_pct: number; status: string; message?: string }) => void,
   ): () => void {
-    this.send({ type: "subscribe_job_progress", payload: { job_id: jobId } });
+    const subscribeMsg = { type: "subscribe_job_progress", payload: { job_id: jobId } };
+    this.send(subscribeMsg);
 
     const progressHandler: MessageHandler = (data) => {
       if (data.job_id === jobId) {
@@ -79,7 +109,8 @@ export class RemedyWSClient {
     logType: string,
     handler: (entry: Record<string, unknown>) => void,
   ): () => void {
-    this.send({ type: "subscribe_live_tail", payload: { log_type: logType } });
+    const subscribeMsg = { type: "subscribe_live_tail", payload: { log_type: logType } };
+    this.send(subscribeMsg);
     this.on("live_tail_entry", handler);
 
     return () => {
@@ -91,6 +122,11 @@ export class RemedyWSClient {
   private send(msg: WSMessage): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
+    } else {
+      // Queue subscription messages if not connected
+      if (msg.type.startsWith("subscribe_")) {
+        this.pendingSubscriptions.push(msg);
+      }
     }
   }
 

@@ -9,9 +9,12 @@ export function useAnalysisProgress(jobId: string | null) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isFetchingRef = useRef(false);
 
   const fetchJob = useCallback(async () => {
-    if (!jobId) return;
+    if (!jobId || isFetchingRef.current) return;
+
+    isFetchingRef.current = true;
     try {
       setLoading(true);
       const data = await getAnalysis(jobId);
@@ -27,6 +30,7 @@ export function useAnalysisProgress(jobId: string | null) {
       setError(err instanceof Error ? err.message : "Failed to fetch job");
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   }, [jobId]);
 

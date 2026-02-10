@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { FileText, Download, ChevronDown } from "lucide-react";
 import { generateReport } from "@/lib/api";
+import DOMPurify from "dompurify";
 
 interface ReportButtonProps {
   jobId: string;
@@ -40,14 +41,21 @@ export function ReportButton({ jobId }: ReportButtonProps) {
       const report = await generateReport(jobId, format);
 
       if (format === "html") {
-        // Open HTML in new tab
-        const newWindow = window.open("", "_blank");
-        if (newWindow) {
-          newWindow.document.write(report.content);
-          newWindow.document.close();
-        } else {
+        // Sanitize HTML content before rendering
+        const sanitizedHTML = DOMPurify.sanitize(report.content);
+
+        // Create a blob with the sanitized HTML
+        const blob = new Blob([sanitizedHTML], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+
+        // Open in new tab using URL
+        const newWindow = window.open(url, "_blank");
+        if (!newWindow) {
           setError("Popup blocked. Please allow popups for this site.");
         }
+
+        // Clean up the blob URL after a delay
+        setTimeout(() => URL.revokeObjectURL(url), 100);
       } else {
         // Download JSON
         const blob = new Blob([report.content], { type: "application/json" });

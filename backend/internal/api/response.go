@@ -8,16 +8,16 @@ import (
 
 // Standard error codes aligned with the OpenAPI spec.
 const (
-	ErrCodeInvalidRequest    = "invalid_request"
-	ErrCodeNotFound          = "not_found"
-	ErrCodeUnauthorized      = "unauthorized"
-	ErrCodeForbidden         = "forbidden"
-	ErrCodeRateLimited       = "rate_limited"
-	ErrCodeInternalError     = "internal_error"
-	ErrCodeServiceUnavail    = "service_unavailable"
-	ErrCodeFileTooLarge      = "file_too_large"
-	ErrCodeUnsupportedMedia  = "unsupported_media_type"
-	ErrCodeConflict          = "conflict"
+	ErrCodeInvalidRequest   = "invalid_request"
+	ErrCodeNotFound         = "not_found"
+	ErrCodeUnauthorized     = "unauthorized"
+	ErrCodeForbidden        = "forbidden"
+	ErrCodeRateLimited      = "rate_limited"
+	ErrCodeInternalError    = "internal_error"
+	ErrCodeServiceUnavail   = "service_unavailable"
+	ErrCodeFileTooLarge     = "file_too_large"
+	ErrCodeUnsupportedMedia = "unsupported_media_type"
+	ErrCodeConflict         = "conflict"
 )
 
 // ErrorResponse is the standard error envelope returned to clients.
@@ -28,7 +28,9 @@ type ErrorResponse struct {
 }
 
 // JSON writes a JSON response with the given HTTP status code.
-// If encoding fails, it logs the error and sends a 500.
+// If encoding fails the error is logged, but the status code has already been
+// sent on the wire so the client will receive the original status with a
+// potentially truncated body.
 func JSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
