@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"bufio"
-	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -40,7 +39,24 @@ func (sr *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	if h, ok := sr.ResponseWriter.(http.Hijacker); ok {
 		return h.Hijack()
 	}
-	return nil, nil, fmt.Errorf("response writer does not support hijacking")
+	return nil, nil, http.ErrNotSupported
+}
+
+// Flush implements http.Flusher for streaming responses.
+// It delegates to the underlying ResponseWriter if it supports flushing.
+func (sr *statusRecorder) Flush() {
+	if f, ok := sr.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// Push implements http.Pusher for HTTP/2 server push.
+// It delegates to the underlying ResponseWriter if it supports pushing.
+func (sr *statusRecorder) Push(target string, opts *http.PushOptions) error {
+	if p, ok := sr.ResponseWriter.(http.Pusher); ok {
+		return p.Push(target, opts)
+	}
+	return http.ErrNotSupported
 }
 
 // LoggingMiddleware logs every HTTP request using slog structured logging.

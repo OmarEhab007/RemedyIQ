@@ -1,6 +1,6 @@
 "use client";
 
-import { List, type RowComponentProps } from "react-window";
+import * as ReactWindow from "react-window";
 import type { SearchHit } from "@/hooks/use-search";
 
 interface LogTableProps {
@@ -9,7 +9,7 @@ interface LogTableProps {
   selectedId?: string;
 }
 
-interface RowProps {
+interface RowData {
   hits: SearchHit[];
   onSelect: (hit: SearchHit) => void;
   selectedId?: string;
@@ -17,14 +17,14 @@ interface RowProps {
 
 const ROW_HEIGHT = 40;
 
-function LogRow({ index, style, ariaAttributes, hits, onSelect, selectedId }: RowComponentProps<RowProps>) {
-  const hit = hits[index];
+function LogRow({ rowIndex, style, data }: { rowIndex: number; style: React.CSSProperties; data: RowData }) {
+  const { hits, onSelect, selectedId } = data;
+  const hit = hits[rowIndex];
   const fields = hit.fields || {};
   const isSelected = hit.id === selectedId;
 
   return (
     <div
-      {...ariaAttributes}
       style={style}
       className={`flex items-center border-b text-xs cursor-pointer hover:bg-muted/50 transition-colors ${
         isSelected ? "bg-primary/10" : ""
@@ -86,6 +86,8 @@ export function LogTable({ hits, onSelect, selectedId }: LogTableProps) {
     );
   }
 
+  const itemData: RowData = { hits, onSelect, selectedId };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -101,14 +103,23 @@ export function LogTable({ hits, onSelect, selectedId }: LogTableProps) {
       </div>
       {/* Virtualized rows */}
       <div className="flex-1">
-        <List
-          defaultHeight={600}
-          rowComponent={LogRow}
-          rowCount={hits.length}
-          rowHeight={ROW_HEIGHT}
-          rowProps={{ hits, onSelect, selectedId }}
-        />
+        <ReactWindow.List
+          height={600}
+          itemCount={hits.length}
+          itemSize={ROW_HEIGHT}
+          itemData={itemData}
+        >
+          {/* @ts-ignore react-window children type compatibility - known issue with @types/react-window */}
+          {renderRow}
+        </ReactWindow.List>
       </div>
     </div>
   );
 }
+
+LogRow.displayName = "LogRow";
+
+// Render function for react-window - works around type compatibility issues
+const renderRow = ({ index, style, data }: { index: number; style: React.CSSProperties; data: RowData }) => (
+  <LogRow rowIndex={index} style={style} data={data} />
+);

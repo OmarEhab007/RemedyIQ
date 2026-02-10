@@ -34,7 +34,6 @@ func (h *TraceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "invalid job_id format")
 		return
 	}
-	_ = jobIDStr // Validated but not directly used; trace_id determines the search scope
 
 	traceID := mux.Vars(r)["trace_id"]
 	if traceID == "" {
@@ -42,10 +41,17 @@ func (h *TraceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Search for all entries with this trace_id
-	query := bleve.NewTermQuery(traceID)
-	query.SetField("trace_id")
-	searchReq := bleve.NewSearchRequest(query)
+	// Search for entries with this trace_id AND job_id to prevent cross-job access.
+	// Create a conjunction query to match both trace_id and job_id.
+	traceQuery := bleve.NewTermQuery(traceID)
+	traceQuery.SetField("trace_id")
+
+	jobQuery := bleve.NewTermQuery(jobIDStr)
+	jobQuery.SetField("job_id")
+
+	conjunctionQuery := bleve.NewConjunctionQuery(traceQuery, jobQuery)
+
+	searchReq := bleve.NewSearchRequest(conjunctionQuery)
 	searchReq.Size = 1000
 	searchReq.Fields = []string{"*"}
 	searchReq.SortBy([]string{"timestamp"})
