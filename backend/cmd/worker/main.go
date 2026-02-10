@@ -65,7 +65,7 @@ func main() {
 	}
 	defer redis.Close()
 
-	s3Client, err := storage.NewS3Client(ctx, cfg.S3Endpoint, cfg.S3AccessKey, cfg.S3SecretKey, cfg.S3Bucket, cfg.S3UseSSL)
+	s3Client, err := storage.NewS3Client(ctx, cfg.S3Endpoint, cfg.S3AccessKey, cfg.S3SecretKey, cfg.S3Bucket, cfg.S3UseSSL, cfg.S3SkipBucketVerification)
 	if err != nil {
 		slog.Error("failed to connect to S3/MinIO", "error", err)
 		os.Exit(1)

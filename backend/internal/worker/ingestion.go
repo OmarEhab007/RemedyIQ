@@ -131,14 +131,19 @@ func (p *Pipeline) ProcessJob(ctx context.Context, job domain.AnalysisJob) error
 	// 8. Update job with completion stats.
 	now := time.Now().UTC()
 	if err := p.pg.UpdateJobStatus(ctx, job.TenantID, job.ID, domain.JobStatusComplete, nil); err != nil {
+		// Failed to mark as complete - mark as failed to prevent inconsistent state
+		errMsg := fmt.Sprintf("failed to update job to complete status: %v", err)
+		_ = p.pg.UpdateJobStatus(ctx, job.TenantID, job.ID, domain.JobStatusFailed, &errMsg)
+		_ = p.nats.PublishJobProgress(ctx, tenantID, jobID, 0, string(domain.JobStatusFailed), errMsg)
 		return fmt.Errorf("update status to complete: %w", err)
 	}
-	_ = p.pg.UpdateJobProgress(ctx, job.TenantID, job.ID, 100, &dashboard.GeneralStats.TotalLines)
+	if err := p.pg.UpdateJobProgress(ctx, job.TenantID, job.ID, 100, &dashboard.GeneralStats.TotalLines); err != nil {
+		logger.Error("failed to update job progress to 100%%", "error", err)
+		// Non-fatal: job status is already Complete, only progress percentage failed
+	}
 
-	// 8b. Publish anomaly count via progress if any were detected.
+	// 8b. Log anomaly detection results (no progress update since job is already complete).
 	if len(anomalies) > 0 {
-		_ = p.nats.PublishJobProgress(ctx, tenantID, jobID, 95, string(domain.JobStatusStoring),
-			fmt.Sprintf("detected %d anomalies", len(anomalies)))
 		logger.Info("anomaly detection results", "count", len(anomalies))
 	}
 

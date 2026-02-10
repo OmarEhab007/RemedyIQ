@@ -21,7 +21,11 @@ type S3Client struct {
 // NewS3Client creates a new S3 client configured for the given endpoint.
 // For MinIO, set useSSL to false and pass the MinIO endpoint
 // (e.g. "http://localhost:9002").
-func NewS3Client(ctx context.Context, endpoint, accessKey, secretKey, bucket string, useSSL bool) (*S3Client, error) {
+//
+// If skipBucketVerification is true, the client will not verify or create the bucket.
+// This is useful for development with MinIO where the bucket may already exist
+// or the user may not have permission to create buckets.
+func NewS3Client(ctx context.Context, endpoint, accessKey, secretKey, bucket string, useSSL, skipBucketVerification bool) (*S3Client, error) {
 	if bucket == "" {
 		return nil, fmt.Errorf("s3: bucket name is required")
 	}
@@ -39,17 +43,19 @@ func NewS3Client(ctx context.Context, endpoint, accessKey, secretKey, bucket str
 		}
 	})
 
-	// Verify the bucket exists (or create it for development).
-	_, err := client.HeadBucket(ctx, &s3.HeadBucketInput{
-		Bucket: aws.String(bucket),
-	})
-	if err != nil {
-		// Try to create the bucket if it does not exist.
-		_, createErr := client.CreateBucket(ctx, &s3.CreateBucketInput{
+	// Verify the bucket exists (or create it for development) unless skipped.
+	if !skipBucketVerification {
+		_, err := client.HeadBucket(ctx, &s3.HeadBucketInput{
 			Bucket: aws.String(bucket),
 		})
-		if createErr != nil {
-			return nil, fmt.Errorf("s3: bucket %q not accessible and could not create: %w (original: %v)", bucket, createErr, err)
+		if err != nil {
+			// Try to create the bucket if it does not exist.
+			_, createErr := client.CreateBucket(ctx, &s3.CreateBucketInput{
+				Bucket: aws.String(bucket),
+			})
+			if createErr != nil {
+				return nil, fmt.Errorf("s3: bucket %q not accessible and could not create: %w (original: %v)", bucket, createErr, err)
+			}
 		}
 	}
 
@@ -112,4 +118,9 @@ func (s *S3Client) Delete(ctx context.Context, key string) error {
 // Format: tenants/{tenantID}/jobs/{jobID}/{filename}
 func (s *S3Client) GenerateKey(tenantID, jobID, filename string) string {
 	return path.Join("tenants", tenantID, "jobs", jobID, filename)
+}
+
+// Bucket returns the configured bucket name.
+func (s *S3Client) Bucket() string {
+	return s.bucket
 }

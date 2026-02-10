@@ -171,15 +171,16 @@ func (h *Hub) removeClient(c *Client) {
 		}
 	}
 
-	// Snapshot the client's subscriptions while holding the hub lock only.
-	// We read c.subscriptions here but do NOT acquire c.subsMu because
-	// removeClient is only called from the hub's Run goroutine after the
-	// client has fully disconnected, so no concurrent subscribe/unsubscribe
-	// can be in flight for this client.
+	h.mu.Unlock()
+
+	// Acquire the client's subscription mutex to safely snapshot and clear subscriptions.
+	c.subsMu.Lock()
 	subs := c.subscriptions
 	c.subscriptions = nil
+	c.subsMu.Unlock()
 
 	// Remove from all topic subscriptions.
+	h.mu.Lock()
 	for topic := range subs {
 		if topicClients, ok := h.topics[topic]; ok {
 			delete(topicClients, c)
@@ -188,7 +189,6 @@ func (h *Hub) removeClient(c *Client) {
 			}
 		}
 	}
-
 	h.mu.Unlock()
 
 	close(c.send)

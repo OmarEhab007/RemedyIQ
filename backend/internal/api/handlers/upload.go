@@ -56,6 +56,13 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
+	// Validate tenant ID format before uploading to S3 to avoid orphan objects.
+	tid, err := uuid.Parse(tenantID)
+	if err != nil {
+		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "invalid tenant_id format")
+		return
+	}
+
 	// Detect log types from filename.
 	detectedTypes := detectLogTypes(header.Filename)
 
@@ -74,19 +81,13 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tid, err := uuid.Parse(tenantID)
-	if err != nil {
-		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "invalid tenant_id format")
-		return
-	}
-
 	logFile := &domain.LogFile{
 		ID:             fileID,
 		TenantID:       tid,
 		Filename:       header.Filename,
 		SizeBytes:      countReader.n,
 		S3Key:          s3Key,
-		S3Bucket:       "remedyiq-logs",
+		S3Bucket:       h.s3.Bucket(),
 		ContentType:    header.Header.Get("Content-Type"),
 		DetectedTypes:  detectedTypes,
 		ChecksumSHA256: fmt.Sprintf("%x", hasher.Sum(nil)),

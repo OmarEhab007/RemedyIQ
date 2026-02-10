@@ -38,7 +38,7 @@ func setupS3(t *testing.T) *S3Client {
 	t.Helper()
 	ctx := context.Background()
 	endpoint, accessKey, secretKey, bucket, useSSL := s3Config()
-	client, err := NewS3Client(ctx, endpoint, accessKey, secretKey, bucket, useSSL)
+	client, err := NewS3Client(ctx, endpoint, accessKey, secretKey, bucket, useSSL, true) // Skip bucket verification in tests
 	require.NoError(t, err, "failed to connect to S3/MinIO")
 	return client
 }

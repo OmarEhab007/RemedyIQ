@@ -77,8 +77,14 @@ export function useSearch(jobId?: string, filters?: Record<string, string[]>) {
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Search failed");
+        let errMsg = "Search failed";
+        try {
+          const err = await res.json();
+          errMsg = err.message || errMsg;
+        } catch {
+          // Response body is not JSON, use default error message
+        }
+        throw new Error(errMsg);
       }
 
       const data: SearchResponse = await res.json();
@@ -121,11 +127,14 @@ export function useSearch(jobId?: string, filters?: Record<string, string[]>) {
   // Initial search from URL params
   useEffect(() => {
     const q = searchParams.get("q");
+    const p = parseInt(searchParams.get("page") || "1");
     if (q) {
       setQuery(q);
-      executeSearch(q, page);
+      setPage(p);
+      executeSearch(q, p);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return { query, results, loading, error, search, page, goToPage, setQuery };
 }

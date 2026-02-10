@@ -69,7 +69,7 @@ func main() {
 	defer redis.Close()
 
 	// S3 is non-critical at startup — log and continue if unavailable.
-	s3Client, err := storage.NewS3Client(ctx, cfg.S3Endpoint, cfg.S3AccessKey, cfg.S3SecretKey, cfg.S3Bucket, cfg.S3UseSSL)
+	s3Client, err := storage.NewS3Client(ctx, cfg.S3Endpoint, cfg.S3AccessKey, cfg.S3SecretKey, cfg.S3Bucket, cfg.S3UseSSL, cfg.S3SkipBucketVerification)
 	if err != nil {
 		slog.Warn("S3 client initialization failed; file uploads will not work", "error", err)
 	}

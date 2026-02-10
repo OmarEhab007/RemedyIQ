@@ -23,7 +23,7 @@ func NewClient(apiKey string, model string) (*Client, error) {
 		return nil, fmt.Errorf("ai: API key is required")
 	}
 	if model == "" {
-		model = "claude-sonnet-4-5-20250929"
+		model = "claude-sonnet-4-20250514" // Claude Sonnet 4 (20250514)
 	}
 
 	client := anthropic.NewClient(

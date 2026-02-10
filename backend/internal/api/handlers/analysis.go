@@ -61,7 +61,12 @@ func (h *AnalysisHandlers) CreateAnalysis() http.Handler {
 
 		// Verify the file exists and belongs to this tenant.
 		if _, err := h.pg.GetLogFile(r.Context(), tid, fileID); err != nil {
-			api.Error(w, http.StatusNotFound, api.ErrCodeNotFound, "file not found")
+			if storage.IsNotFound(err) {
+				api.Error(w, http.StatusNotFound, api.ErrCodeNotFound, "file not found")
+			} else {
+				slog.Error("failed to retrieve file for analysis", "file_id", fileID, "error", err)
+				api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "failed to retrieve file")
+			}
 			return
 		}
 

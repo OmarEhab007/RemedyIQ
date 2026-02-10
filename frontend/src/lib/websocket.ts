@@ -15,35 +15,32 @@ export class RemedyWSClient {
   private isConnecting: boolean = false;
   private reconnectAttempts: number = 0;
   private maxReconnectDelay: number = 30000; // 30 seconds max
-  private pendingSubscriptions: WSMessage[] = [];
-  private pendingUnsubscriptions: WSMessage[] = [];
+  // Use a single queue to preserve subscribe/unsubscribe order
+  private pendingMessages: WSMessage[] = [];
   private intentionalClose: boolean = false;
 
   connect(token: string): void {
-    // Prevent duplicate connections
-    if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING || this.isConnecting) {
-      return;
+    // Close any existing socket before opening a new one
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+      this.ws.close();
     }
 
+    // Reset state for new connection attempt
     this.token = token;
     this.isConnecting = true;
+    this.intentionalClose = false;
+    this.reconnectAttempts = 0;
+
     this.ws = new WebSocket(`${WS_BASE}?token=${encodeURIComponent(token)}`);
 
     this.ws.onopen = () => {
       this.isConnecting = false;
-      this.reconnectAttempts = 0;
 
-      // Replay pending subscriptions
-      this.pendingSubscriptions.forEach(msg => {
+      // Replay pending messages in order (preserves subscribe/unsubscribe order)
+      this.pendingMessages.forEach(msg => {
         this.send(msg);
       });
-      this.pendingSubscriptions = [];
-
-      // Replay pending unsubscriptions
-      this.pendingUnsubscriptions.forEach(msg => {
-        this.send(msg);
-      });
-      this.pendingUnsubscriptions = [];
+      this.pendingMessages = [];
     };
 
     this.ws.onmessage = (event) => {
@@ -87,9 +84,12 @@ export class RemedyWSClient {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    this.intentionalClose = true;
-    this.ws?.close();
-    this.ws = null;
+    // Only set intentionalClose if we have an active socket
+    if (this.ws) {
+      this.intentionalClose = true;
+      this.ws.close();
+      this.ws = null;
+    }
   }
 
   subscribeJobProgress(
@@ -139,13 +139,10 @@ export class RemedyWSClient {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
     } else {
-      // Queue subscription messages if not connected
-      if (msg.type.startsWith("subscribe_")) {
-        this.pendingSubscriptions.push(msg);
-      }
-      // Queue unsubscription messages if not connected
-      if (msg.type.startsWith("unsubscribe_")) {
-        this.pendingUnsubscriptions.push(msg);
+      // Queue subscribe/unsubscribe messages if not connected
+      // This preserves the order of subscribe/unsubscribe operations
+      if (msg.type.startsWith("subscribe_") || msg.type.startsWith("unsubscribe_")) {
+        this.pendingMessages.push(msg);
       }
     }
   }

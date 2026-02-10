@@ -564,7 +564,27 @@ func resolveColumn(field string) string {
 	if col, ok := KnownFields[lower]; ok {
 		return col
 	}
+	// For unknown fields, validate that the field name is a safe SQL identifier
+	// to prevent SQL injection. Only alphanumeric characters and underscores allowed.
+	if !isValidIdentifier(field) {
+		// Return a safe placeholder that will cause the query to fail gracefully
+		return "-- INVALID FIELD IDENTIFIER --"
+	}
 	return field
+}
+
+// isValidIdentifier checks if a string is a safe SQL identifier.
+// Safe identifiers contain only alphanumeric characters and underscores.
+func isValidIdentifier(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_' {
+			return false
+		}
+	}
+	return true
 }
 
 // castParam returns the value as-is for string columns, but attempts to keep

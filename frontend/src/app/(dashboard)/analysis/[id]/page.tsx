@@ -36,6 +36,7 @@ export default function AnalysisPage() {
     async function fetchDashboard() {
       try {
         setLoading(true);
+        setError(null); // Reset error state before re-fetching
         const dashboard = await getDashboard(params.id);
         setData(dashboard);
 

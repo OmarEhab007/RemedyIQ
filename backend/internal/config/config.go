@@ -25,11 +25,12 @@ type Config struct {
 	RedisURL string
 
 	// S3 / MinIO
-	S3Endpoint  string
-	S3AccessKey string
-	S3SecretKey string
-	S3Bucket    string
-	S3UseSSL    bool
+	S3Endpoint              string
+	S3AccessKey             string
+	S3SecretKey             string
+	S3Bucket                string
+	S3UseSSL                bool
+	S3SkipBucketVerification bool // Skip bucket existence check (useful for MinIO dev)
 
 	// JAR
 	JARPath          string
@@ -55,11 +56,12 @@ func Load() (*Config, error) {
 		ClickHouseURL:    getEnv("CLICKHOUSE_URL", "clickhouse://localhost:9000/remedyiq"),
 		NATSURL:          getEnv("NATS_URL", "nats://localhost:4222"),
 		RedisURL:         getEnv("REDIS_URL", "redis://localhost:6379"),
-		S3Endpoint:       getEnv("S3_ENDPOINT", "http://localhost:9002"),
-		S3AccessKey:      getEnv("S3_ACCESS_KEY", "minioadmin"),
-		S3SecretKey:      getEnv("S3_SECRET_KEY", "minioadmin"),
-		S3Bucket:         getEnv("S3_BUCKET", "remedyiq-logs"),
-		S3UseSSL:         getEnvBool("S3_USE_SSL", false),
+		S3Endpoint:              getEnv("S3_ENDPOINT", "http://localhost:9002"),
+		S3AccessKey:             getEnv("S3_ACCESS_KEY", "minioadmin"),
+		S3SecretKey:             getEnv("S3_SECRET_KEY", "minioadmin"),
+		S3Bucket:                getEnv("S3_BUCKET", "remedyiq-logs"),
+		S3UseSSL:                getEnvBool("S3_USE_SSL", false),
+		S3SkipBucketVerification: getEnvBool("S3_SKIP_BUCKET_VERIFICATION", true), // Default to true for MinIO dev
 		JARPath:          getEnv("JAR_PATH", "./ARLogAnalyzer.jar"),
 		JARDefaultHeapMB: getEnvInt("JAR_DEFAULT_HEAP_MB", 4096),
 		JARTimeoutSec:    getEnvInt("JAR_TIMEOUT_SEC", 1800),

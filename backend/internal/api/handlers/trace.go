@@ -34,6 +34,7 @@ func (h *TraceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "invalid job_id format")
 		return
 	}
+	_ = jobIDStr // Validated but not directly used; trace_id determines the search scope
 
 	traceID := mux.Vars(r)["trace_id"]
 	if traceID == "" {

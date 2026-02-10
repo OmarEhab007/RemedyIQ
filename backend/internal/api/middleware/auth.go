@@ -168,8 +168,10 @@ func (am *AuthMiddleware) validateJWT(tokenStr string) (clerkJWTClaims, error) {
 		return nil, fmt.Errorf("failed to parse JWT header: %w", err)
 	}
 	alg, _ := header["alg"].(string)
+	// Currently only HS256 is supported with secret key verification.
+	// For production with JWKS, add support for RS256 here.
 	if alg != "HS256" {
-		return nil, fmt.Errorf("unsupported JWT algorithm: %s", alg)
+		return nil, fmt.Errorf("unsupported JWT algorithm %s: only HS256 is supported with secret key verification", alg)
 	}
 
 	// --- Verify HMAC-SHA256 signature ------------------------------------
