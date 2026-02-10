@@ -60,14 +60,17 @@ func NewS3Client(ctx context.Context, endpoint, accessKey, secretKey, bucket str
 }
 
 // Upload stores an object in S3. The key should be generated via GenerateKey
-// to ensure tenant isolation. size must be the total number of bytes that
-// will be read from reader.
+// to ensure tenant isolation. If size is negative, ContentLength is omitted
+// and the SDK will stream the upload without a pre-declared length.
 func (s *S3Client) Upload(ctx context.Context, key string, reader io.Reader, size int64) error {
 	input := &s3.PutObjectInput{
-		Bucket:        aws.String(s.bucket),
-		Key:           aws.String(key),
-		Body:          reader,
-		ContentLength: aws.Int64(size),
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+		Body:   reader,
+	}
+
+	if size >= 0 {
+		input.ContentLength = aws.Int64(size)
 	}
 
 	_, err := s.client.PutObject(ctx, input)

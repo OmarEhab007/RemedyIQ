@@ -67,7 +67,9 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fileID := uuid.New()
 	s3Key := h.s3.GenerateKey(tenantID, fileID.String(), header.Filename)
 
-	if err := h.s3.Upload(r.Context(), s3Key, countReader, header.Size); err != nil {
+	// Pass -1 for size so S3 streams the upload without relying on
+	// Content-Length, which may not match the actual bytes read.
+	if err := h.s3.Upload(r.Context(), s3Key, countReader, -1); err != nil {
 		api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "failed to upload file")
 		return
 	}
@@ -116,7 +118,11 @@ func detectLogTypes(filename string) []string {
 	if strings.Contains(lower, "filter") || strings.Contains(lower, "fltr") {
 		types = append(types, string(domain.LogTypeFilter))
 	}
-	if strings.Contains(lower, "esc") {
+	if strings.Contains(lower, "escalation") ||
+		strings.Contains(lower, "_esc_") ||
+		strings.Contains(lower, "_esc.") ||
+		strings.HasPrefix(lower, "esc_") ||
+		strings.HasSuffix(lower, "_esc") {
 		types = append(types, string(domain.LogTypeEscalation))
 	}
 	if len(types) == 0 {

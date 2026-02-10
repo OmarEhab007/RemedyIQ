@@ -194,7 +194,7 @@ func (c *NATSClient) PublishLiveTailEntry(ctx context.Context, tenantID string, 
 // SubscribeJobSubmit creates a durable consumer for job submission events
 // scoped to the given tenant. The handler is invoked for each message; the
 // message is acknowledged automatically after the handler returns without
-// panic.
+// panic. The returned ConsumeContext is stopped when ctx is cancelled.
 func (c *NATSClient) SubscribeJobSubmit(ctx context.Context, tenantID string, handler func(domain.AnalysisJob)) error {
 	subject := subjectJobSubmit(tenantID)
 	durableName := fmt.Sprintf("job-submit-%s", tenantID)
@@ -211,7 +211,7 @@ func (c *NATSClient) SubscribeJobSubmit(ctx context.Context, tenantID string, ha
 		return fmt.Errorf("create consumer %s: %w", durableName, err)
 	}
 
-	_, err = cons.Consume(func(msg jetstream.Msg) {
+	cc, err := cons.Consume(func(msg jetstream.Msg) {
 		var job domain.AnalysisJob
 		if err := json.Unmarshal(msg.Data(), &job); err != nil {
 			c.logger.Error("unmarshal job submit", "error", err, "subject", subject)
@@ -228,12 +228,19 @@ func (c *NATSClient) SubscribeJobSubmit(ctx context.Context, tenantID string, ha
 		return fmt.Errorf("consume %s: %w", durableName, err)
 	}
 
+	// Stop the consumer when the context is cancelled to avoid leaking it.
+	go func() {
+		<-ctx.Done()
+		cc.Stop()
+	}()
+
 	c.logger.Info("subscribed to job submit", "tenant", tenantID, "durable", durableName)
 	return nil
 }
 
 // SubscribeJobProgress creates a durable consumer for job progress events
-// scoped to the given tenant.
+// scoped to the given tenant. The returned ConsumeContext is stopped when
+// ctx is cancelled.
 func (c *NATSClient) SubscribeJobProgress(ctx context.Context, tenantID string, handler func(JobProgress)) error {
 	subject := subjectJobProgress(tenantID)
 	durableName := fmt.Sprintf("job-progress-%s", tenantID)
@@ -250,7 +257,7 @@ func (c *NATSClient) SubscribeJobProgress(ctx context.Context, tenantID string, 
 		return fmt.Errorf("create consumer %s: %w", durableName, err)
 	}
 
-	_, err = cons.Consume(func(msg jetstream.Msg) {
+	cc, err := cons.Consume(func(msg jetstream.Msg) {
 		var p JobProgress
 		if err := json.Unmarshal(msg.Data(), &p); err != nil {
 			c.logger.Error("unmarshal job progress", "error", err, "subject", subject)
@@ -266,27 +273,34 @@ func (c *NATSClient) SubscribeJobProgress(ctx context.Context, tenantID string, 
 		return fmt.Errorf("consume %s: %w", durableName, err)
 	}
 
+	// Stop the consumer when the context is cancelled to avoid leaking it.
+	go func() {
+		<-ctx.Done()
+		cc.Stop()
+	}()
+
 	c.logger.Info("subscribed to job progress", "tenant", tenantID, "durable", durableName)
 	return nil
 }
 
 // SubscribeLiveTail subscribes to real-time log entries for the given tenant
 // and log type. This uses an ephemeral (non-durable) consumer since live tail
-// data is transient.
+// data is transient. The returned ConsumeContext is stopped when ctx is
+// cancelled.
 func (c *NATSClient) SubscribeLiveTail(ctx context.Context, tenantID string, logType string, handler func(domain.LogEntry)) error {
 	subject := subjectLiveTail(tenantID, logType)
 
 	cons, err := c.js.CreateOrUpdateConsumer(ctx, "EVENTS", jetstream.ConsumerConfig{
-		FilterSubject: subject,
-		AckPolicy:     jetstream.AckNonePolicy,
-		DeliverPolicy: jetstream.DeliverNewPolicy,
+		FilterSubject:     subject,
+		AckPolicy:         jetstream.AckNonePolicy,
+		DeliverPolicy:     jetstream.DeliverNewPolicy,
 		InactiveThreshold: 5 * time.Minute,
 	})
 	if err != nil {
 		return fmt.Errorf("create ephemeral consumer for %s: %w", subject, err)
 	}
 
-	_, err = cons.Consume(func(msg jetstream.Msg) {
+	cc, err := cons.Consume(func(msg jetstream.Msg) {
 		var entry domain.LogEntry
 		if err := json.Unmarshal(msg.Data(), &entry); err != nil {
 			c.logger.Error("unmarshal live tail entry", "error", err, "subject", subject)
@@ -297,6 +311,12 @@ func (c *NATSClient) SubscribeLiveTail(ctx context.Context, tenantID string, log
 	if err != nil {
 		return fmt.Errorf("consume live tail %s: %w", subject, err)
 	}
+
+	// Stop the consumer when the context is cancelled to avoid leaking it.
+	go func() {
+		<-ctx.Done()
+		cc.Stop()
+	}()
 
 	c.logger.Info("subscribed to live tail", "tenant", tenantID, "log_type", logType)
 	return nil

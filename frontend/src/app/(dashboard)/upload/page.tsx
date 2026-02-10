@@ -48,12 +48,15 @@ export default function UploadPage() {
     }
   };
 
-  // Navigate to dashboard when complete
+  // Navigate to dashboard when complete or show error when failed
   useEffect(() => {
     if (job?.status === "complete" && jobId) {
       router.push(`/analysis/${jobId}`);
+    } else if (job?.status === "failed") {
+      setError(job.error_message || "Analysis failed");
+      setUploadStatus("uploaded");
     }
-  }, [job?.status, jobId, router]);
+  }, [job?.status, job?.error_message, jobId, router]);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">

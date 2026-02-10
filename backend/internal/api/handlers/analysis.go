@@ -92,7 +92,10 @@ func (h *AnalysisHandlers) CreateAnalysis() http.Handler {
 		if err := h.nats.PublishJobSubmit(r.Context(), tenantID, *job); err != nil {
 			// Job is created but failed to queue -- update status.
 			errMsg := "failed to queue job: " + err.Error()
-			_ = h.pg.UpdateJobStatus(r.Context(), tid, job.ID, domain.JobStatusFailed, &errMsg)
+			if updateErr := h.pg.UpdateJobStatus(r.Context(), tid, job.ID, domain.JobStatusFailed, &errMsg); updateErr != nil {
+				slog.Error("failed to update job status after NATS publish failure",
+					"job_id", job.ID, "tenant_id", tenantID, "error", updateErr)
+			}
 			api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "failed to queue analysis job")
 			return
 		}

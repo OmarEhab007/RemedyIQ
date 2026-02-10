@@ -16,6 +16,8 @@ export class RemedyWSClient {
   private reconnectAttempts: number = 0;
   private maxReconnectDelay: number = 30000; // 30 seconds max
   private pendingSubscriptions: WSMessage[] = [];
+  private pendingUnsubscriptions: WSMessage[] = [];
+  private intentionalClose: boolean = false;
 
   connect(token: string): void {
     // Prevent duplicate connections
@@ -36,6 +38,12 @@ export class RemedyWSClient {
         this.send(msg);
       });
       this.pendingSubscriptions = [];
+
+      // Replay pending unsubscriptions
+      this.pendingUnsubscriptions.forEach(msg => {
+        this.send(msg);
+      });
+      this.pendingUnsubscriptions = [];
     };
 
     this.ws.onmessage = (event) => {
@@ -52,6 +60,13 @@ export class RemedyWSClient {
 
     this.ws.onclose = () => {
       this.isConnecting = false;
+
+      // Skip reconnect if this was an intentional close
+      if (this.intentionalClose) {
+        this.intentionalClose = false;
+        return;
+      }
+
       // Exponential backoff with jitter
       this.reconnectAttempts++;
       const baseDelay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), this.maxReconnectDelay);
@@ -72,6 +87,7 @@ export class RemedyWSClient {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.intentionalClose = true;
     this.ws?.close();
     this.ws = null;
   }
@@ -126,6 +142,10 @@ export class RemedyWSClient {
       // Queue subscription messages if not connected
       if (msg.type.startsWith("subscribe_")) {
         this.pendingSubscriptions.push(msg);
+      }
+      // Queue unsubscription messages if not connected
+      if (msg.type.startsWith("unsubscribe_")) {
+        this.pendingUnsubscriptions.push(msg);
       }
     }
   }

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"time"
@@ -58,7 +59,10 @@ func (h *ReportHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Parse request body. Default to HTML format if no body or empty format.
 	var req reportRequest
 	if r.Body != nil {
-		_ = json.NewDecoder(r.Body).Decode(&req)
+		if decErr := json.NewDecoder(r.Body).Decode(&req); decErr != nil && decErr != io.EOF {
+			api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "invalid JSON body")
+			return
+		}
 	}
 	if req.Format == "" {
 		req.Format = "html"

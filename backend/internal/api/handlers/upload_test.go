@@ -36,8 +36,39 @@ func TestDetectLogTypes_FilterFile(t *testing.T) {
 }
 
 func TestDetectLogTypes_EscalationFile(t *testing.T) {
-	types := detectLogTypes("aresc_debug.log")
+	// Full word "escalation" in filename
+	types := detectLogTypes("arescalation_debug.log")
 	assert.Contains(t, types, "ESCL")
+
+	// Abbreviated with delimiters: _esc_ pattern
+	types2 := detectLogTypes("ar_esc_debug.log")
+	assert.Contains(t, types2, "ESCL")
+
+	// Abbreviated with extension delimiter: _esc.
+	types3 := detectLogTypes("ar_esc.log")
+	assert.Contains(t, types3, "ESCL")
+
+	// Prefix pattern: esc_
+	types4 := detectLogTypes("esc_trace.log")
+	assert.Contains(t, types4, "ESCL")
+
+	// Suffix pattern: _esc
+	types5 := detectLogTypes("ar_esc")
+	assert.Contains(t, types5, "ESCL")
+}
+
+func TestDetectLogTypes_EscalationNotFalsePositive(t *testing.T) {
+	// "describe" in an API log should NOT also match escalation.
+	// We include "api" so the filename matches at least one type and
+	// does not fall through to the default (all types).
+	types := detectLogTypes("api_describe_tables.log")
+	assert.Contains(t, types, "API")
+	assert.NotContains(t, types, "ESCL")
+
+	// "descending" in a SQL log should NOT match escalation.
+	types2 := detectLogTypes("sql_descending_sort.log")
+	assert.Contains(t, types2, "SQL")
+	assert.NotContains(t, types2, "ESCL")
 }
 
 func TestDetectLogTypes_CombinedFile(t *testing.T) {

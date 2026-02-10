@@ -63,8 +63,11 @@ func (p *PostgresClient) Ping(ctx context.Context) error {
 }
 
 // SetTenantContext sets the app.tenant_id session variable used by
-// Row-Level Security policies. This must be called at the start of
-// every tenant-scoped transaction or connection.
+// Row-Level Security policies. The third parameter to set_config is true,
+// meaning the setting is transaction-local and will be reset when the
+// transaction ends. Callers should use this within a transaction to
+// prevent the tenant context from leaking to other users of the pooled
+// connection.
 //
 // The tenantID is validated as a UUID to prevent injection and then set
 // via a parameterized call to set_config().
@@ -72,7 +75,7 @@ func (p *PostgresClient) SetTenantContext(ctx context.Context, tenantID string) 
 	if _, err := uuid.Parse(tenantID); err != nil {
 		return fmt.Errorf("postgres: invalid tenant ID format: %w", err)
 	}
-	_, err := p.pool.Exec(ctx, "SELECT set_config('app.tenant_id', $1, false)", tenantID)
+	_, err := p.pool.Exec(ctx, "SELECT set_config('app.tenant_id', $1, true)", tenantID)
 	if err != nil {
 		return fmt.Errorf("postgres: set tenant context: %w", err)
 	}

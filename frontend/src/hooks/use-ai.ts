@@ -70,8 +70,15 @@ export function useAI(jobId: string) {
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "AI query failed");
+        let errMessage = "AI query failed";
+        try {
+          const err = await res.json();
+          errMessage = err.message || errMessage;
+        } catch {
+          // Response isn't JSON, use status-based message
+          errMessage = `AI query failed (HTTP ${res.status})`;
+        }
+        throw new Error(errMessage);
       }
 
       const data = await res.json();

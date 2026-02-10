@@ -98,12 +98,13 @@ docker-restart: docker-down docker-up ## Restart all Docker services
 
 docker-clean: ## Remove all Docker volumes (WARNING: destroys all data)
 	@echo "$(YELLOW)WARNING: This will delete all data in Docker volumes!$(RESET)"
-	@read -p "Are you sure? [y/N] " -n 1 -r; \
-	echo; \
-	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+	@printf "Are you sure? [y/N] "; \
+	read REPLY; \
+	case "$$REPLY" in \
+	  [Yy]*) \
 		docker-compose down -v; \
-		echo "$(GREEN)Volumes removed.$(RESET)"; \
-	fi
+		echo "$(GREEN)Volumes removed.$(RESET)";; \
+	esac
 
 ##@ Utilities
 

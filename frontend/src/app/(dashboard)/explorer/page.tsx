@@ -5,13 +5,20 @@ import { SearchBar } from "@/components/explorer/search-bar";
 import { FilterPanel } from "@/components/explorer/filter-panel";
 import { LogTable } from "@/components/explorer/log-table";
 import { DetailPanel } from "@/components/explorer/detail-panel";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { SearchHit } from "@/hooks/use-search";
 
 export default function ExplorerPage() {
   const [selectedEntry, setSelectedEntry] = useState<SearchHit | null>(null);
   const [filters, setFilters] = useState<Record<string, string[]>>({});
   const { query, results, loading, error, search, page, goToPage } = useSearch(undefined, filters);
+
+  // Trigger search when filters change
+  useEffect(() => {
+    if (query.trim()) {
+      search(query);
+    }
+  }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex h-[calc(100vh-4rem)]">

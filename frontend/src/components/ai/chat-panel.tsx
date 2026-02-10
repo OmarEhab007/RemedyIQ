@@ -47,15 +47,16 @@ export function ChatPanel({ messages, loading, onSend, selectedSkill }: ChatPane
                   {msg.followUps.map((q, i) => (
                     <button
                       key={i}
-                      className="block text-xs text-primary hover:underline"
+                      className="block text-xs text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={() => onSend(q, selectedSkill)}
+                      disabled={loading}
                     >
                       {q}
                     </button>
                   ))}
                 </div>
               )}
-              {msg.role === "assistant" && msg.latencyMs != null && (
+              {msg.role === "assistant" && msg.latencyMs != null && msg.tokensUsed != null && (
                 <div className="mt-1 text-[10px] text-muted-foreground">
                   {msg.latencyMs}ms | {msg.tokensUsed} tokens
                 </div>

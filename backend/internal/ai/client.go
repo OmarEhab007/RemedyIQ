@@ -70,6 +70,8 @@ func (c *Client) Query(ctx context.Context, systemPrompt string, messages []Mess
 			apiMessages = append(apiMessages, anthropic.NewAssistantMessage(
 				anthropic.NewTextBlock(msg.Content),
 			))
+		default:
+			slog.Warn("unknown message role ignored", "role", msg.Role)
 		}
 	}
 

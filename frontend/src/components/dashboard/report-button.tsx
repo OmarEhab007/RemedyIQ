@@ -54,8 +54,8 @@ export function ReportButton({ jobId }: ReportButtonProps) {
           setError("Popup blocked. Please allow popups for this site.");
         }
 
-        // Clean up the blob URL after a delay
-        setTimeout(() => URL.revokeObjectURL(url), 100);
+        // Clean up the blob URL after a delay (60 seconds for new tab to load)
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
       } else {
         // Download JSON
         const blob = new Blob([report.content], { type: "application/json" });
@@ -69,6 +69,7 @@ export function ReportButton({ jobId }: ReportButtonProps) {
         URL.revokeObjectURL(url);
       }
     } catch (err) {
+      setShowDropdown(false);
       if (err instanceof Error) {
         setError(err.message);
       } else {

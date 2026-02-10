@@ -40,6 +40,15 @@ export function useSearch(jobId?: string, filters?: Record<string, string[]>) {
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Cleanup debounce timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
   const executeSearch = useCallback(async (q: string, p: number) => {
     if (!q.trim()) {
       setResults(null);

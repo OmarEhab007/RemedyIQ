@@ -65,12 +65,14 @@ func (p *Pipeline) ProcessJob(ctx context.Context, job domain.AnalysisJob) error
 		return p.failJob(ctx, job, "create temp file: "+err.Error())
 	}
 	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
 
 	if _, err := io.Copy(tmpFile, reader); err != nil {
+		tmpFile.Close()
 		return p.failJob(ctx, job, "download to temp: "+err.Error())
 	}
-	tmpFile.Close()
+	if err := tmpFile.Close(); err != nil {
+		return p.failJob(ctx, job, "close temp file: "+err.Error())
+	}
 
 	_ = p.nats.PublishJobProgress(ctx, tenantID, jobID, 15, string(domain.JobStatusParsing), "running JAR analysis")
 	logger.Info("file downloaded, starting JAR", "path", tmpFile.Name(), "size", file.SizeBytes)

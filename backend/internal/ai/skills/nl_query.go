@@ -30,7 +30,7 @@ func (s *NLQuerySkill) Examples() []string {
 
 func (s *NLQuerySkill) Execute(ctx context.Context, input ai.SkillInput) (*ai.SkillOutput, error) {
 	if s.client == nil || !s.client.IsAvailable() {
-		return s.fallback(input), nil
+		return s.fallback(), nil
 	}
 
 	systemPrompt := `You are RemedyIQ, an AI assistant that helps AR Server administrators analyze log files.
@@ -52,7 +52,7 @@ Format your response in markdown. Use **bold** for important values and inline c
 
 	resp, err := s.client.Query(ctx, systemPrompt, messages, 2048)
 	if err != nil {
-		return s.fallback(input), nil
+		return s.fallback(), nil
 	}
 
 	return &ai.SkillOutput{
@@ -65,9 +65,9 @@ Format your response in markdown. Use **bold** for important values and inline c
 	}, nil
 }
 
-func (s *NLQuerySkill) fallback(input ai.SkillInput) *ai.SkillOutput {
+func (s *NLQuerySkill) fallback() *ai.SkillOutput {
 	return &ai.SkillOutput{
-		Answer:     fmt.Sprintf("AI service is currently unavailable. Try searching manually using KQL: `%s`", input.Query),
+		Answer:     "AI service is currently unavailable. Try searching manually using KQL syntax (e.g., type:api AND duration:>1000).",
 		Confidence: 0.0,
 		SkillName:  s.Name(),
 	}

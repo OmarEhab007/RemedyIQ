@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -66,6 +67,16 @@ func (c *ClickHouseClient) Close() error {
 // Ping verifies connectivity to ClickHouse.
 func (c *ClickHouseClient) Ping(ctx context.Context) error {
 	return c.conn.Ping(ctx)
+}
+
+// escapeLikePattern escapes the SQL LIKE metacharacters % and _ so they are
+// treated as literals. Backslash is used as the escape character (the
+// ClickHouse default for ILIKE/LIKE).
+func escapeLikePattern(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
 }
 
 // BatchInsertEntries inserts a batch of log entries into the log_entries table.
@@ -468,8 +479,9 @@ func (c *ClickHouseClient) SearchEntries(ctx context.Context, tenantID, jobID st
 	}
 
 	if q.Query != "" {
+		escaped := escapeLikePattern(q.Query)
 		where += " AND (raw_text ILIKE @query OR error_message ILIKE @query)"
-		namedArgs = append(namedArgs, driver.NamedValue{Name: "query", Value: "%" + q.Query + "%"})
+		namedArgs = append(namedArgs, driver.NamedValue{Name: "query", Value: "%" + escaped + "%"})
 	}
 
 	if len(q.LogTypes) > 0 {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Timeline } from "@/components/trace/timeline";
+import { getApiHeaders } from "@/lib/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -32,10 +33,7 @@ export default function TracePage() {
       const res = await fetch(
         `${API_BASE}/api/v1/search?q=${encodeURIComponent(`trace:${traceId}`)}`,
         {
-          headers: {
-            "X-Dev-User-ID": "dev-user",
-            "X-Dev-Tenant-ID": "dev-tenant",
-          },
+          headers: getApiHeaders(),
         }
       );
 
@@ -54,7 +52,7 @@ export default function TracePage() {
           identifier: (fields.api_code as string) || (fields.filter_name as string) || (fields.esc_name as string) || "-",
           user: fields.user as string,
           form: fields.form as string,
-          success: (fields.success as boolean) ?? true,
+          success: fields.success === true,
         };
       });
 

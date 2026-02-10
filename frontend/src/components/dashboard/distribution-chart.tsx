@@ -45,7 +45,7 @@ export function DistributionChart({ distribution }: DistributionChartProps) {
   return (
     <div className="border rounded-lg bg-card p-4">
       <h3 className="text-sm font-medium mb-4">
-        Distribution by {categoryKey.replace("by_", "").replace("_", " ")}
+        Distribution by {categoryKey.replace("by_", "").replaceAll("_", " ")}
       </h3>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={chartData} layout="vertical">

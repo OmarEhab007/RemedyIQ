@@ -140,13 +140,13 @@ export function AnomalyAlerts({ anomalies, jobId }: AnomalyAlertsProps) {
               <div className="flex items-center gap-1">
                 <TrendingUp className="h-3 w-3" aria-hidden="true" />
                 <span className="font-medium">{anomaly.metric}:</span>
-                <span>{anomaly.value.toLocaleString()}</span>
+                <span>{(anomaly.value ?? 0).toLocaleString()}</span>
                 <span className="opacity-75">
-                  (baseline: {anomaly.baseline.toLocaleString()})
+                  (baseline: {(anomaly.baseline ?? 0).toLocaleString()})
                 </span>
               </div>
               <div>
-                <span className="font-medium">Sigma:</span> {anomaly.sigma.toFixed(2)}σ
+                <span className="font-medium">Sigma:</span> {(anomaly.sigma ?? 0).toFixed(2)}σ
               </div>
               <div className="opacity-75">
                 Detected: {new Date(anomaly.detected_at).toLocaleString()}
