@@ -1,0 +1,69 @@
+{
+  "name": "remedyiq",
+  "version": "0.1.0",
+  "description": "AI-powered BMC Remedy AR Server log analysis platform with real-time insights, anomaly detection, and natural language query capabilities",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OmarEhab007/RemedyIQ"
+  },
+  "keywords": [
+    "bmc-remedy",
+    "log-analysis",
+    "ar-system",
+    "devops",
+    "observability",
+    "ai-powered",
+    "anomaly-detection",
+    "natural-language-query",
+    "clickhouse",
+    "timeseries-analytics",
+    "performance-monitoring",
+    "remedy-admin",
+    "server-logs",
+    "troubleshooting",
+    "rca",
+    "root-cause-analysis",
+    "dashboard",
+    "analytics",
+    "multi-tenant",
+    "saas"
+  ],
+  "author": "Omar Ehab",
+  "license": "MIT",
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "setup": "make setup",
+    "dev": "make dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:api": "make api",
+    "dev:worker": "make worker",
+    "build": "make build",
+    "build:frontend": "cd frontend && npm run build",
+    "test": "make test",
+    "test:coverage": "make test-coverage",
+    "lint": "make lint",
+    "docker:up": "make docker-up",
+    "docker:down": "make docker-down",
+    "docker:clean": "make docker-clean",
+    "db:setup": "make db-setup",
+    "migrate:up": "make migrate-up",
+    "migrate:down": "make migrate-down",
+    "clean": "make clean",
+    "help": "make help"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^6.37.3",
+    "react-window": "^2.2.6",
+    "recharts": "^3.7.0"
+  },
+  "devDependencies": {
+    "@types/react-window": "^1.8.8"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "go": ">=1.24.0"
+  }
+}
