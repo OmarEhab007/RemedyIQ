@@ -1,12 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAI } from "@/hooks/use-ai";
 import { ChatPanel } from "@/components/ai/chat-panel";
 import { SkillSelector } from "@/components/ai/skill-selector";
 
 export default function AIPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-64 text-muted-foreground">Loading AI assistant...</div>}>
+      <AIContent />
+    </Suspense>
+  );
+}
+
+function AIContent() {
   const searchParams = useSearchParams();
   const jobId = searchParams.get("job_id") || "default";
   const { messages, loading, error, skills, sendMessage, clearMessages, fetchSkills } = useAI(jobId);

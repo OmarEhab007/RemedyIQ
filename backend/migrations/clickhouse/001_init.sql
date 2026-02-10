@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS remedyiq.log_entries (
 ENGINE = MergeTree()
 PARTITION BY (tenant_id, toYYYYMM(timestamp))
 ORDER BY (tenant_id, job_id, log_type, timestamp, line_number)
-TTL timestamp + INTERVAL 90 DAY DELETE
+TTL toDateTime(timestamp) + INTERVAL 90 DAY DELETE
 SETTINGS index_granularity = 8192;
 
 -- AggregatingMergeTree materialized views store intermediate aggregation states,

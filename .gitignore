@@ -19,7 +19,7 @@ backend/tmp/
 *.exe
 
 # Node
-frontend/node_modules/
+node_modules/
 frontend/.next/
 frontend/out/
 

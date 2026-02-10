@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   # PostgreSQL - Primary application database for jobs, users, configs
   postgres:
@@ -13,6 +11,7 @@ services:
       POSTGRES_PASSWORD: remedyiq
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backend/migrations/001_initial.up.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U remedyiq"]
       interval: 10s
@@ -27,17 +26,19 @@ services:
     container_name: remedyiq-clickhouse
     ports:
       - "8123:8123"  # HTTP interface
-      - "9000:9000"  # Native protocol
+      - "9004:9000"  # Native protocol (remapped from 9000 to avoid macOS AirPlay conflict)
     environment:
       CLICKHOUSE_DB: remedyiq
       CLICKHOUSE_USER: default
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     volumes:
       - clickhouse_data:/var/lib/clickhouse
+      - ./backend/migrations/clickhouse/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
       interval: 10s
       timeout: 5s
+      start_period: 30s
       retries: 5
     networks:
       - remedyiq
@@ -49,11 +50,11 @@ services:
     ports:
       - "4222:4222"  # Client connections
       - "8222:8222"  # HTTP monitoring
-    command: --jetstream --store_dir /data
+    command: --jetstream --store_dir /data --http_port 8222
     volumes:
       - nats_data:/data
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8222/healthz"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -95,6 +96,25 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - remedyiq
+
+  # MinIO bucket initialization - creates required buckets on first run
+  minio-init:
+    image: quay.io/minio/mc:latest
+    container_name: remedyiq-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      mc mb --ignore-existing local/remedyiq-logs;
+      mc mb --ignore-existing local/remedyiq-uploads;
+      mc mb --ignore-existing local/remedyiq-reports;
+      mc mb --ignore-existing local/remedyiq-temp;
+      echo 'MinIO buckets initialized successfully';
+      "
     networks:
       - remedyiq
 
