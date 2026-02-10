@@ -1,0 +1,115 @@
+version: '3.9'
+
+services:
+  # PostgreSQL - Primary application database for jobs, users, configs
+  postgres:
+    image: postgres:16-alpine
+    container_name: remedyiq-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: remedyiq
+      POSTGRES_USER: remedyiq
+      POSTGRES_PASSWORD: remedyiq
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U remedyiq"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - remedyiq
+
+  # ClickHouse - Analytics database for parsed log events (time-series data)
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    container_name: remedyiq-clickhouse
+    ports:
+      - "8123:8123"  # HTTP interface
+      - "9000:9000"  # Native protocol
+    environment:
+      CLICKHOUSE_DB: remedyiq
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - remedyiq
+
+  # NATS with JetStream - Message queue for job distribution and streaming
+  nats:
+    image: nats:2-alpine
+    container_name: remedyiq-nats
+    ports:
+      - "4222:4222"  # Client connections
+      - "8222:8222"  # HTTP monitoring
+    command: --jetstream --store_dir /data
+    volumes:
+      - nats_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - remedyiq
+
+  # Redis - Cache for session data, rate limiting, temporary job state
+  redis:
+    image: redis:7-alpine
+    container_name: remedyiq-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - remedyiq
+
+  # MinIO - S3-compatible object storage for uploaded logs and generated reports
+  minio:
+    image: minio/minio:latest
+    container_name: remedyiq-minio
+    ports:
+      - "9002:9000"  # API (using 9002 to avoid conflict with ClickHouse)
+      - "9001:9001"  # Web Console
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - remedyiq
+
+volumes:
+  postgres_data:
+    driver: local
+  clickhouse_data:
+    driver: local
+  nats_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  remedyiq:
+    driver: bridge

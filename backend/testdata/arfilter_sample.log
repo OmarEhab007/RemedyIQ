@@ -1,0 +1,10 @@
+Mon Feb 03 2026 10:00:00.200  T00000024  RPC 390  Fast  Run If  HPD:Help Desk  Filter: HPD:HelpDesk_QualAssign  Phase: On Create  Level 1  Time: 00:00:00.005
+Mon Feb 03 2026 10:00:00.210  T00000024  RPC 390  Fast  Run If  HPD:Help Desk  Filter: HPD:HelpDesk_StatusChange  Phase: On Create  Level 2  Time: 00:00:00.003
+Mon Feb 03 2026 10:00:00.220  T00000024  RPC 390  Fast  Skip If  HPD:Help Desk  Filter: HPD:HelpDesk_SLAAssociation  Phase: On Create  Level 2  Time: 00:00:00.001
+Mon Feb 03 2026 10:00:00.700  T00000024  RPC 391  Fast  Run If  HPD:Help Desk  Filter: HPD:HelpDesk_AssignGroup_Set  Phase: On Submit  Level 0  Time: 00:00:00.008
+Mon Feb 03 2026 10:00:00.720  T00000024  RPC 391  Fast  Run If  HPD:Help Desk  Filter: HPD:HelpDesk_Audit_Submit  Phase: On Submit  Level 1  Time: 00:00:00.012
+Mon Feb 03 2026 10:00:01.950  T00000026  RPC 393  Fast  Run If  HPD:Help Desk  Filter: HPD:HelpDesk_StatusValidation  Phase: On Modify  Level 0  Time: 00:00:00.004
+Mon Feb 03 2026 10:00:01.960  T00000026  RPC 393  Fast  Run If  HPD:Help Desk  Filter: HPD:HelpDesk_ResolveAudit  Phase: On Modify  Level 1  Time: 00:00:00.006
+Mon Feb 03 2026 10:00:02.400  T00000025  RPC 394  List  Run If  CHG:Infrastructure Change  Filter: CHG:Change_StatusHistory  Phase: On Modify  Level 0  Time: 00:00:00.015
+Mon Feb 03 2026 10:00:02.420  T00000025  RPC 394  List  Skip If  CHG:Infrastructure Change  Filter: CHG:Change_ApprovalCheck  Phase: On Modify  Level 1  Time: 00:00:00.002
+Mon Feb 03 2026 10:00:07.200  T00000029  RPC 400  Fast  Run If  CTM:People  Filter: CTM:People_AutoPopulate  Phase: On Create  Level 0  Time: 00:00:00.009
