@@ -1,0 +1,110 @@
+package api
+
+import (
+	"net/http"
+
+	"github.com/gorilla/mux"
+
+	"github.com/OmarEhab007/RemedyIQ/backend/internal/api/middleware"
+)
+
+// RouterConfig holds all dependencies required to build the API router.
+// Handler fields that are nil will receive a default "not implemented"
+// handler, allowing the router to be constructed incrementally as features
+// are built out.
+type RouterConfig struct {
+	// AllowedOrigins for CORS. Use ["*"] during development.
+	AllowedOrigins []string
+
+	// DevMode enables development conveniences such as auth bypass headers.
+	DevMode bool
+
+	// ClerkSecretKey is the Clerk JWT signing secret.
+	ClerkSecretKey string
+
+	// Handlers -----------------------------------------------------------------
+
+	// HealthHandler serves GET /api/v1/health.
+	HealthHandler http.Handler
+
+	// File handlers
+	UploadFileHandler http.Handler // POST /api/v1/files/upload
+	ListFilesHandler  http.Handler // GET  /api/v1/files
+
+	// Analysis handlers
+	CreateAnalysisHandler  http.Handler // POST /api/v1/analysis
+	ListAnalysesHandler    http.Handler // GET  /api/v1/analysis
+	GetAnalysisHandler     http.Handler // GET  /api/v1/analysis/{job_id}
+	GetDashboardHandler    http.Handler // GET  /api/v1/analysis/{job_id}/dashboard
+	SearchLogsHandler      http.Handler // GET  /api/v1/analysis/{job_id}/search
+	GetLogEntryHandler     http.Handler // GET  /api/v1/analysis/{job_id}/entries/{entry_id}
+	GetTraceHandler        http.Handler // GET  /api/v1/analysis/{job_id}/trace/{trace_id}
+	QueryAIHandler         http.Handler // POST /api/v1/analysis/{job_id}/ai
+	GenerateReportHandler  http.Handler // POST /api/v1/analysis/{job_id}/report
+
+	// Search handlers
+	AutocompleteHandler http.Handler // GET /api/v1/search/autocomplete
+
+	// WebSocket handler
+	WSHandler http.Handler // GET /api/v1/ws
+}
+
+// NewRouter builds a fully-configured *mux.Router with all routes from the
+// OpenAPI specification and the middleware chain applied.
+func NewRouter(cfg RouterConfig) *mux.Router {
+	r := mux.NewRouter()
+
+	// ---- Global middleware (applied to every route) -----------------------
+	// Order matters: outermost runs first.
+	r.Use(middleware.RecoveryMiddleware)
+	r.Use(middleware.LoggingMiddleware)
+	r.Use(middleware.CORSMiddleware(cfg.AllowedOrigins))
+	r.Use(middleware.BodyLimitMiddleware)
+
+	// ---- API v1 subrouter ------------------------------------------------
+	v1 := r.PathPrefix("/api/v1").Subrouter()
+
+	// ---- Public routes (no auth) -----------------------------------------
+	v1.Handle("/health", handlerOrStub(cfg.HealthHandler)).Methods(http.MethodGet, http.MethodOptions)
+
+	// ---- Authenticated routes --------------------------------------------
+	auth := v1.NewRoute().Subrouter()
+	authMW := middleware.NewAuthMiddleware(cfg.ClerkSecretKey, cfg.DevMode)
+	tenantMW := middleware.NewTenantMiddleware()
+	auth.Use(authMW.Authenticate)
+	auth.Use(tenantMW.InjectTenant)
+
+	// Files
+	auth.Handle("/files/upload", handlerOrStub(cfg.UploadFileHandler)).Methods(http.MethodPost, http.MethodOptions)
+	auth.Handle("/files", handlerOrStub(cfg.ListFilesHandler)).Methods(http.MethodGet, http.MethodOptions)
+
+	// Analysis
+	auth.Handle("/analysis", handlerOrStub(cfg.CreateAnalysisHandler)).Methods(http.MethodPost, http.MethodOptions)
+	auth.Handle("/analysis", handlerOrStub(cfg.ListAnalysesHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}", handlerOrStub(cfg.GetAnalysisHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/dashboard", handlerOrStub(cfg.GetDashboardHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/search", handlerOrStub(cfg.SearchLogsHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/entries/{entry_id}", handlerOrStub(cfg.GetLogEntryHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/trace/{trace_id}", handlerOrStub(cfg.GetTraceHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/ai", handlerOrStub(cfg.QueryAIHandler)).Methods(http.MethodPost, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/report", handlerOrStub(cfg.GenerateReportHandler)).Methods(http.MethodPost, http.MethodOptions)
+
+	// Search
+	auth.Handle("/search/autocomplete", handlerOrStub(cfg.AutocompleteHandler)).Methods(http.MethodGet, http.MethodOptions)
+
+	// WebSocket
+	auth.Handle("/ws", handlerOrStub(cfg.WSHandler)).Methods(http.MethodGet)
+
+	return r
+}
+
+// handlerOrStub returns the provided handler if non-nil, otherwise a stub
+// that responds with 501 Not Implemented.
+func handlerOrStub(h http.Handler) http.Handler {
+	if h != nil {
+		return h
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		Error(w, http.StatusNotImplemented, "not_implemented", "this endpoint is not yet implemented")
+	})
+}

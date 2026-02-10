@@ -1,0 +1,5 @@
+Mon Feb 03 2026 10:00:08.000  T00000030  Pool 1  Escalation: HPD:Esc-SLA-Resolve  Form: HPD:Help Desk  Scheduled: Mon Feb 03 2026 10:00:00.000  Start: Mon Feb 03 2026 10:00:08.000  Time: 00:00:00.500  Success
+Mon Feb 03 2026 10:00:10.500  T00000030  Pool 1  Escalation: HPD:Esc-SLA-Respond  Form: HPD:Help Desk  Scheduled: Mon Feb 03 2026 10:00:00.000  Start: Mon Feb 03 2026 10:00:10.500  Time: 00:00:00.320  Success
+Mon Feb 03 2026 10:00:11.000  T00000033  Pool 2  Escalation: CHG:Esc-ChangeApproval  Form: CHG:Infrastructure Change  Scheduled: Mon Feb 03 2026 10:00:00.000  Start: Mon Feb 03 2026 10:00:11.000  Time: 00:00:01.200  Success
+Mon Feb 03 2026 10:00:12.500  T00000034  Pool 1  Escalation: PBM:Esc-ProblemReview  Form: PBM:Problem Investigation  Scheduled: Mon Feb 03 2026 10:00:00.000  Start: Mon Feb 03 2026 10:00:12.500  Time: 00:00:00.085  FAIL  ARERR[302] Entry does not exist in the database
+Mon Feb 03 2026 10:00:13.000  T00000033  Pool 2  Escalation: AP:Esc-AutoClose  Form: AP:Detail  Scheduled: Mon Feb 03 2026 10:00:00.000  Start: Mon Feb 03 2026 10:00:13.000  Time: 00:00:00.150  Success

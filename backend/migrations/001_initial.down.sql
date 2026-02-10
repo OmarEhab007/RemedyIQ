@@ -1,0 +1,6 @@
+-- Rollback: 001_initial
+DROP TABLE IF EXISTS saved_searches CASCADE;
+DROP TABLE IF EXISTS ai_interactions CASCADE;
+DROP TABLE IF EXISTS analysis_jobs CASCADE;
+DROP TABLE IF EXISTS log_files CASCADE;
+DROP TABLE IF EXISTS tenants CASCADE;
