@@ -1,6 +1,5 @@
 "use client";
 
-import { Suspense } from "react";
 import { useSearch } from "@/hooks/use-search";
 import { SearchBar } from "@/components/explorer/search-bar";
 import { FilterPanel } from "@/components/explorer/filter-panel";
@@ -10,11 +9,7 @@ import { useState, useEffect } from "react";
 import type { SearchHit } from "@/hooks/use-search";
 
 export default function ExplorerPage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center h-64 text-muted-foreground">Loading explorer...</div>}>
-      <ExplorerContent />
-    </Suspense>
-  );
+  return <ExplorerContent />;
 }
 
 function ExplorerContent() {

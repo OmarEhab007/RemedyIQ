@@ -6,7 +6,7 @@
 
 ## Table of Contents
 
-1. [Next.js (Vercel)](#1-nextjs---vercelnetxjs)
+1. [Next.js (Vercel)](#1-nextjs---vercelnetxjs-1)
 2. [shadcn/ui](#2-shadcnui---shadcn-uiui)
 3. [Recharts](#3-recharts---rechartsrecharts)
 4. [Clerk Authentication](#4-clerk-authentication---clerkclerk-docs)

@@ -93,7 +93,7 @@ export interface DashboardData {
   top_escalations: TopNEntry[];
   time_series: TimeSeriesPoint[];
   distribution: Record<string, Record<string, number>>;
-  health_score: HealthScore | null;
+  health_score?: HealthScore | null;
 }
 
 // --- Enhanced Analysis Dashboard Types ---
@@ -354,36 +354,41 @@ export async function getDashboardAggregates(
   type?: string,
   token?: string,
 ): Promise<AggregatesResponse> {
-  const params = type ? `?type=${type}` : "";
-  return apiFetch<AggregatesResponse>(`/analysis/${jobId}/dashboard/aggregates${params}`, {}, token);
+  const params = type ? `?${new URLSearchParams({ type }).toString()}` : "";
+  const id = encodeURIComponent(jobId);
+  return apiFetch<AggregatesResponse>(`/analysis/${id}/dashboard/aggregates${params}`, {}, token);
 }
 
 export async function getDashboardExceptions(
   jobId: string,
   token?: string,
 ): Promise<ExceptionsResponse> {
-  return apiFetch<ExceptionsResponse>(`/analysis/${jobId}/dashboard/exceptions`, {}, token);
+  const id = encodeURIComponent(jobId);
+  return apiFetch<ExceptionsResponse>(`/analysis/${id}/dashboard/exceptions`, {}, token);
 }
 
 export async function getDashboardGaps(
   jobId: string,
   token?: string,
 ): Promise<GapsResponse> {
-  return apiFetch<GapsResponse>(`/analysis/${jobId}/dashboard/gaps`, {}, token);
+  const id = encodeURIComponent(jobId);
+  return apiFetch<GapsResponse>(`/analysis/${id}/dashboard/gaps`, {}, token);
 }
 
 export async function getDashboardThreads(
   jobId: string,
   token?: string,
 ): Promise<ThreadStatsResponse> {
-  return apiFetch<ThreadStatsResponse>(`/analysis/${jobId}/dashboard/threads`, {}, token);
+  const id = encodeURIComponent(jobId);
+  return apiFetch<ThreadStatsResponse>(`/analysis/${id}/dashboard/threads`, {}, token);
 }
 
 export async function getDashboardFilters(
   jobId: string,
   token?: string,
 ): Promise<FilterComplexityResponse> {
-  return apiFetch<FilterComplexityResponse>(`/analysis/${jobId}/dashboard/filters`, {}, token);
+  const id = encodeURIComponent(jobId);
+  return apiFetch<FilterComplexityResponse>(`/analysis/${id}/dashboard/filters`, {}, token);
 }
 
 export interface ReportResponse {

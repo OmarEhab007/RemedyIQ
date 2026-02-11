@@ -126,19 +126,29 @@ func (p *Pipeline) ProcessJob(ctx context.Context, job domain.AnalysisJob) error
 		sectionTTL := 24 * time.Hour
 		cachePrefix := p.redis.TenantKey(tenantID, "dashboard", jobID)
 		if parseResult.Aggregates != nil {
-			_ = p.redis.Set(ctx, cachePrefix+":agg", parseResult.Aggregates, sectionTTL)
+			if err := p.redis.Set(ctx, cachePrefix+":agg", parseResult.Aggregates, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "agg", "error", err)
+			}
 		}
 		if parseResult.Exceptions != nil {
-			_ = p.redis.Set(ctx, cachePrefix+":exc", parseResult.Exceptions, sectionTTL)
+			if err := p.redis.Set(ctx, cachePrefix+":exc", parseResult.Exceptions, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "exc", "error", err)
+			}
 		}
 		if parseResult.Gaps != nil {
-			_ = p.redis.Set(ctx, cachePrefix+":gaps", parseResult.Gaps, sectionTTL)
+			if err := p.redis.Set(ctx, cachePrefix+":gaps", parseResult.Gaps, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "gaps", "error", err)
+			}
 		}
 		if parseResult.ThreadStats != nil {
-			_ = p.redis.Set(ctx, cachePrefix+":threads", parseResult.ThreadStats, sectionTTL)
+			if err := p.redis.Set(ctx, cachePrefix+":threads", parseResult.ThreadStats, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "threads", "error", err)
+			}
 		}
 		if parseResult.Filters != nil {
-			_ = p.redis.Set(ctx, cachePrefix+":filters", parseResult.Filters, sectionTTL)
+			if err := p.redis.Set(ctx, cachePrefix+":filters", parseResult.Filters, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "filters", "error", err)
+			}
 		}
 	}
 

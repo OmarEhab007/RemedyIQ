@@ -1,7 +1,9 @@
-.PHONY: help dev api worker frontend test lint build migrate-up migrate-down ch-init docker-up docker-down docker-build clean deps setup run check-services
+.PHONY: all help dev api worker frontend test lint build migrate-up migrate-down ch-init docker-up docker-down docker-build clean deps setup run check-services
 
 # Default target
 .DEFAULT_GOAL := help
+
+all: help
 
 # Colors for output
 GREEN  := \033[0;32m

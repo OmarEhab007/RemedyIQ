@@ -55,7 +55,7 @@ RUN addgroup -g 1001 nodejs && \
     adduser -D -u 1001 -G nodejs nextjs
 
 # Copy public assets
-COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 # Copy standalone build output
 # This includes all necessary files: .next/standalone, .next/static, etc.
@@ -72,9 +72,9 @@ EXPOSE 3000
 ENV HOSTNAME "0.0.0.0"
 ENV PORT 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1));"
+# Health check - uses the root page as liveness probe
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD node -e "require('http').get('http://127.0.0.1:3000/', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1));"
 
 # Start Next.js server
 CMD ["node", "server.js"]
