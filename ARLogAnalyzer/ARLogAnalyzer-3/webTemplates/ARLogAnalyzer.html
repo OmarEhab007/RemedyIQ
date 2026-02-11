@@ -1,0 +1,409 @@
+<html>
+<head>
+<title>User Guide &mdash; ${app} ${version}
+</title>
+<meta charset="UTF-8">
+<style>
+body {
+    /*background-color: #fffff8;*/
+    background-color: white;
+}
+.pre_ {
+    background-color: white;
+}
+.maintitles {
+    text-align: center;
+}
+.komputar {
+    font-family: monospace;
+}
+.Program {
+    font-weight: bold;
+}
+.tilt {
+    font-style: italic;
+}
+.helpoutput {
+    border: 1px solid black;
+}
+</style>
+</head>
+<body>
+<h2 class="maintitles">
+User Guide - ${app} ${version}
+</h2>
+<h5 class="maintitles">${releaseDate}</h5>
+<h5 class="maintitles">
+<a href="#NAME">NAME</a>/
+<a href="#SYNOPSIS">SYNOPSIS</a>/
+<a href="#DESCRIPTION">DESCRIPTION</a>/
+<a href="#DISTRIBUTION">DISTRIBUTION</a>/
+<a href="#PACKINGLIST">PACKING LIST</a>/
+<a href="#INSTALLATION">INSTALLATION</a>/
+<a href="#USAGE">USAGE</a>/
+<a href="#DISKUSAGE">DISK USAGE</a>/
+<a href="#NOTES">BUGS AND NOTES</a>/
+</h5>
+<h3>
+<a name="NAME">NAME</a>
+</h3>
+<h4>
+ARLogAnalyzer
+</h4>
+<h3>
+<a name="SYNOPSIS">SYNOPSIS</a>
+</h3>
+<p class="komputar">ARLogAnalyzer [options] [logfile]
+</p>
+<h3>
+<a name="DESCRIPTION">DESCRIPTION</a>
+</h3>
+<p>
+<span class="Program">
+ARLogAnalyzer
+</span>
+ reads an AR server log file
+and prepares a report containing breakdowns of server activities
+reported in the log, including longest-running API, SQL, and Escalation calls,
+longest-queued API calls, and thread summaries.
+The report is used to highlight performance trouble spots and
+to help guide AR System administrators in performance tuning.
+</p><p>
+ARLogAnalyzer writes either a text report on its standard output,
+or (with the -w option) an HTML report that includes all
+the lines from the log file.
+Hyperlinks in the report connect to the log lines for context.
+</p><p>
+<p>
+This guide describes ARLogAnalyzer version ${version}.
+</p>
+<h4>
+AR Server log versions
+</h4>
+<p>
+These programs process log files written by AR server versions 9.1.x or later.
+They may not work correctly with logs written by older versions.
+</p>
+<h3>
+<a name="PACKINGLIST">PACKING LIST</a>
+</h3>
+<table>
+<tr>
+<td class="komputar">ARLogAnalyzer.jar</td>
+<td>The Log Analyzer utility, a Java program.</td>
+</tr><tr>
+<td class="komputar">webTemplates</td>
+<td>Templates for HTML output.</td>
+</tr><tr>
+<td class="komputar">webTemplates/ARLogAnalyzer.html</td>
+<td>This file.</td>
+</tr>
+</table>
+<p>
+The ARLogAnalyzer.rtf file from previous versions is no longer present.
+<p>
+The install.exe and ARLogAnalyzer_cleanup.exe programs from previous versions
+are no longer required or present.
+<p>
+The exectimemap.exe utility from previous versions is no longer present.
+</p>
+<h3>
+<a name="INSTALLATION">INSTALLATION</a>
+</h3>
+<p>
+Just unzip ARLogAnalyzer.zip wherever you want.
+Add the directory to your path or invoke the programs using full names.
+</p>
+<h3>
+<a name="USAGE">USAGE</a>
+</h3>
+
+<h4>ARLogAnalyzer</h4>
+<p>
+ARLogAnalyzer reads one or multiple time-sequenced log file and produces a report, either as text or HTML.
+</p><p>
+It writes the text report to the standard output; redirect to a file to preserve it.
+</p>
+<h4 class="tilt">ARLogAnalyzer command line</h4>
+<p>
+Here is ARLogAnalyzer's own report of its command-line options.
+</p>
+<div class="helpoutput">
+<pre>
+ARLogAnalyzer.jar, version ${version}
+Copyright 2002-2020 BMC Software, Inc. and others.
+
+Usage:
+    java -jar ARLogAnalyzer.jar [options] [logfilename]
+
+Options:
+- Input: -b BEGIN_TIME -e END_TIME -u USER -c CLIENTRPC
+- Output: -i -g GROUPING -l -s SORT_ORDER -fts -swap -prepare FILENAME
+	GROUPING is one of: USER, QUEUE	
+	SORT_ORDER is one of: AVG, COUNT, MAX, MIN, SUM
+- HTML output: -w OUTPUT_DIR -G -z
+    Otherwise, writes a text report to the standard output.
+- Misc/help: -h -? --help -v
+
+Option details:
+
+   -b TIMESTAMP
+       Begin timestamp. The format is like "MM/DD/YYYY HH:MM:SS".
+       Process only log items whose dates are &gt;= the timestamp.
+   -c Client-RPC program number
+       Used to filter out all but one transaction or matching transactions.
+       Specify the RPC program number with or without leading zeroes.
+   -e TIMESTAMP
+       End timestamp. The format is like "MM/DD/YYYY HH:MM:SS".
+   -fts
+       Due to the fact that FTS doesn't typically log properly
+       The application by default drops FTS lines from processing
+       entirely thus cleaning up the output and avoiding confusing
+       performance questions.  If however you want to process the
+       FTS log entries, specify this option and they will be processed
+       as is, but you won't likely be able to trust the results regarding
+       the lines.
+   -g GROUP
+       Group API and SQL analysis by specifed group, valid values
+       are QUEUE and USER, if you want both, you can specify
+       -g multiple times
+   -G
+       If -w is specified, but you don't need a copy of the logs generated
+       in HTML format, you can specify this, if you don't specify -w
+       this option is ignored
+   -h, -?, --help
+       Print help message (the text you are reading now) and exit.
+   -i
+       Invert sort. Whatever sorting is specified in -s
+       will be inverted in the groupings.
+   -l LOCALE (lower case L)
+       This is the Locale of the Timestamps in the log file.
+       There is no default, if one is not specified the analyzer will make a
+       best guess attempt to find a proper one and will use the first one it finds
+       that parses properly, this should be the two character representation
+       of the locale in the logs.
+   -ldf format
+       Log Date Format defaults to "EEE MMM dd yyyy HH:mm:ss.SSS", if your log is
+	   in a different date format, you can specify it here
+   -n TOP_N
+       Number of API calls, escalations, and queries to report
+       in the "TOP n" reports.
+       Requires a single integer argument. Default value is 50.
+   -noapi
+       If specfified, it won't analyze API statistics
+   -noesc
+       If specfified, it won't analyze Escalation statistics
+   -nofltr
+       If specfified, it won't analyze Filter statistics
+   -nosql
+       If specfified, it won't analyze SQL statistics
+   -nu USER
+       If you want to not process a user, you can specify 0-n number of this
+       parameter to eliminate that user from the report
+   -prepare OUTPUTFILE
+       This will take all input files provided and concatenate them
+       into a single file.  When used, no analysis is performed
+   -s SORT_ORDER
+       Sort order of output. Requires an argument that specifies
+       the sort criteria as follows:
+
+       AVG   - Descending average execution time (default)
+       COUNT - Descending count of calls / statements
+       MAX   - Descending maximum execution time
+       MIN   - Descending minimum execution time
+       SUM   - Descending sum of execution times
+   -swap
+       If enough memory is allocated no temp files are used, if
+       however you want minimal memory usage to occur, you can
+       specify -swap and it'll store everything possible on the HD
+       automatically
+   -u USER
+       User. Analyze the activities of the specific user and
+       group API and SQL analysis by User. Will likely cause
+       Escalations to not be reported on unless they are executed
+       by the specified user
+   -v, --version
+       Print program version and exit.
+   -w DIR
+       Web format. Requires an argument specifying the directory
+       in which to place HTML files. The program will create
+       the directory if needed.
+
+       This option is used to produce output in HTML format.
+       Use of this option will force grouping by both User and Queue
+       Specify -G if you don't want an HTML copy of log entries generated
+   -z
+       When used in conjunction with a -w it will create a zipped copy
+	   of the output for easy portability.
+
+User guide: {install_dir}/webTemplates/ARLogAnalyzer.html
+License and Copyrights: {install_dir}/webTemplates/about.html
+</pre>
+</div>
+<h4 class="tilt">ARLogAnalyzer examples</h4>
+<h5 class="komputar">java -jar ARLogAnalyzer.jar -h</h5>
+<p>
+Print a help message to the standard error output and exit, ignoring other inputs.
+<h5 class="komputar">
+java -jar ARLogAnalyzer.jar arapisql.log &gt; outfile1.txt
+</h5>
+<p>
+The log file arapisql.log will be analyzed
+and the resulting analysis will be captured in the file outfile1.txt.
+<h5 class="komputar">
+java -jar ARLogAnalyzer.jar -s MAX -u Demo -g QUEUE arapisql.log &gt; outfile2.txt
+</h5>
+<p>
+The log file arapisql.log will be analyzed and the resulting analysis
+captured in the file outfile2.txt.
+In the API AGGREGATES section of the report,
+aggregates will appear three times grouped by Form, User, and Queue respectively.
+In the SQL AGGREGATES section of the report,
+aggregates will appear three times grouped by Table, by User,
+by Queue respectively.
+</p><p>
+In the ESCALATION AGGREGATES section of the report,
+aggregates will appear twice grouped by Form and by Pool/Q.
+AR servers report escalations as running in the Escalation queue;
+they actually run in Escalation Pools.
+(The Pool number is recorded in the USER field.)
+Escalations may also appear in the Admin queue, when run directly via
+the ARRunEscalation API call.
+</p><p>
+In all cases, the group containing the largest MAX execution time
+will appear at the top of the list and the rest of the groups will appear
+underneath in descending order of maximum execution time.
+</p>
+<h5 class="komputar">
+java -jar ARLogAnalyzer.jar -i -s MAX -u Demo -g QUEUE arapisql.log &gt; outfile3.txt
+</h5>
+<p>
+Same as preceding example except that grouping will be inverted.
+That is, the API subsection that would have listed results grouped
+by User will be grouped by API call then by User.
+A similar inversion will be seen for all output.
+</p>
+<h5 class="komputar">
+java -jar ARLogAnalyzer.jar -s MAX -w myanalysis arapisql.log
+</h5>
+<p>
+Same as preceding except that output will be in HTML format
+and stored in the specified directory (./myanalysis).
+(The -i is omitted here because it isn't generally very useful.)
+</p><p>
+Note that the grouping options were not required as the -w option
+will force these to be set ON.
+Once ARLogAnalyzer has completed execution,
+you may use a web browser to view the output
+without the aid of a web server.
+Open your web browser, and then use your web browser to open the
+index.html file that was created during the execution of ARLogAnalyzer.
+</p>
+<h3>
+<a name="DISKUSAGE">DISK/MEMORY USAGE</a>
+</h3>
+<p>
+AR server logs can be very large.
+Running log analyzer tools may require some care so that you don't
+run out of disk space.
+Here are some notes on space usage.
+</p><p>
+<span class="Program">ARLogAnalyzer</span>
+when generating Web Reports produces output approximately 1.5 times the size of the input.
+(i.e., 1 GB of logs produces roughly 1.5 GB output).
+That's if you're writing a full HTML output, which includes annotated versions of
+all the log lines from the input.
+The report itself is only about a megabyte or less.
+</p><p>
+The text report is smaller still, since it doesn't contain any HTML formatting.
+So using the text report, and a capable text editor to examine log files,
+might be OK for low-space situations (although text editors typically
+write temporary files, so you're not getting a completely free lunch.)
+</p><p>
+ARLogAnalyzer may need to use temporary files when processing the logs.  The program uses 3.5-4x the log size of memory to process the logs.  
+If there is insufficient memory to do what's needed the application will automatically generate ARLogAnalyzer*.bin files in the temp folder
+These temporary files should be cleaned up automatically at succesful completion of the application, but might be left behind if it crashes
+for any reason.  
+To help the processing, you may want to issue a -Xmx10g (10 gig) or larger to help with the processing.  
+You may also want to utilize -XX:+UseConcMarkSweepGC if you are receiving 'GC Overhead' errors.
+<p>
+When processing a 3Gig log with no parameters for Java (which on my machine causes a default -Xmx of 4Gig) it gave a 'GC Overhead' out of memory error.  Providing -XX:+UseConcMarkSweepGC allowed it to finish
+in 18 min's.  Providing the same log file but giving it -Xmx15g allows it to finish the same process in 6 min's.  The same output is generated either way,
+but not needing to swap memory out to disk allows it to function faster.
+</p>
+<h3>
+<a name="NOTES">BUGS AND NOTES</a>
+</h3>
+<p>
+If you want to process more than one server at a time place each servers logs in a different folder and specify both folders for analysis.  The tool will automatically keep the threads in each folder
+separate transactions, but then consolidate the output into a single report.  An example would be</p>
+<p>java -jar ARLogAnalyzer.jar -w outputFolder path\Server1\*.* path\Server2\*.*</p>
+<p>In this example ARLogAnalyzer would create the output in 'outputFolder' but take the input from the Server1 and Server2 folders
+</p>
+<p>
+In no particular order, some notes about ARLogAnalyzer.
+</p>
+<h4>Time's arrow points in one direction, except for Daylight Savings Time.
+</h4>
+<p>
+ARLogAnalyzer converts log file timestamp strings
+into an internal format, in order to facilitate date comparisons.
+This format is based on UNIX dates (number of seconds since
+1970-01-01 00:00:00Z, specifically ignoring leap seconds),
+but in units of 0.001 second.
+</p><p>
+If your log happens to cross a DST barrier, the resulting log will be re-sorted chronologically and may cause you to have an invalid report.
+</p>
+<h4>The API was without form, and void.</h4>
+<p>
+One of the log analyzer reports is grouped by Form,
+and there is always a group of calls for which the form is blank.
+A few things are going on here:
+<ul>
+<li>Some API calls legitimately don't have an associated form, e.g., VER
+(ARVerifyUser).</li>
+<li>Some API calls deal with multiple forms, e.g., EXP (ARExport).</li>
+<li>Some API calls are logged separately, but are actually just execution
+phases of the actual API call.  For example, AR server 9.x logs the SGE
+(ARSetGetEntry) as containing a SE (ARSetEntry) call followed by a GE
+(ARGetEntry) call.  The GE is reported without a form name,
+and ARLogAnalyzer also reports it without a form name.
+I think that's a bug in AR server 9.x, but an AR server 9.x person might
+think it's a bug in the log analyzer.
+</li>
+</ul>
+</p><p>
+CMDB API calls in AR server 7.x/8.x are similar to SGE in 9.x:
+a CMDB API call comes in and makes one more AR API calls using an
+internal interface.
+However these API calls are better about reporting the form accurately.
+</p>
+<h4>Combine without Analysis</h4>
+<p>
+If all you want to do is combine the log files together and not analyze them, you can use the '-prepare filename.log' option
+this will take all of the inputs and combine them into a single sorted output file
+</p>
+<h4>Queues and Threads</h4>
+<p>
+The configuration of the client will determine what Queue a given API call runs in.  If the client is configured without a private RPC Port, the AR Server determines what queue (Fast/List) the call will happen in
+<p>
+Because of the fact that which queue your API call ends up in is a combination of client and server configuration/logic, it's sometimes hard to determine how many threads are required for a given RPC Queue.  
+If you look at the API Thread Statistics section, you will find columns named "Q Count" and "Q Time".  If you find that there are a large number of queued items in a particular queue, that means that at some point
+during the log process, there was more activity than the AR Server was able to handle concurrently and it needed to wait for a thread to become available.  Think of this like standing in line at a bank.  The more tellers
+they have available, the more people they can help at one time.  Queueing is not necessarily a bad thing, as long as the queue's don't get too long, and don't cause excessive delays.  Additionally there is a column named 
+"Busy %", this tells you during the duration of the log, how active was the thread by %age of time.  This information should be helpful to you in determining if you have enough threads.  If you look at this section and
+determine that you have no queueing and your busy %age is very low, it could indicate that you could decrease your thread count in that queue.
+<p>
+In previous versions of Remedy each Escalation pool was assigned a specific thread, but in 9.x, it uses connection pooling, so a given Escalation thread can actually process multiple pools of data.
+</p>
+<h4>Tracing Multiple Calls</h4>
+API calls usually are independent of each other, so reporting them independently is more valuable than interleaving unrelated calls together just because they occur at the same time. However,
+in one important case API calls are not independent. An API makes an appeal to a vendor form implemented by a plugin. The plugin makes its own API call(s) back into AR server in order to fulfill
+the original call. These plugin calls occur on different threads, but the original API call is blocked until those calls complete and the plugin API call returns. So there is a single sequence
+of execution, from the API call to the plugin server, through AR server one or more times for the subsidiary calls, and back to the originating API call.  Starting in the 19.x versions there is a new attribute named
+Trace ID (or trid).  This is an attempt to be able to trace a single client request through all of the places it goes.  This is implemented at the AR Server level, but not yet implemented in all of the clients.  As
+such, it's not yet fully capable, but when the feature is finished your client (Mid-Tier for example) will start something and you'll be able to trace it all the way through the various logs using the trace id to identify
+everything that happened in the transaction.  At that point the Log Analyzer would need to be enhanced to include analysis of Mid-Tier, and Plugin logs (for a start) to be able to propely follow the trace, but that is a
+discussion for a future date.
+</body>
+</html>

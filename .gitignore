@@ -41,9 +41,8 @@ build/
 backend/api
 backend/worker
 
-# Log analyzer JARs (large binaries)
-ARLogAnalyzer/
-*.jar
+# Log analyzer debug artifacts
+ARLogAnalyzer/*/webTemplates/debug.log
 
 # Log files
 ARLogs/

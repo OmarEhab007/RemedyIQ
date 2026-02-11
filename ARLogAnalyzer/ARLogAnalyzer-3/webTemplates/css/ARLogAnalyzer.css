@@ -1,0 +1,400 @@
+/*
+**	arwklga.css
+**
+**	18-MAR-2005
+**	Greg Klinder
+**
+**	Cascading Style Sheet for the Remedy Log Analyzer (arwklga).
+*/
+
+
+/*
+**	----------------------------------------------------------
+**	Here is where the base font is set. If you have a favorite
+**	other than 'Tahoma' and 8pt, change it here.
+**	----------------------------------------------------------
+*/
+
+*
+{
+    font-size: 8pt;
+    font-family: Tahoma, Arial, "Times New Roman", "Times", serif;
+    vertical-align: top;
+    text-align: left;
+}
+
+.FixedDiv {
+    width:100%;
+    height:85%;
+    overflow:auto;
+    border:solid 1px black;
+}
+.FixedDiv80 {
+    width:100%;
+    height:80%;
+    overflow:auto;
+    border:solid 1px black;
+}
+
+#header ul {
+    padding: 3px 0;
+    margin-left: 0;
+    border-bottom: 1px solid #696;
+    font: bold 12px Tahoma, Verdana, Helvetica, Arial, sans-serif;
+}
+#header ul li {
+    list-style: none;
+    margin: 0;
+    display: inline;
+}
+#header ul li a {
+    padding: 3px 0.5em;
+    margin-left: 3px;
+    border: 1px solid #990;
+    border-bottom: none;
+    background: #ffc;
+    text-decoration: none;
+}
+/*
+#header ul li a:link
+{
+    color: #663;
+}
+*/
+#header ul li a:visited {
+    color: indigo;
+}
+#header ul li a:link:hover, #header ul li a:visited:hover {
+    color: #000;
+    background: #AAE;
+    border-color: #663;
+}
+#header ul li a#current {
+    margin: 0;
+    background: beige;
+    border-bottom: 2px solid beige;
+}
+#navsite p {
+    display: none;
+}
+#navsite {
+    font-size: 0.7em;
+    font-weight: bold;
+    width: 100%;
+    border-right: 1px solid #666;
+    padding: 0;
+    margin-bottom: 1em;
+    color: #333;
+}
+#navsite ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+#navsite ul li {
+    margin: 0;
+    border-top: 1px solid #003;
+}
+#navsite ul li a {
+    display: block;
+    padding: 2px 2px 2px 0.5em;
+    border-left: 10px solid #993;
+    border-right: 1px solid #993;
+    border-bottom: 1px solid #993;
+    background-color: floralwhite;
+    text-decoration: none;
+    width: 100%;
+}
+html>body #navsite ul li a {
+    width: auto;
+}
+#navsite ul li a:hover {
+    border-left: 10px solid #036;
+    border-right: 1px solid #69c;
+    border-bottom: 1px solid #369;
+    background-color: #6f9;
+    color: #fff;
+}
+#navsite ul li a:link {
+    text-decoration: none;
+}
+#navsite ul li a:visited {
+    text-decoration: none;
+    color: indigo;
+}
+
+
+/*
+**	------------------------------------------------------
+**	Heading styles and sizes are adjusted here so they fit
+**	within the frames defined for the title and sidebar.
+**	------------------------------------------------------
+*/
+H1, H2, H3, H4, H5, H6 {
+    color: black;
+    font-style: normal;
+}
+H1 {
+    font-size: 16pt;
+}
+H2 {
+    font-size: 14pt;
+}
+H3 {
+    font-size: 12pt;
+}
+
+.dt {
+    font-weight: bold;
+}
+.dti {
+    font-weight: bold;
+    font-style: oblique;
+}
+.dumber {
+    text-align: center;
+}
+
+/*
+**	---------------------------------------------------
+**	Tables are used extensively. Alignment and wrapping
+**	within cells needs to be consistent. So, I define a
+**	number of things here.
+**	---------------------------------------------------
+*/
+TR.ACTL {
+    color: blue;
+    background-color: lightyellow;
+}
+TR.API {
+    color: darkblue;
+    background-color: ivory;
+}
+TR.DIST {
+    color: magenta;
+    background-color: lightyellow;
+}
+TR.ESCL {
+    color: #380800;
+    background-color: #fff4f0;
+}
+TR.FLTR {
+    color: black;
+    background-color: lightyellow;
+}
+TR.FTI {
+    color: #180800;
+    background-color: linen;
+}
+TR.infilename {
+    color: #000;
+    background-color: #fff;
+}
+TR.SQL {
+    color: darkgreen;
+    background-color: #fffff8;
+}
+TR.THREAD {
+    color: olivedrab;
+    background-color: ivory;
+}
+TR.USER {
+    color: purple;
+    background-color: floralwhite;
+}
+
+TH {
+    color: #4c4800;
+    background-color: /*#fae4d0;*/ #f8e8d0;
+    font-weight: bold;
+    font-variant: small-caps;
+    text-align: left;
+    vertical-align: bottom;
+    white-space: nowrap;
+    position:relative;
+    top:expression( document.getElementById("SrcollDiv1").scrollTop );
+}
+TH.numeric {
+    text-align: right;
+}
+TH.logcolumn {
+    text-align: center;
+}
+TD {
+    white-space: nowrap;
+}
+TD.numeric {
+    text-align: right;
+}
+TD.logcolumn {
+    text-align: center;
+}
+TD.total {
+    text-align: right;
+    font-weight: bold;
+}
+TD.longtext {
+    white-space: normal;
+	word-break: break-word;
+	min-width: 100px;
+}
+TD.dumb {
+    background-color: cornsilk;
+}
+TD.dumber {
+    text-align: center;
+    background-color: #fffff8;
+}
+TD.dumbest {
+    background-color: white; /*#f8fff8;*/
+    text-align: right;
+    white-space: normal;
+}
+.genstats TD {
+    background-color: cornsilk;
+    border: 1px solid black;
+}
+
+.jumpahead {
+    font-weight: bold;
+}
+.jumpback {
+    font-weight: bold;
+}
+.dontjump {
+    font-weight: bold;
+}
+.ver {
+    font-weight: bold;
+    font-style: oblique;
+}
+
+/*
+**	-----------------------------------------------------
+**	This is my idea of plain text. If you have a
+**	differing preference, make the appropriate adjustment
+**	here.
+**	-----------------------------------------------------
+*/
+PRE {
+    font-size: 8pt;
+    font-family: "Courier New", "Courier";
+}
+
+
+/*
+**	------------------------------------------------------------
+**	Highlighting the active link should make navigation a little
+**	easier. Especially with the three-frame layout that is being
+**	used here.
+**	------------------------------------------------------------
+*/
+A:active {
+    color: crimson;
+    font-weight: bold;
+}
+
+
+/*
+**	-----------------------------------------------------------
+**	Background colors for each frame and page-type defined here
+**	-----------------------------------------------------------
+*/
+BODY {
+    background-color: #fffffc;
+}
+BODY.titlebar {
+    background-color: antiquewhite;
+}
+BODY.sidebar {
+    margin-right: 0;
+    background-color: antiquewhite;
+}
+BODY.plaintext {
+    background-color: white;
+}
+TR.APIEven {
+    color: darkblue;
+    background-color: white;
+}
+TR.APIOdd {
+    color: darkblue;
+    background-color: #e8e8e8;
+}
+TR.SQLEven {
+    color: darkgreen;
+    background-color: white;
+}
+TR.SQLOdd {
+    color: darkgreen;
+    background-color: #e8e8e8;
+}
+TR.FLTREven {
+    color: black;
+    background-color: white;
+}
+TR.FLTROdd {
+    color: black;
+    background-color: #e8e8e8;
+}
+TR.ESCLEven {
+    color: black;
+    background-color: white;
+}
+TR.ESCLOdd {
+    color: black;
+    background-color: #e8e8e8;
+}
+.tooltip {
+  position: relative;
+  display: inline-block;
+}
+
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 120px;
+  background-color: #555;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px 0;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -60px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.tooltip .tooltiptext::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #555 transparent transparent transparent;
+}
+
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+  opacity: 1;
+}
+
+a:link {
+  text-decoration: none;
+}
+
+a:visited {
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+a:active {
+  text-decoration: underline;
+}

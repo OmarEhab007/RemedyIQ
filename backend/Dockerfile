@@ -49,8 +49,8 @@ RUN addgroup -g 1000 remedyiq && \
 WORKDIR /app
 
 COPY --from=builder /bin/api .
-COPY ARLogAnalyzer.jar ./
-COPY legacy/webTemplates/ ./webTemplates/
+COPY ARLogAnalyzer/ARLogAnalyzer-3/ARLogAnalyzer.jar ./
+COPY ARLogAnalyzer/ARLogAnalyzer-3/webTemplates/ ./webTemplates/
 
 RUN mkdir -p /tmp/remedyiq-analysis && \
     chown -R remedyiq:remedyiq /app /tmp/remedyiq-analysis
@@ -79,8 +79,8 @@ RUN addgroup -g 1000 remedyiq && \
 WORKDIR /app
 
 COPY --from=builder /bin/worker .
-COPY ARLogAnalyzer.jar ./
-COPY legacy/webTemplates/ ./webTemplates/
+COPY ARLogAnalyzer/ARLogAnalyzer-3/ARLogAnalyzer.jar ./
+COPY ARLogAnalyzer/ARLogAnalyzer-3/webTemplates/ ./webTemplates/
 
 RUN mkdir -p /tmp/remedyiq-analysis && \
     chown -R remedyiq:remedyiq /app /tmp/remedyiq-analysis

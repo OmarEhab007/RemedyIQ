@@ -62,7 +62,7 @@ func Load() (*Config, error) {
 		S3Bucket:                 getEnv("S3_BUCKET", "remedyiq-logs"),
 		S3UseSSL:                 getEnvBool("S3_USE_SSL", false),
 		S3SkipBucketVerification: getEnvBool("S3_SKIP_BUCKET_VERIFICATION", true), // Default to true for MinIO dev
-		JARPath:                  getEnv("JAR_PATH", "./ARLogAnalyzer.jar"),
+		JARPath:                  getEnv("JAR_PATH", "../ARLogAnalyzer/ARLogAnalyzer-3/ARLogAnalyzer.jar"),
 		JARDefaultHeapMB:         getEnvInt("JAR_DEFAULT_HEAP_MB", 4096),
 		JARTimeoutSec:            getEnvInt("JAR_TIMEOUT_SEC", 1800),
 		ClerkSecretKey:           getEnv("CLERK_SECRET_KEY", ""),
