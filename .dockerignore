@@ -64,6 +64,9 @@ logs/
 Thumbs.db
 .DS_Store
 
+# Frontend (excluded from backend Docker build)
+frontend/
+
 # Development
 docker-compose*.yml
 Dockerfile*
