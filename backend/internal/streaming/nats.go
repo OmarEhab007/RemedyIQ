@@ -238,6 +238,49 @@ func (c *NATSClient) SubscribeJobSubmit(ctx context.Context, tenantID string, ha
 	return nil
 }
 
+// SubscribeAllJobSubmits creates a durable consumer for job submission events
+// across ALL tenants. This is used by the worker to pick up jobs from any tenant.
+func (c *NATSClient) SubscribeAllJobSubmits(ctx context.Context, handler func(domain.AnalysisJob)) error {
+	subject := "jobs.*.submit"
+	durableName := "worker-job-submit"
+
+	cons, err := c.js.CreateOrUpdateConsumer(ctx, "JOBS", jetstream.ConsumerConfig{
+		Durable:       durableName,
+		FilterSubject: subject,
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		DeliverPolicy: jetstream.DeliverAllPolicy,
+		MaxDeliver:    5,
+		AckWait:       5 * time.Minute,
+	})
+	if err != nil {
+		return fmt.Errorf("create consumer %s: %w", durableName, err)
+	}
+
+	cc, err := cons.Consume(func(msg jetstream.Msg) {
+		var job domain.AnalysisJob
+		if err := json.Unmarshal(msg.Data(), &job); err != nil {
+			c.logger.Error("unmarshal job submit", "error", err, "subject", subject)
+			_ = msg.TermWithReason("unmarshal error")
+			return
+		}
+		handler(job)
+		if err := msg.Ack(); err != nil {
+			c.logger.Error("ack job submit", "error", err, "subject", subject)
+		}
+	})
+	if err != nil {
+		return fmt.Errorf("consume %s: %w", durableName, err)
+	}
+
+	go func() {
+		<-ctx.Done()
+		cc.Stop()
+	}()
+
+	c.logger.Info("subscribed to all job submissions", "durable", durableName)
+	return nil
+}
+
 // SubscribeJobProgress creates a durable consumer for job progress events
 // scoped to the given tenant. The returned ConsumeContext is stopped when
 // ctx is cancelled.

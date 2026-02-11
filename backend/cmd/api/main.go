@@ -73,13 +73,11 @@ func main() {
 	if err != nil {
 		slog.Warn("S3 client initialization failed; file uploads will not work", "error", err)
 	}
-	_ = s3Client // used by handlers in later phases
-
 	// --- WebSocket hub ---
 	wsHub := streaming.NewHub()
 	go wsHub.Run()
 
-	// --- Build health handler ---
+	// --- Build handlers ---
 	healthHandler := handlers.NewHealthHandler(
 		pg.Ping,
 		ch.Ping,
@@ -87,14 +85,30 @@ func main() {
 		redis.Ping,
 	)
 
+	uploadHandler := handlers.NewUploadHandler(pg, s3Client)
+	analysisHandlers := handlers.NewAnalysisHandlers(pg, natsClient)
+	dashboardHandler := handlers.NewDashboardHandler(pg, ch, redis)
+	streamHandler := handlers.NewStreamHandler(wsHub, []string{"*"})
+
 	// --- Build router ---
 	router := api.NewRouter(api.RouterConfig{
-		AllowedOrigins: []string{"*"},
-		DevMode:        cfg.IsDevelopment(),
-		ClerkSecretKey: cfg.ClerkSecretKey,
-		HealthHandler:  healthHandler,
-		// Remaining handlers are added as features are implemented.
-		// nil handlers receive a 501 "not implemented" stub automatically.
+		AllowedOrigins:        []string{"*"},
+		DevMode:               cfg.IsDevelopment(),
+		ClerkSecretKey:        cfg.ClerkSecretKey,
+		HealthHandler:         healthHandler,
+		UploadFileHandler:     uploadHandler,
+		CreateAnalysisHandler: analysisHandlers.CreateAnalysis(),
+		ListAnalysesHandler:   analysisHandlers.ListAnalyses(),
+		GetAnalysisHandler:    analysisHandlers.GetAnalysis(),
+		GetDashboardHandler:   dashboardHandler,
+		AggregatesHandler:     handlers.NewAggregatesHandler(),
+		ExceptionsHandler:     handlers.NewExceptionsHandler(),
+		GapsHandler:           handlers.NewGapsHandler(),
+		ThreadsHandler:        handlers.NewThreadsHandler(),
+		FiltersHandler:        handlers.NewFiltersHandler(),
+		WSHandler:             streamHandler,
+		// SearchLogsHandler, GetLogEntryHandler, GetTraceHandler, QueryAIHandler,
+		// GenerateReportHandler require BleveManager/AI Registry — added later.
 	})
 
 	// --- Start HTTP server ---

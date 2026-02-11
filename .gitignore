@@ -34,5 +34,21 @@ coverage/
 dist/
 build/
 
-# Large binary artifacts (keep JAR tracked intentionally)
+# Large binary artifacts
 *.bin
+
+# Compiled Go binaries
+backend/api
+backend/worker
+
+# Log analyzer JARs (large binaries)
+ARLogAnalyzer/
+*.jar
+
+# Log files
+ARLogs/
+error_logs/
+
+# Local tool configs
+.opencode/
+.playwright-mcp/

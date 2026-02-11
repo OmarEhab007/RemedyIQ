@@ -248,8 +248,8 @@ export function getApiHeaders(additionalHeaders?: Record<string, string>): Recor
 
   // In development, use dev bypass headers
   if (process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_DEV_MODE !== "false") {
-    headers["X-Dev-User-ID"] = "dev-user";
-    headers["X-Dev-Tenant-ID"] = "dev-tenant";
+    headers["X-Dev-User-ID"] = "00000000-0000-0000-0000-000000000001";
+    headers["X-Dev-Tenant-ID"] = "00000000-0000-0000-0000-000000000001";
   }
 
   return headers;

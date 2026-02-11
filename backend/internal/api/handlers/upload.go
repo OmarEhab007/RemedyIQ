@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -66,17 +67,38 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Detect log types from filename.
 	detectedTypes := detectLogTypes(header.Filename)
 
-	// Compute SHA-256 checksum while reading.
+	// Buffer to a temp file so the AWS SDK can seek for payload hash computation.
+	tmpFile, err := os.CreateTemp("", "remedyiq-upload-*")
+	if err != nil {
+		slog.Error("failed to create temp file", "error", err)
+		api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "failed to process upload")
+		return
+	}
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+
+	// Copy the upload into the temp file while computing the SHA-256 checksum.
 	hasher := sha256.New()
-	countReader := &countingReader{r: io.TeeReader(file, hasher)}
+	size, err := io.Copy(io.MultiWriter(tmpFile, hasher), file)
+	if err != nil {
+		slog.Error("failed to buffer upload", "error", err)
+		api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "failed to process upload")
+		return
+	}
+
+	// Seek back to the start for the S3 upload.
+	if _, err := tmpFile.Seek(0, io.SeekStart); err != nil {
+		slog.Error("failed to seek temp file", "error", err)
+		api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "failed to process upload")
+		return
+	}
 
 	// Generate S3 key and upload.
 	fileID := uuid.New()
 	s3Key := h.s3.GenerateKey(tenantID, fileID.String(), header.Filename)
 
-	// Pass -1 for size so S3 streams the upload without relying on
-	// Content-Length, which may not match the actual bytes read.
-	if err := h.s3.Upload(r.Context(), s3Key, countReader, -1); err != nil {
+	if err := h.s3.Upload(r.Context(), s3Key, tmpFile, size); err != nil {
+		slog.Error("S3 upload failed", "key", s3Key, "error", err)
 		api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "failed to upload file")
 		return
 	}
@@ -85,7 +107,7 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ID:             fileID,
 		TenantID:       tid,
 		Filename:       header.Filename,
-		SizeBytes:      countReader.n,
+		SizeBytes:      size,
 		S3Key:          s3Key,
 		S3Bucket:       h.s3.Bucket(),
 		ContentType:    header.Header.Get("Content-Type"),
@@ -130,15 +152,4 @@ func detectLogTypes(filename string) []string {
 		types = []string{string(domain.LogTypeAPI), string(domain.LogTypeSQL), string(domain.LogTypeFilter), string(domain.LogTypeEscalation)}
 	}
 	return types
-}
-
-type countingReader struct {
-	r io.Reader
-	n int64
-}
-
-func (cr *countingReader) Read(p []byte) (int, error) {
-	n, err := cr.r.Read(p)
-	cr.n += int64(n)
-	return n, err
 }
