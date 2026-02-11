@@ -36,6 +36,11 @@ type RouterConfig struct {
 	ListAnalysesHandler    http.Handler // GET  /api/v1/analysis
 	GetAnalysisHandler     http.Handler // GET  /api/v1/analysis/{job_id}
 	GetDashboardHandler    http.Handler // GET  /api/v1/analysis/{job_id}/dashboard
+	AggregatesHandler      http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/aggregates
+	ExceptionsHandler      http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/exceptions
+	GapsHandler            http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/gaps
+	ThreadsHandler         http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/threads
+	FiltersHandler         http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/filters
 	SearchLogsHandler      http.Handler // GET  /api/v1/analysis/{job_id}/search
 	GetLogEntryHandler     http.Handler // GET  /api/v1/analysis/{job_id}/entries/{entry_id}
 	GetTraceHandler        http.Handler // GET  /api/v1/analysis/{job_id}/trace/{trace_id}
@@ -83,6 +88,11 @@ func NewRouter(cfg RouterConfig) *mux.Router {
 	auth.Handle("/analysis", handlerOrStub(cfg.ListAnalysesHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}", handlerOrStub(cfg.GetAnalysisHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/dashboard", handlerOrStub(cfg.GetDashboardHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/dashboard/aggregates", handlerOrStub(cfg.AggregatesHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/dashboard/exceptions", handlerOrStub(cfg.ExceptionsHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/dashboard/gaps", handlerOrStub(cfg.GapsHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/dashboard/threads", handlerOrStub(cfg.ThreadsHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/dashboard/filters", handlerOrStub(cfg.FiltersHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/search", handlerOrStub(cfg.SearchLogsHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/entries/{entry_id}", handlerOrStub(cfg.GetLogEntryHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/trace/{trace_id}", handlerOrStub(cfg.GetTraceHandler)).Methods(http.MethodGet, http.MethodOptions)

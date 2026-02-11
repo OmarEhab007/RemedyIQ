@@ -231,4 +231,165 @@ type DashboardData struct {
 	TopEscalations []TopNEntry               `json:"top_escalations"`
 	TimeSeries     []TimeSeriesPoint         `json:"time_series"`
 	Distribution   map[string]map[string]int `json:"distribution"`
+	HealthScore    *HealthScore              `json:"health_score,omitempty"`
+}
+
+// --- Enhanced Analysis Dashboard Types ---
+
+// AggregateGroup represents a single aggregation group (e.g., by user, form, queue).
+type AggregateGroup struct {
+	Name         string  `json:"name"`
+	Count        int64   `json:"count"`
+	TotalMS      int64   `json:"total_ms"`
+	AvgMS        float64 `json:"avg_ms"`
+	MinMS        int64   `json:"min_ms"`
+	MaxMS        int64   `json:"max_ms"`
+	ErrorCount   int64   `json:"error_count"`
+	ErrorRate    float64 `json:"error_rate"`
+	UniqueTraces int     `json:"unique_traces"`
+}
+
+// AggregateSection holds groups and an optional grand total for an aggregation.
+type AggregateSection struct {
+	Groups     []AggregateGroup `json:"groups"`
+	GrandTotal *AggregateGroup  `json:"grand_total,omitempty"`
+}
+
+// GapEntry represents a detected gap (idle period) in log activity.
+type GapEntry struct {
+	StartTime  time.Time `json:"start_time"`
+	EndTime    time.Time `json:"end_time"`
+	DurationMS int64     `json:"duration_ms"`
+	BeforeLine int       `json:"before_line"`
+	AfterLine  int       `json:"after_line"`
+	LogType    LogType   `json:"log_type"`
+	Queue      string    `json:"queue,omitempty"`
+	ThreadID   string    `json:"thread_id,omitempty"`
+}
+
+// ThreadStatsEntry holds per-thread statistics from log analysis.
+type ThreadStatsEntry struct {
+	ThreadID    string  `json:"thread_id"`
+	TotalCalls  int64   `json:"total_calls"`
+	TotalMS     int64   `json:"total_ms"`
+	AvgMS       float64 `json:"avg_ms"`
+	MaxMS       int64   `json:"max_ms"`
+	ErrorCount  int64   `json:"error_count"`
+	BusyPct     float64 `json:"busy_pct"`
+	ActiveStart string  `json:"active_start,omitempty"`
+	ActiveEnd   string  `json:"active_end,omitempty"`
+}
+
+// ExceptionEntry represents a single exception/error occurrence from logs.
+type ExceptionEntry struct {
+	ErrorCode   string    `json:"error_code"`
+	Message     string    `json:"message"`
+	Count       int64     `json:"count"`
+	FirstSeen   time.Time `json:"first_seen"`
+	LastSeen    time.Time `json:"last_seen"`
+	LogType     LogType   `json:"log_type"`
+	Queue       string    `json:"queue,omitempty"`
+	Form        string    `json:"form,omitempty"`
+	User        string    `json:"user,omitempty"`
+	SampleLine  int       `json:"sample_line"`
+	SampleTrace string    `json:"sample_trace,omitempty"`
+}
+
+// HealthScoreFactor is a single factor contributing to the overall health score.
+type HealthScoreFactor struct {
+	Name        string  `json:"name"`
+	Score       int     `json:"score"`
+	MaxScore    int     `json:"max_score"`
+	Weight      float64 `json:"weight"`
+	Description string  `json:"description"`
+	Severity    string  `json:"severity"`
+}
+
+// HealthScore represents the overall health assessment of an AR Server log.
+type HealthScore struct {
+	Score   int                 `json:"score"`
+	Status  string              `json:"status"`
+	Factors []HealthScoreFactor `json:"factors"`
+}
+
+// QueueHealthSummary provides per-queue health metrics.
+type QueueHealthSummary struct {
+	Queue      string  `json:"queue"`
+	TotalCalls int64   `json:"total_calls"`
+	AvgMS      float64 `json:"avg_ms"`
+	ErrorRate  float64 `json:"error_rate"`
+	P95MS      int64   `json:"p95_ms"`
+}
+
+// MostExecutedFilter represents a frequently executed filter.
+type MostExecutedFilter struct {
+	Name       string `json:"name"`
+	Count      int64  `json:"count"`
+	TotalMS    int64  `json:"total_ms"`
+}
+
+// FilterPerTransaction holds filter execution metrics per transaction.
+type FilterPerTransaction struct {
+	TransactionID string  `json:"transaction_id"`
+	FilterName    string  `json:"filter_name"`
+	ExecutionCount int    `json:"execution_count"`
+	TotalMS       int64   `json:"total_ms"`
+	AvgMS         float64 `json:"avg_ms"`
+	MaxMS         int64   `json:"max_ms"`
+	Queue         string  `json:"queue,omitempty"`
+	Form          string  `json:"form,omitempty"`
+}
+
+// FilterComplexityData holds aggregated filter complexity analysis data.
+type FilterComplexityData struct {
+	MostExecuted      []MostExecutedFilter   `json:"most_executed"`
+	PerTransaction    []FilterPerTransaction `json:"per_transaction"`
+	TotalFilterTimeMS int64                  `json:"total_filter_time_ms"`
+}
+
+// --- Section Response Types ---
+
+// AggregatesResponse is the API response for the aggregates endpoint.
+type AggregatesResponse struct {
+	API    *AggregateSection `json:"api,omitempty"`
+	SQL    *AggregateSection `json:"sql,omitempty"`
+	Filter *AggregateSection `json:"filter,omitempty"`
+}
+
+// ExceptionsResponse is the API response for the exceptions endpoint.
+type ExceptionsResponse struct {
+	Exceptions []ExceptionEntry   `json:"exceptions"`
+	TotalCount int64              `json:"total_count"`
+	ErrorRates map[string]float64 `json:"error_rates"`
+	TopCodes   []string           `json:"top_codes"`
+}
+
+// GapsResponse is the API response for the gaps endpoint.
+type GapsResponse struct {
+	Gaps        []GapEntry        `json:"gaps"`
+	QueueHealth []QueueHealthSummary `json:"queue_health"`
+}
+
+// ThreadStatsResponse is the API response for the thread stats endpoint.
+type ThreadStatsResponse struct {
+	Threads      []ThreadStatsEntry `json:"threads"`
+	TotalThreads int                `json:"total_threads"`
+}
+
+// FilterComplexityResponse is the API response for the filter complexity endpoint.
+type FilterComplexityResponse struct {
+	MostExecuted      []MostExecutedFilter   `json:"most_executed"`
+	PerTransaction    []FilterPerTransaction `json:"per_transaction"`
+	TotalFilterTimeMS int64                  `json:"total_filter_time_ms"`
+}
+
+// ParseResult wraps the DashboardData with optional section-specific data
+// populated during enhanced analysis.
+type ParseResult struct {
+	Dashboard   *DashboardData            `json:"dashboard"`
+	Aggregates  *AggregatesResponse       `json:"aggregates,omitempty"`
+	Exceptions  *ExceptionsResponse       `json:"exceptions,omitempty"`
+	Gaps        *GapsResponse             `json:"gaps,omitempty"`
+	ThreadStats *ThreadStatsResponse      `json:"thread_stats,omitempty"`
+	Filters     *FilterComplexityResponse `json:"filters,omitempty"`
 }

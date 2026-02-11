@@ -28,14 +28,18 @@ var timestampLayouts = []string{
 }
 
 // ParseOutput parses the plain-text report produced by ARLogAnalyzer.jar
-// into a structured DashboardData value.
+// into a structured ParseResult value containing the DashboardData.
 //
 // The JAR output is organized into sections separated by "===" header
 // lines. Each section contains either key-value statistics or tabular
 // top-N data. This parser is intentionally lenient: unrecognized lines
 // and sections are silently skipped so that minor JAR version differences
 // do not cause hard failures.
-func ParseOutput(output string) (*domain.DashboardData, error) {
+//
+// The returned ParseResult.Dashboard is always populated. Section pointers
+// (Aggregates, Exceptions, Gaps, ThreadStats, Filters) are nil until
+// enhanced analysis populates them in later processing stages.
+func ParseOutput(output string) (*domain.ParseResult, error) {
 	if strings.TrimSpace(output) == "" {
 		return nil, fmt.Errorf("jar parser: empty output")
 	}
@@ -79,7 +83,7 @@ func ParseOutput(output string) (*domain.DashboardData, error) {
 		}
 	}
 
-	return data, nil
+	return &domain.ParseResult{Dashboard: data}, nil
 }
 
 // splitSections splits the JAR output into named sections.
