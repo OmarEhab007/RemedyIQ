@@ -9,6 +9,10 @@ import { useState, useEffect } from "react";
 import type { SearchHit } from "@/hooks/use-search";
 
 export default function ExplorerPage() {
+  return <ExplorerContent />;
+}
+
+function ExplorerContent() {
   const [selectedEntry, setSelectedEntry] = useState<SearchHit | null>(null);
   const [filters, setFilters] = useState<Record<string, string[]>>({});
   const { query, results, loading, error, search, page, goToPage } = useSearch(undefined, filters);

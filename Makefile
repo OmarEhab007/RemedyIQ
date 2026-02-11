@@ -1,7 +1,9 @@
-.PHONY: help dev api worker test lint build migrate-up migrate-down ch-init docker-up docker-down docker-build clean deps
+.PHONY: all help dev api worker frontend test test-coverage lint build migrate-up migrate-down ch-init db-setup docker-up docker-down docker-build docker-logs docker-restart docker-clean clean deps setup run check-services
 
 # Default target
 .DEFAULT_GOAL := help
+
+all: help
 
 # Colors for output
 GREEN  := \033[0;32m
@@ -27,14 +29,19 @@ worker: ## Run worker process locally
 	@echo "$(GREEN)Starting worker...$(RESET)"
 	cd backend && go run ./cmd/worker/...
 
-deps: ## Install Go dependencies
+frontend: ## Run frontend dev server
+	@echo "$(GREEN)Starting frontend dev server...$(RESET)"
+	cd frontend && npm run dev
+
+deps: ## Install all dependencies (Go + npm)
 	@echo "$(GREEN)Installing Go dependencies...$(RESET)"
-	cd backend && go mod download
-	cd backend && go mod tidy
+	cd backend && go mod download && go mod tidy
+	@echo "$(GREEN)Installing frontend dependencies...$(RESET)"
+	cd frontend && npm install
 
 ##@ Testing & Quality
 
-test: ## Run all tests
+test: ## Run all backend tests
 	@echo "$(GREEN)Running tests...$(RESET)"
 	cd backend && go test -v -race -coverprofile=coverage.out ./...
 
@@ -58,22 +65,22 @@ build: ## Build API and Worker binaries
 
 docker-build: ## Build Docker images for API and Frontend
 	@echo "$(GREEN)Building Docker images...$(RESET)"
-	docker build -t remedyiq-api:latest -f backend/Dockerfile backend/
+	docker build -t remedyiq-api:latest -f backend/Dockerfile .
 	docker build -t remedyiq-frontend:latest -f frontend/Dockerfile frontend/
 
 ##@ Database
 
 migrate-up: ## Run PostgreSQL migrations (up)
 	@echo "$(GREEN)Running PostgreSQL migrations...$(RESET)"
-	PGPASSWORD=remedyiq psql -h localhost -U remedyiq -d remedyiq -f backend/migrations/001_initial.up.sql
+	docker compose exec -T postgres psql -U remedyiq -d remedyiq < backend/migrations/001_initial.up.sql
 
 migrate-down: ## Rollback PostgreSQL migrations (down)
 	@echo "$(YELLOW)Rolling back PostgreSQL migrations...$(RESET)"
-	PGPASSWORD=remedyiq psql -h localhost -U remedyiq -d remedyiq -f backend/migrations/001_initial.down.sql
+	docker compose exec -T postgres psql -U remedyiq -d remedyiq < backend/migrations/001_initial.down.sql
 
 ch-init: ## Initialize ClickHouse schema
 	@echo "$(GREEN)Initializing ClickHouse schema...$(RESET)"
-	clickhouse-client --host localhost --port 9000 --queries-file backend/migrations/clickhouse/001_init.sql
+	docker compose exec -T clickhouse clickhouse-client --queries-file /dev/stdin < backend/migrations/clickhouse/001_init.sql
 
 db-setup: docker-up migrate-up ch-init ## Complete database setup (Docker + migrations + ClickHouse)
 	@echo "$(GREEN)Database setup complete!$(RESET)"
@@ -82,17 +89,17 @@ db-setup: docker-up migrate-up ch-init ## Complete database setup (Docker + migr
 
 docker-up: ## Start all infrastructure services (Postgres, ClickHouse, NATS, Redis, MinIO)
 	@echo "$(GREEN)Starting Docker services...$(RESET)"
-	docker-compose up -d
+	docker compose up -d
 	@echo "$(GREEN)Waiting for services to be healthy...$(RESET)"
 	@sleep 5
-	@docker-compose ps
+	@docker compose ps
 
 docker-down: ## Stop all Docker services
 	@echo "$(YELLOW)Stopping Docker services...$(RESET)"
-	docker-compose down
+	docker compose down
 
 docker-logs: ## View logs from all Docker services
-	docker-compose logs -f
+	docker compose logs -f
 
 docker-restart: docker-down docker-up ## Restart all Docker services
 
@@ -102,7 +109,7 @@ docker-clean: ## Remove all Docker volumes (WARNING: destroys all data)
 	read REPLY; \
 	case "$$REPLY" in \
 	  [Yy]*) \
-		docker-compose down -v; \
+		docker compose down -v; \
 		echo "$(GREEN)Volumes removed.$(RESET)";; \
 	esac
 
@@ -117,36 +124,23 @@ clean: ## Clean build artifacts and temporary files
 
 check-services: ## Check health of all services
 	@echo "$(GREEN)Checking service health...$(RESET)"
-	@echo "PostgreSQL:  $$(docker-compose exec -T postgres pg_isready -U remedyiq && echo '✓' || echo '✗')"
-	@echo "ClickHouse:  $$(docker-compose exec -T clickhouse wget -q --spider http://localhost:8123/ping && echo '✓' || echo '✗')"
-	@echo "NATS:        $$(docker-compose exec -T nats wget -q --spider http://localhost:8222/healthz && echo '✓' || echo '✗')"
-	@echo "Redis:       $$(docker-compose exec -T redis redis-cli ping | grep -q PONG && echo '✓' || echo '✗')"
-	@echo "MinIO:       $$(docker-compose exec -T minio curl -f http://localhost:9000/minio/health/live 2>/dev/null && echo '✓' || echo '✗')"
+	@echo "PostgreSQL:  $$(docker compose exec -T postgres pg_isready -U remedyiq >/dev/null 2>&1 && echo '  OK' || echo '  FAIL')"
+	@echo "ClickHouse:  $$(docker compose exec -T clickhouse wget -q --spider http://localhost:8123/ping 2>/dev/null && echo '  OK' || echo '  FAIL')"
+	@echo "NATS:        $$(docker compose exec -T nats wget -q --spider http://localhost:8222/healthz 2>/dev/null && echo '  OK' || echo '  FAIL')"
+	@echo "Redis:       $$(docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q PONG && echo '  OK' || echo '  FAIL')"
+	@echo "MinIO:       $$(curl -sf http://localhost:9002/minio/health/live 2>/dev/null && echo '  OK' || echo '  FAIL')"
+	@echo ""
+	@echo "API Server:  $$(curl -sf http://localhost:8080/api/v1/health 2>/dev/null && echo '  OK' || echo '  NOT RUNNING')"
+	@echo "Frontend:    $$(curl -sf http://localhost:3000 2>/dev/null | head -c1 | grep -q . && echo '  OK' || echo '  NOT RUNNING')"
 
 ##@ Quick Start
 
-setup: deps docker-up db-setup ## Complete initial setup (deps + docker + migrations)
-	@echo "$(GREEN)═══════════════════════════════════════════════════$(RESET)"
-	@echo "$(GREEN)  RemedyIQ Setup Complete!$(RESET)"
-	@echo "$(GREEN)═══════════════════════════════════════════════════$(RESET)"
-	@echo ""
-	@echo "Services available at:"
-	@echo "  PostgreSQL:      localhost:5432"
-	@echo "  ClickHouse HTTP: localhost:8123"
-	@echo "  ClickHouse TCP:  localhost:9000"
-	@echo "  NATS:            localhost:4222"
-	@echo "  NATS Monitor:    http://localhost:8222"
-	@echo "  Redis:           localhost:6379"
-	@echo "  MinIO API:       http://localhost:9002"
-	@echo "  MinIO Console:   http://localhost:9001"
-	@echo ""
-	@echo "Next steps:"
-	@echo "  1. Run '$(YELLOW)make dev$(RESET)' to start API and Worker"
-	@echo "  2. Run '$(YELLOW)cd frontend && npm run dev$(RESET)' to start frontend"
-	@echo ""
+setup: ## Complete initial setup (prerequisites check + docker + migrations + deps)
+	@bash scripts/setup.sh
 
-run: ## Full stack: Start all services + API + Worker (one command)
+run: ## Full stack: Start all services + API + Worker + Frontend (one command)
 	@echo "$(GREEN)Starting full RemedyIQ stack...$(RESET)"
 	@$(MAKE) docker-up
 	@sleep 3
-	@$(MAKE) dev
+	@trap 'kill 0' INT; \
+	$(MAKE) api & $(MAKE) worker & $(MAKE) frontend & wait

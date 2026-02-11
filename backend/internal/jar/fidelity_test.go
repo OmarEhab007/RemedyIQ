@@ -41,8 +41,9 @@ Log End:                Mon Feb 03 2026 18:30:45.678
 Log Duration:           8h 30m 45s
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	require.NotNil(t, data)
 
 	assert.Equal(t, int64(1234567), data.GeneralStats.TotalLines, "comma-separated number parsing")
@@ -65,8 +66,9 @@ Total Lines Processed:  100
 API Calls:              50
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	assert.Equal(t, int64(100), data.GeneralStats.TotalLines)
 	assert.Equal(t, int64(50), data.GeneralStats.APICount)
 	assert.Equal(t, int64(0), data.GeneralStats.SQLCount, "missing fields default to zero")
@@ -84,8 +86,9 @@ func TestFidelity_TopN_PipeDelimited(t *testing.T) {
 | 3    | 9012  | 2026-02-03 16:45:15 | T008 | QUERY | PBM:Problem | System | 2800 | OK |
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	require.Len(t, data.TopAPICalls, 3)
 
 	first := data.TopAPICalls[0]
@@ -111,8 +114,9 @@ func TestFidelity_TopN_WhitespaceAligned(t *testing.T) {
 2  5678  2026-02-03 12:30:00  T012  245  Regular  INSERT  2100  OK
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	assert.NotEmpty(t, data.TopSQL, "should parse whitespace-aligned table")
 
 	// Verify that at least rank and some fields are extracted.
@@ -129,8 +133,9 @@ T008:  2800
 T001:  1845
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	require.Contains(t, data.Distribution, "threads")
 
 	threads := data.Distribution["threads"]
@@ -153,8 +158,9 @@ HPD:Help Desk Template:  2045
 SRM:Request:  890
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	require.Contains(t, data.Distribution, "forms")
 
 	forms := data.Distribution["forms"]
@@ -171,8 +177,9 @@ SRM:Request:  890
 func TestFidelity_Distribution_TabSeparated(t *testing.T) {
 	output := "=== User Distribution ===\nDemo\t6500\nAdmin\t3800\n"
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	require.Contains(t, data.Distribution, "users")
 	assert.Equal(t, 6500, data.Distribution["users"]["Demo"])
 	assert.Equal(t, 3800, data.Distribution["users"]["Admin"])
@@ -185,8 +192,9 @@ Demo:  1,234,567
 Admin:  890,123
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	require.Contains(t, data.Distribution, "users")
 	assert.Equal(t, 1234567, data.Distribution["users"]["Demo"])
 	assert.Equal(t, 890123, data.Distribution["users"]["Admin"])
@@ -245,8 +253,9 @@ HPD:Help Desk:  20000
 CHG:Change:  10000
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 
 	// General stats
 	assert.Equal(t, int64(50000), data.GeneralStats.TotalLines)
@@ -381,8 +390,9 @@ random data here
 more random data
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	assert.Equal(t, int64(100), data.GeneralStats.TotalLines)
 	// Unknown sections should not cause errors
 }
@@ -396,8 +406,9 @@ func TestFidelity_TopN_PipeDelimited_AllColumns(t *testing.T) {
 | 1 | 4523 | 2 | 2026-02-03 10:15:30 | T00000027 | 398 | Fast | GET_ENTRY | HPD:Help Desk | Demo | 5000 | Success | cached result |
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	require.Len(t, data.TopAPICalls, 1)
 
 	entry := data.TopAPICalls[0]
@@ -427,8 +438,9 @@ func TestFidelity_TopN_PipeDelimited_FailedStatus(t *testing.T) {
 | 3 | QUERY | 1000 | OK |
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	require.Len(t, data.TopAPICalls, 3)
 
 	assert.False(t, data.TopAPICalls[0].Success, "Failed status should be false")
@@ -444,8 +456,9 @@ Active:  100
 Inactive:  0
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	require.Contains(t, data.Distribution, "users")
 
 	users := data.Distribution["users"]
@@ -464,8 +477,9 @@ ARERR[9352] Permission denied:  25
 ORA-00942 table or view:  10
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	require.Contains(t, data.Distribution, "errors")
 
 	errors := data.Distribution["errors"]
@@ -483,8 +497,9 @@ func TestFidelity_Distribution_EmptySection(t *testing.T) {
 Total Lines Processed:  100
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	assert.Equal(t, int64(100), data.GeneralStats.TotalLines)
 	// Empty distribution sections should not create map entries.
 	_, hasThreads := data.Distribution["threads"]
@@ -500,8 +515,9 @@ func TestFidelity_TopN_EmptySection(t *testing.T) {
 Total Lines Processed:  100
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	assert.Empty(t, data.TopAPICalls, "empty top-N section should produce empty slice")
 	assert.Equal(t, int64(100), data.GeneralStats.TotalLines)
 }
@@ -528,8 +544,9 @@ API Calls:              200
 ---
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	assert.Equal(t, int64(500), data.GeneralStats.TotalLines)
 	assert.Equal(t, int64(200), data.GeneralStats.APICount)
 }
@@ -589,8 +606,9 @@ Total Lines Processed:  200
 API Calls:              100
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 
 	assert.Equal(t, int64(200), data.GeneralStats.TotalLines)
 	assert.Equal(t, 100, data.Distribution["forms"]["HPD:Help Desk"])
@@ -607,8 +625,9 @@ func TestFidelity_TopN_PipeDelimited_MinimalColumns(t *testing.T) {
 | 2 | SET_ENTRY |
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	require.Len(t, data.TopAPICalls, 2)
 	assert.Equal(t, 1, data.TopAPICalls[0].Rank)
 	assert.Equal(t, "GET_ENTRY", data.TopAPICalls[0].Identifier)
@@ -625,8 +644,9 @@ API Calls:  200
 SQL Operations:                  150
 `
 
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	assert.Equal(t, int64(500), data.GeneralStats.TotalLines)
 	assert.Equal(t, int64(200), data.GeneralStats.APICount)
 	assert.Equal(t, int64(150), data.GeneralStats.SQLCount)
@@ -643,10 +663,12 @@ Admin:  50
 `
 	tabOutput := "=== User Statistics ===\nDemo\t100\nAdmin\t50\n"
 
-	colonData, err := ParseOutput(colonOutput)
+	colonResult, err := ParseOutput(colonOutput)
 	require.NoError(t, err)
-	tabData, err := ParseOutput(tabOutput)
+	colonData := colonResult.Dashboard
+	tabResult, err := ParseOutput(tabOutput)
 	require.NoError(t, err)
+	tabData := tabResult.Dashboard
 
 	assert.Equal(t, 100, colonData.Distribution["users"]["Demo"])
 	assert.Equal(t, 100, tabData.Distribution["users"]["Demo"])

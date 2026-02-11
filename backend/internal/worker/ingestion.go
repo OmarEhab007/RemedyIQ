@@ -19,6 +19,7 @@ type Pipeline struct {
 	pg      *storage.PostgresClient
 	ch      *storage.ClickHouseClient
 	s3      *storage.S3Client
+	redis   *storage.RedisClient
 	nats    *streaming.NATSClient
 	jar     *jar.Runner
 	anomaly *AnomalyDetector
@@ -28,11 +29,12 @@ func NewPipeline(
 	pg *storage.PostgresClient,
 	ch *storage.ClickHouseClient,
 	s3 *storage.S3Client,
+	redis *storage.RedisClient,
 	nats *streaming.NATSClient,
 	jarRunner *jar.Runner,
 	anomalyDetector *AnomalyDetector,
 ) *Pipeline {
-	return &Pipeline{pg: pg, ch: ch, s3: s3, nats: nats, jar: jarRunner, anomaly: anomalyDetector}
+	return &Pipeline{pg: pg, ch: ch, s3: s3, redis: redis, nats: nats, jar: jarRunner, anomaly: anomalyDetector}
 }
 
 // ProcessJob runs the full ingestion pipeline for an analysis job.
@@ -102,10 +104,11 @@ func (p *Pipeline) ProcessJob(ctx context.Context, job domain.AnalysisJob) error
 	_ = p.nats.PublishJobProgress(ctx, tenantID, jobID, 75, string(domain.JobStatusAnalyzing), "parsing JAR output")
 
 	// 5. Parse JAR output.
-	dashboard, err := jar.ParseOutput(result.Stdout)
+	parseResult, err := jar.ParseOutput(result.Stdout)
 	if err != nil {
 		return p.failJob(ctx, job, "parse output: "+err.Error())
 	}
+	dashboard := parseResult.Dashboard
 
 	// 5b. Run anomaly detection on parsed dashboard data.
 	var anomalies []Anomaly
@@ -115,6 +118,37 @@ func (p *Pipeline) ProcessJob(ctx context.Context, job domain.AnalysisJob) error
 			logger.Info("anomaly detection complete",
 				"total_anomalies", len(anomalies),
 			)
+		}
+	}
+
+	// 5c. Cache section data in Redis for lazy-loaded dashboard sections.
+	if p.redis != nil {
+		sectionTTL := 24 * time.Hour
+		cachePrefix := p.redis.TenantKey(tenantID, "dashboard", jobID)
+		if parseResult.Aggregates != nil {
+			if err := p.redis.Set(ctx, cachePrefix+":agg", parseResult.Aggregates, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "agg", "error", err)
+			}
+		}
+		if parseResult.Exceptions != nil {
+			if err := p.redis.Set(ctx, cachePrefix+":exc", parseResult.Exceptions, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "exc", "error", err)
+			}
+		}
+		if parseResult.Gaps != nil {
+			if err := p.redis.Set(ctx, cachePrefix+":gaps", parseResult.Gaps, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "gaps", "error", err)
+			}
+		}
+		if parseResult.ThreadStats != nil {
+			if err := p.redis.Set(ctx, cachePrefix+":threads", parseResult.ThreadStats, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "threads", "error", err)
+			}
+		}
+		if parseResult.Filters != nil {
+			if err := p.redis.Set(ctx, cachePrefix+":filters", parseResult.Filters, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "filters", "error", err)
+			}
 		}
 	}
 

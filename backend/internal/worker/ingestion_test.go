@@ -19,7 +19,7 @@ import (
 
 // TestNewPipeline verifies pipeline construction with nil dependencies.
 func TestNewPipeline(t *testing.T) {
-	p := NewPipeline(nil, nil, nil, nil, nil, nil)
+	p := NewPipeline(nil, nil, nil, nil, nil, nil, nil)
 	assert.NotNil(t, p)
 }
 
@@ -28,7 +28,7 @@ func TestNewPipeline(t *testing.T) {
 // UpdateJobStatus. This ensures the pipeline does not silently ignore a
 // misconfigured dependency.
 func TestProcessJob_NilPGClient(t *testing.T) {
-	p := NewPipeline(nil, nil, nil, nil, nil, nil)
+	p := NewPipeline(nil, nil, nil, nil, nil, nil, nil)
 
 	job := domain.AnalysisJob{
 		ID:       uuid.New(),
@@ -47,7 +47,7 @@ func TestProcessJob_NilPGClient(t *testing.T) {
 // the panic occurs regardless of context state (the nil dereference
 // happens before the context is inspected).
 func TestProcessJob_CancelledContext(t *testing.T) {
-	p := NewPipeline(nil, nil, nil, nil, nil, nil)
+	p := NewPipeline(nil, nil, nil, nil, nil, nil, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
@@ -116,8 +116,9 @@ PBM:Problem:  2100
 HPD:Help Desk Template:  2045
 `
 
-	data, err := jar.ParseOutput(sampleOutput)
+	result, err := jar.ParseOutput(sampleOutput)
 	require.NoError(t, err, "ParseOutput should succeed on valid sample input")
+	data := result.Dashboard
 	require.NotNil(t, data)
 
 	// -- General statistics --
@@ -196,8 +197,9 @@ func TestParseOutput_MinimalValid(t *testing.T) {
 	minimal := `=== General Statistics ===
 Total Lines Processed:  100
 `
-	data, err := jar.ParseOutput(minimal)
+	result, err := jar.ParseOutput(minimal)
 	require.NoError(t, err)
+	data := result.Dashboard
 	require.NotNil(t, data)
 	assert.Equal(t, int64(100), data.GeneralStats.TotalLines)
 }
@@ -218,8 +220,9 @@ Key2: value2
 |------|------------|--------------|--------|
 | 1    | GET_ENTRY  | 1000         | OK     |
 `
-	data, err := jar.ParseOutput(output)
+	result, err := jar.ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	assert.Equal(t, int64(500), data.GeneralStats.TotalLines)
 	require.Len(t, data.TopAPICalls, 1)
 	assert.Equal(t, "GET_ENTRY", data.TopAPICalls[0].Identifier)
@@ -232,8 +235,9 @@ func TestParseOutput_CommasInNumbers(t *testing.T) {
 Total Lines Processed:  1,234,567
 API Calls:              890,123
 `
-	data, err := jar.ParseOutput(output)
+	result, err := jar.ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	assert.Equal(t, int64(1234567), data.GeneralStats.TotalLines)
 	assert.Equal(t, int64(890123), data.GeneralStats.APICount)
 }
@@ -243,10 +247,11 @@ API Calls:              890,123
 func TestPipelineFieldsStoredCorrectly(t *testing.T) {
 	// We cannot construct real clients without services, but we can verify
 	// that all-nil creates a valid struct with the expected zero-valued fields.
-	p := NewPipeline(nil, nil, nil, nil, nil, nil)
+	p := NewPipeline(nil, nil, nil, nil, nil, nil, nil)
 	assert.Nil(t, p.pg)
 	assert.Nil(t, p.ch)
 	assert.Nil(t, p.s3)
+	assert.Nil(t, p.redis)
 	assert.Nil(t, p.nats)
 	assert.Nil(t, p.jar)
 	assert.Nil(t, p.anomaly)
@@ -256,7 +261,7 @@ func TestPipelineFieldsStoredCorrectly(t *testing.T) {
 // field is correctly stored when provided.
 func TestPipelineFieldsStoredWithDetector(t *testing.T) {
 	detector := NewAnomalyDetector(3.0)
-	p := NewPipeline(nil, nil, nil, nil, nil, detector)
+	p := NewPipeline(nil, nil, nil, nil, nil, nil, detector)
 	assert.NotNil(t, p.anomaly)
 }
 
@@ -276,7 +281,7 @@ func TestAnalysisJobDefaults(t *testing.T) {
 // handles empty dashboard data gracefully.
 func TestDetectAnomalies_EmptyDashboard(t *testing.T) {
 	detector := NewAnomalyDetector(3.0)
-	p := NewPipeline(nil, nil, nil, nil, nil, detector)
+	p := NewPipeline(nil, nil, nil, nil, nil, nil, detector)
 
 	dashboard := &domain.DashboardData{}
 	anomalies := p.detectAnomalies(context.Background(), "job-1", "tenant-1", dashboard)
@@ -289,7 +294,7 @@ func TestDetectAnomalies_EmptyDashboard(t *testing.T) {
 // outlier exceeds 2 sigma with sample standard deviation.
 func TestDetectAnomalies_WithData(t *testing.T) {
 	detector := NewAnomalyDetector(2.0) // lower threshold to trigger on test data
-	p := NewPipeline(nil, nil, nil, nil, nil, detector)
+	p := NewPipeline(nil, nil, nil, nil, nil, nil, detector)
 
 	dashboard := &domain.DashboardData{
 		TopAPICalls: []domain.TopNEntry{

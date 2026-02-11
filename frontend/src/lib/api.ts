@@ -93,6 +93,132 @@ export interface DashboardData {
   top_escalations: TopNEntry[];
   time_series: TimeSeriesPoint[];
   distribution: Record<string, Record<string, number>>;
+  health_score?: HealthScore | null;
+}
+
+// --- Enhanced Analysis Dashboard Types ---
+
+export interface AggregateGroup {
+  name: string;
+  count: number;
+  total_ms: number;
+  avg_ms: number;
+  min_ms: number;
+  max_ms: number;
+  error_count: number;
+  error_rate: number;
+  unique_traces: number;
+}
+
+export interface AggregateSection {
+  groups: AggregateGroup[];
+  grand_total?: AggregateGroup;
+}
+
+export interface AggregatesResponse {
+  api?: AggregateSection;
+  sql?: AggregateSection;
+  filter?: AggregateSection;
+}
+
+export interface GapEntry {
+  start_time: string;
+  end_time: string;
+  duration_ms: number;
+  before_line: number;
+  after_line: number;
+  log_type: string;
+  queue?: string;
+  thread_id?: string;
+}
+
+export interface QueueHealthSummary {
+  queue: string;
+  total_calls: number;
+  avg_ms: number;
+  error_rate: number;
+  p95_ms: number;
+}
+
+export interface GapsResponse {
+  gaps: GapEntry[];
+  queue_health: QueueHealthSummary[];
+}
+
+export interface ThreadStatsEntry {
+  thread_id: string;
+  total_calls: number;
+  total_ms: number;
+  avg_ms: number;
+  max_ms: number;
+  error_count: number;
+  busy_pct: number;
+  active_start?: string;
+  active_end?: string;
+}
+
+export interface ThreadStatsResponse {
+  threads: ThreadStatsEntry[];
+  total_threads: number;
+}
+
+export interface ExceptionEntry {
+  error_code: string;
+  message: string;
+  count: number;
+  first_seen: string;
+  last_seen: string;
+  log_type: string;
+  queue?: string;
+  form?: string;
+  user?: string;
+  sample_line: number;
+  sample_trace?: string;
+}
+
+export interface ExceptionsResponse {
+  exceptions: ExceptionEntry[];
+  total_count: number;
+  error_rates: Record<string, number>;
+  top_codes: string[];
+}
+
+export interface MostExecutedFilter {
+  name: string;
+  count: number;
+  total_ms: number;
+}
+
+export interface FilterPerTransaction {
+  transaction_id: string;
+  filter_name: string;
+  execution_count: number;
+  total_ms: number;
+  avg_ms: number;
+  max_ms: number;
+  queue?: string;
+  form?: string;
+}
+
+export interface FilterComplexityResponse {
+  most_executed: MostExecutedFilter[];
+  per_transaction: FilterPerTransaction[];
+  total_filter_time_ms: number;
+}
+
+export interface HealthScoreFactor {
+  name: string;
+  score: number;
+  max_score: number;
+  weight: number;
+  description: string;
+  severity: string;
+}
+
+export interface HealthScore {
+  score: number;
+  status: string;
+  factors: HealthScoreFactor[];
 }
 
 export interface Pagination {
@@ -213,14 +339,58 @@ export async function getAnalysis(
   jobId: string,
   token?: string,
 ): Promise<AnalysisJob> {
-  return apiFetch<AnalysisJob>(`/analysis/${jobId}`, {}, token);
+  const id = encodeURIComponent(jobId);
+  return apiFetch<AnalysisJob>(`/analysis/${id}`, {}, token);
 }
 
 export async function getDashboard(
   jobId: string,
   token?: string,
 ): Promise<DashboardData> {
-  return apiFetch<DashboardData>(`/analysis/${jobId}/dashboard`, {}, token);
+  const id = encodeURIComponent(jobId);
+  return apiFetch<DashboardData>(`/analysis/${id}/dashboard`, {}, token);
+}
+
+export async function getDashboardAggregates(
+  jobId: string,
+  type?: string,
+  token?: string,
+): Promise<AggregatesResponse> {
+  const params = type ? `?${new URLSearchParams({ type }).toString()}` : "";
+  const id = encodeURIComponent(jobId);
+  return apiFetch<AggregatesResponse>(`/analysis/${id}/dashboard/aggregates${params}`, {}, token);
+}
+
+export async function getDashboardExceptions(
+  jobId: string,
+  token?: string,
+): Promise<ExceptionsResponse> {
+  const id = encodeURIComponent(jobId);
+  return apiFetch<ExceptionsResponse>(`/analysis/${id}/dashboard/exceptions`, {}, token);
+}
+
+export async function getDashboardGaps(
+  jobId: string,
+  token?: string,
+): Promise<GapsResponse> {
+  const id = encodeURIComponent(jobId);
+  return apiFetch<GapsResponse>(`/analysis/${id}/dashboard/gaps`, {}, token);
+}
+
+export async function getDashboardThreads(
+  jobId: string,
+  token?: string,
+): Promise<ThreadStatsResponse> {
+  const id = encodeURIComponent(jobId);
+  return apiFetch<ThreadStatsResponse>(`/analysis/${id}/dashboard/threads`, {}, token);
+}
+
+export async function getDashboardFilters(
+  jobId: string,
+  token?: string,
+): Promise<FilterComplexityResponse> {
+  const id = encodeURIComponent(jobId);
+  return apiFetch<FilterComplexityResponse>(`/analysis/${id}/dashboard/filters`, {}, token);
 }
 
 export interface ReportResponse {
@@ -236,7 +406,8 @@ export async function generateReport(
   format: string = "html",
   token?: string,
 ): Promise<ReportResponse> {
-  return apiFetch<ReportResponse>(`/analysis/${jobId}/report`, {
+  const id = encodeURIComponent(jobId);
+  return apiFetch<ReportResponse>(`/analysis/${id}/report`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ format }),

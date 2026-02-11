@@ -316,8 +316,9 @@ Log Start:              Mon Feb 03 2026 10:00:00.123
 Log End:                Mon Feb 03 2026 18:30:45.678
 Log Duration:           8h 30m 45s
 `
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 
 	stats := data.GeneralStats
 	assert.Equal(t, int64(1234567), stats.TotalLines)
@@ -339,8 +340,9 @@ func TestParseOutput_GeneralStatistics_WithCommas(t *testing.T) {
 Total Lines Processed:  1,234,567
 API Calls:              890,123
 `
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 
 	assert.Equal(t, int64(1234567), data.GeneralStats.TotalLines)
 	assert.Equal(t, int64(890123), data.GeneralStats.APICount)
@@ -355,8 +357,9 @@ func TestParseOutput_TopNAPIPipeFormat(t *testing.T) {
 | 2 | 1200 | 1 | 2026-02-03 10:00:01 | T00000025 | 392 | List | GE | CHG:Infrastructure Change | Admin | 2500 | Success |
 | 3 | 8901 | 1 | 2026-02-03 10:00:09 | T00000031 | 404 | List | GE | PBM:Problem Investigation | Admin | 1800 | Success |
 `
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 
 	require.Len(t, data.TopAPICalls, 3)
 
@@ -382,8 +385,9 @@ func TestParseOutput_TopNSQLPipeFormat(t *testing.T) {
 | 1 | 3012 | SELECT "EN1" FROM "T00082" | 310 | Success |
 | 2 | 1530 | SELECT "EN1" FROM "T00045" | 220 | Success |
 `
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	require.Len(t, data.TopSQL, 2)
 
 	assert.Equal(t, 1, data.TopSQL[0].Rank)
@@ -405,8 +409,9 @@ func TestParseOutput_TopNFilterAndEscalation(t *testing.T) {
 | 1 | 2345 | CHG:Esc-ChangeApproval | 1200 | Success |
 | 2 | 1234 | HPD:Esc-SLA-Resolve | 500 | Success |
 `
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 
 	require.Len(t, data.TopFilters, 2)
 	assert.Equal(t, "CHG:Change_StatusHistory", data.TopFilters[0].Identifier)
@@ -424,8 +429,9 @@ T00000025:  4
 T00000027:  3
 T00000026:  3
 `
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 
 	threads, ok := data.Distribution["threads"]
 	require.True(t, ok, "distribution should have a 'threads' key")
@@ -440,8 +446,9 @@ ARERR[302] Entry does not exist:  5
 ARERR[9352] Permission denied:    2
 ORA-00942 table or view:           1
 `
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 
 	errors, ok := data.Distribution["errors"]
 	require.True(t, ok)
@@ -457,8 +464,9 @@ Admin:      6
 TestUser:   3
 ARSystem:   2
 `
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 
 	users, ok := data.Distribution["users"]
 	require.True(t, ok)
@@ -473,8 +481,9 @@ HPD:Help Desk:               10
 CHG:Infrastructure Change:    4
 CTM:People:                   3
 `
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 
 	forms, ok := data.Distribution["forms"]
 	require.True(t, ok, "distribution should have a 'forms' key")
@@ -517,8 +526,9 @@ Log Duration:           12.877s
 T00000024:  6
 T00000025:  4
 `
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 
 	// General stats.
 	assert.Equal(t, int64(50), data.GeneralStats.TotalLines)
@@ -547,8 +557,9 @@ No crash should occur.
 === General Statistics ===
 Total Lines Processed:  100
 `
-	data, err := ParseOutput(output)
+	result, err := ParseOutput(output)
 	require.NoError(t, err)
+	data := result.Dashboard
 	assert.Equal(t, int64(100), data.GeneralStats.TotalLines)
 }
 
@@ -742,8 +753,9 @@ func TestParseOutput_FullReport(t *testing.T) {
 		"",
 	}, "\n")
 
-	data, err := ParseOutput(report)
+	result, err := ParseOutput(report)
 	require.NoError(t, err)
+	data := result.Dashboard
 
 	// General statistics.
 	assert.Equal(t, int64(51), data.GeneralStats.TotalLines)
