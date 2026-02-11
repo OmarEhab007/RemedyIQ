@@ -1,4 +1,4 @@
-.PHONY: all help dev api worker frontend test lint build migrate-up migrate-down ch-init docker-up docker-down docker-build clean deps setup run check-services
+.PHONY: all help dev api worker frontend test test-coverage lint build migrate-up migrate-down ch-init db-setup docker-up docker-down docker-build docker-logs docker-restart docker-clean clean deps setup run check-services
 
 # Default target
 .DEFAULT_GOAL := help
@@ -124,7 +124,7 @@ clean: ## Clean build artifacts and temporary files
 
 check-services: ## Check health of all services
 	@echo "$(GREEN)Checking service health...$(RESET)"
-	@echo "PostgreSQL:  $$(docker compose exec -T postgres pg_isready -U remedyiq 2>/dev/null && echo '  OK' || echo '  FAIL')"
+	@echo "PostgreSQL:  $$(docker compose exec -T postgres pg_isready -U remedyiq >/dev/null 2>&1 && echo '  OK' || echo '  FAIL')"
 	@echo "ClickHouse:  $$(docker compose exec -T clickhouse wget -q --spider http://localhost:8123/ping 2>/dev/null && echo '  OK' || echo '  FAIL')"
 	@echo "NATS:        $$(docker compose exec -T nats wget -q --spider http://localhost:8222/healthz 2>/dev/null && echo '  OK' || echo '  FAIL')"
 	@echo "Redis:       $$(docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q PONG && echo '  OK' || echo '  FAIL')"

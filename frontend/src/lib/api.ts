@@ -339,14 +339,16 @@ export async function getAnalysis(
   jobId: string,
   token?: string,
 ): Promise<AnalysisJob> {
-  return apiFetch<AnalysisJob>(`/analysis/${jobId}`, {}, token);
+  const id = encodeURIComponent(jobId);
+  return apiFetch<AnalysisJob>(`/analysis/${id}`, {}, token);
 }
 
 export async function getDashboard(
   jobId: string,
   token?: string,
 ): Promise<DashboardData> {
-  return apiFetch<DashboardData>(`/analysis/${jobId}/dashboard`, {}, token);
+  const id = encodeURIComponent(jobId);
+  return apiFetch<DashboardData>(`/analysis/${id}/dashboard`, {}, token);
 }
 
 export async function getDashboardAggregates(
@@ -404,7 +406,8 @@ export async function generateReport(
   format: string = "html",
   token?: string,
 ): Promise<ReportResponse> {
-  return apiFetch<ReportResponse>(`/analysis/${jobId}/report`, {
+  const id = encodeURIComponent(jobId);
+  return apiFetch<ReportResponse>(`/analysis/${id}/report`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ format }),
