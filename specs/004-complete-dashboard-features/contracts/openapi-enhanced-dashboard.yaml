@@ -8,6 +8,9 @@ servers:
   - url: http://localhost:8080/api/v1
     description: Local development
 
+security:
+  - bearerAuth: []
+
 paths:
   /analysis/{job_id}/dashboard:
     get:
@@ -144,6 +147,12 @@ paths:
           $ref: "#/components/responses/Conflict"
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   parameters:
     JobId:
       name: job_id
@@ -186,7 +195,7 @@ components:
 
     DashboardData:
       type: object
-      required: [general_stats, top_api_calls, top_sql_statements, top_filters, top_escalations, time_series, distribution]
+      required: [general_stats, top_api_calls, top_sql_statements, top_filters, top_escalations, time_series, distribution, health_score]
       properties:
         general_stats:
           $ref: "#/components/schemas/GeneralStatistics"

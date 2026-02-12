@@ -1144,8 +1144,7 @@ func (c *ClickHouseClient) GetFilterComplexity(ctx context.Context, tenantID, jo
 		clickhouse.Named("jobID", jobID),
 	)
 	if err := row.Scan(&totalMS); err != nil {
-		// If no rows, total is 0
-		totalMS = 0
+		return nil, fmt.Errorf("clickhouse: filter total time: %w", err)
 	}
 	resp.TotalFilterTimeMS = totalMS
 

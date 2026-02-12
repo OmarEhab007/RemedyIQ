@@ -164,15 +164,15 @@ export function AggregatesSection({ data, loading, error, refetch }: AggregatesS
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {groups.map((group, idx) => (
-                <tr key={idx} className="hover:bg-muted/60">
+              {groups.map((group) => (
+                <tr key={group.name} className="hover:bg-muted/60">
                   <td className="px-4 py-3 text-sm font-medium text-foreground">
                     {group.name}
                   </td>
                   <td className="px-4 py-3 text-sm text-foreground">
                     {group.count.toLocaleString()}
                   </td>
-                  <td className="px-4 py-3 text-sm text-green-600">
+                  <td className="px-4 py-3 text-sm text-emerald-600">
                     {(group.count - group.error_count).toLocaleString()}
                   </td>
                   <td className="px-4 py-3 text-sm text-destructive">
@@ -193,12 +193,12 @@ export function AggregatesSection({ data, loading, error, refetch }: AggregatesS
                 </tr>
               ))}
               {grandTotal && (
-                <tr className="bg-gray-100 font-bold">
+                <tr className="bg-muted font-bold">
                   <td className="px-4 py-3 text-sm">Grand Total</td>
                   <td className="px-4 py-3 text-sm">
                     {grandTotal.count.toLocaleString()}
                   </td>
-                  <td className="px-4 py-3 text-sm text-green-600">
+                  <td className="px-4 py-3 text-sm text-emerald-600">
                     {(grandTotal.count - grandTotal.error_count).toLocaleString()}
                   </td>
                   <td className="px-4 py-3 text-sm text-destructive">
