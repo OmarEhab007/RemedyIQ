@@ -2,13 +2,28 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { getDashboard, type DashboardData } from "@/lib/api";
+import {
+  getDashboard,
+  getDashboardAggregates,
+  getDashboardExceptions,
+  getDashboardGaps,
+  getDashboardThreads,
+  getDashboardFilters,
+  type DashboardData,
+} from "@/lib/api";
+import { useLazySection } from "@/hooks/use-lazy-section";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { TopNTable } from "@/components/dashboard/top-n-table";
 import { TimeSeriesChart } from "@/components/dashboard/time-series-chart";
 import { DistributionChart } from "@/components/dashboard/distribution-chart";
 import { AnomalyAlerts } from "@/components/dashboard/anomaly-alerts";
 import { ReportButton } from "@/components/dashboard/report-button";
+import { HealthScoreCard } from "@/components/dashboard/health-score-card";
+import { AggregatesSection } from "@/components/dashboard/aggregates-section";
+import { ExceptionsSection } from "@/components/dashboard/exceptions-section";
+import { GapsSection } from "@/components/dashboard/gaps-section";
+import { ThreadsSection } from "@/components/dashboard/threads-section";
+import { FiltersSection } from "@/components/dashboard/filters-section";
 
 interface Anomaly {
   id: string;
@@ -28,7 +43,7 @@ export default function AnalysisPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
+  const anomalies: Anomaly[] = [];
 
   useEffect(() => {
     if (!params.id) return;
@@ -36,13 +51,9 @@ export default function AnalysisPage() {
     async function fetchDashboard() {
       try {
         setLoading(true);
-        setError(null); // Reset error state before re-fetching
+        setError(null);
         const dashboard = await getDashboard(params.id);
         setData(dashboard);
-
-        // TODO: Fetch anomalies from API when endpoint is available
-        // For now, anomalies can be extracted from dashboard response if available
-        // Example: if (dashboard.anomalies) setAnomalies(dashboard.anomalies);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load dashboard");
       } finally {
@@ -52,6 +63,13 @@ export default function AnalysisPage() {
 
     fetchDashboard();
   }, [params.id]);
+
+  // Lazy-loaded sections
+  const aggregates = useLazySection(() => getDashboardAggregates(params.id));
+  const exceptions = useLazySection(() => getDashboardExceptions(params.id));
+  const gaps = useLazySection(() => getDashboardGaps(params.id));
+  const threads = useLazySection(() => getDashboardThreads(params.id));
+  const filters = useLazySection(() => getDashboardFilters(params.id));
 
   if (loading) {
     return (
@@ -83,6 +101,8 @@ export default function AnalysisPage() {
         <ReportButton jobId={params.id} />
       </div>
 
+      <HealthScoreCard healthScore={data.health_score} />
+
       <AnomalyAlerts anomalies={anomalies} jobId={params.id} />
 
       <StatsCards stats={data.general_stats} />
@@ -97,7 +117,54 @@ export default function AnalysisPage() {
         sqlStatements={data.top_sql_statements || []}
         filters={data.top_filters || []}
         escalations={data.top_escalations || []}
+        jobId={params.id}
       />
+
+      {/* Lazy-loaded sections */}
+      <div ref={aggregates.ref}>
+        <AggregatesSection
+          data={aggregates.data}
+          loading={aggregates.loading}
+          error={aggregates.error}
+          refetch={aggregates.refetch}
+        />
+      </div>
+
+      <div ref={exceptions.ref}>
+        <ExceptionsSection
+          data={exceptions.data}
+          loading={exceptions.loading}
+          error={exceptions.error}
+          refetch={exceptions.refetch}
+        />
+      </div>
+
+      <div ref={gaps.ref}>
+        <GapsSection
+          data={gaps.data}
+          loading={gaps.loading}
+          error={gaps.error}
+          refetch={gaps.refetch}
+        />
+      </div>
+
+      <div ref={threads.ref}>
+        <ThreadsSection
+          data={threads.data}
+          loading={threads.loading}
+          error={threads.error}
+          refetch={threads.refetch}
+        />
+      </div>
+
+      <div ref={filters.ref}>
+        <FiltersSection
+          data={filters.data}
+          loading={filters.loading}
+          error={filters.error}
+          refetch={filters.refetch}
+        />
+      </div>
     </div>
   );
 }

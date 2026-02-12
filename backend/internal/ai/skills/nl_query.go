@@ -3,18 +3,28 @@ package skills
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"strings"
+	"time"
 
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/ai"
+	"github.com/OmarEhab007/RemedyIQ/backend/internal/storage"
 )
 
 // NLQuerySkill converts natural language to KQL and searches logs.
 type NLQuerySkill struct {
 	client *ai.Client
+	ch     *storage.ClickHouseClient
+	logger *slog.Logger
 }
 
 // NewNLQuerySkill creates a new natural language query skill.
-func NewNLQuerySkill(client *ai.Client) *NLQuerySkill {
-	return &NLQuerySkill{client: client}
+func NewNLQuerySkill(client *ai.Client, ch *storage.ClickHouseClient) *NLQuerySkill {
+	return &NLQuerySkill{
+		client: client,
+		ch:     ch,
+		logger: slog.Default().With("skill", "nl_query"),
+	}
 }
 
 func (s *NLQuerySkill) Name() string        { return "nl_query" }
@@ -29,9 +39,18 @@ func (s *NLQuerySkill) Examples() []string {
 }
 
 func (s *NLQuerySkill) Execute(ctx context.Context, input ai.SkillInput) (*ai.SkillOutput, error) {
-	if s.client == nil || !s.client.IsAvailable() {
-		return s.fallback(), nil
+	if err := validateInput(input); err != nil {
+		return nil, err
 	}
+
+	if s.client == nil || !s.client.IsAvailable() {
+		s.logger.Warn("AI client unavailable, returning fallback",
+			"job_id", input.JobID, "tenant_id", input.TenantID)
+		return fallbackOutput(s.Name()), nil
+	}
+
+	// Fetch contextual data from ClickHouse to enrich the AI prompt.
+	logContext := s.fetchLogContext(ctx, input.TenantID, input.JobID)
 
 	systemPrompt := `You are RemedyIQ, an AI assistant that helps AR Server administrators analyze log files.
 You convert natural language questions about AR Server logs into structured analysis.
@@ -46,13 +65,21 @@ If you can't determine the exact answer from context, explain what additional in
 
 Format your response in markdown. Use **bold** for important values and inline code for technical identifiers.`
 
+	userContent := fmt.Sprintf("Job ID: %s\nTenant ID: %s\n\n%s\n\nQuestion: %s",
+		input.JobID, input.TenantID, logContext, input.Query)
+
 	messages := []ai.Message{
-		{Role: "user", Content: fmt.Sprintf("Job ID: %s\n\nQuestion: %s", input.JobID, input.Query)},
+		{Role: "user", Content: userContent},
 	}
 
-	resp, err := s.client.Query(ctx, systemPrompt, messages, 2048)
+	queryCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	resp, err := s.client.Query(queryCtx, systemPrompt, messages, 2048)
 	if err != nil {
-		return s.fallback(), nil
+		s.logger.Error("AI query failed, returning fallback",
+			"error", err, "job_id", input.JobID, "tenant_id", input.TenantID)
+		return fallbackOutput(s.Name()), nil
 	}
 
 	return &ai.SkillOutput{
@@ -65,10 +92,50 @@ Format your response in markdown. Use **bold** for important values and inline c
 	}, nil
 }
 
-func (s *NLQuerySkill) fallback() *ai.SkillOutput {
-	return &ai.SkillOutput{
-		Answer:     "AI service is currently unavailable. Try searching manually using KQL syntax (e.g., type:api AND duration:>1000).",
-		Confidence: 0.0,
-		SkillName:  s.Name(),
+// fetchLogContext queries ClickHouse for summary statistics to include in the
+// AI prompt. If the query fails, it returns a note indicating that data could
+// not be fetched so the AI can still attempt to answer.
+func (s *NLQuerySkill) fetchLogContext(ctx context.Context, tenantID, jobID string) string {
+	if s.ch == nil {
+		return "(No log data available -- ClickHouse not configured.)"
 	}
+
+	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	dash, err := s.ch.GetDashboardData(queryCtx, tenantID, jobID, 10)
+	if err != nil {
+		s.logger.Warn("failed to fetch log context from ClickHouse",
+			"error", err, "job_id", jobID, "tenant_id", tenantID)
+		return "(Log data could not be retrieved. Please answer based on general AR Server knowledge.)"
+	}
+
+	stats := dash.GeneralStats
+	var b strings.Builder
+	b.WriteString("## Log Summary Data\n")
+	fmt.Fprintf(&b, "- Total log lines: %d\n", stats.TotalLines)
+	fmt.Fprintf(&b, "- API calls: %d\n", stats.APICount)
+	fmt.Fprintf(&b, "- SQL queries: %d\n", stats.SQLCount)
+	fmt.Fprintf(&b, "- Filter executions: %d\n", stats.FilterCount)
+	fmt.Fprintf(&b, "- Escalations: %d\n", stats.EscCount)
+	fmt.Fprintf(&b, "- Unique users: %d\n", stats.UniqueUsers)
+	fmt.Fprintf(&b, "- Unique forms: %d\n", stats.UniqueForms)
+	fmt.Fprintf(&b, "- Log time range: %s to %s (%s)\n",
+		stats.LogStart.Format(time.RFC3339), stats.LogEnd.Format(time.RFC3339), stats.LogDuration)
+
+	if len(dash.TopAPICalls) > 0 {
+		b.WriteString("\n### Top API Calls (by duration)\n")
+		for _, e := range dash.TopAPICalls {
+			fmt.Fprintf(&b, "- %s on form %s: %dms (user: %s, queue: %s)\n",
+				e.Identifier, e.Form, e.DurationMS, e.User, e.Queue)
+		}
+	}
+	if len(dash.TopSQL) > 0 {
+		b.WriteString("\n### Top SQL Queries (by duration)\n")
+		for _, e := range dash.TopSQL {
+			fmt.Fprintf(&b, "- table %s: %dms\n", e.Identifier, e.DurationMS)
+		}
+	}
+
+	return b.String()
 }

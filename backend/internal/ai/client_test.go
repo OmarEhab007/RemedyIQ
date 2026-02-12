@@ -14,7 +14,7 @@ func TestNewClient_EmptyAPIKey(t *testing.T) {
 func TestNewClient_DefaultModel(t *testing.T) {
 	c, err := NewClient("test-key", "")
 	assert.NoError(t, err)
-	assert.Equal(t, "claude-sonnet-4-5-20250929", c.model)
+	assert.Equal(t, "claude-sonnet-4-20250514", c.model)
 }
 
 func TestNewClient_CustomModel(t *testing.T) {

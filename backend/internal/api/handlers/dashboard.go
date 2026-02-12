@@ -80,6 +80,14 @@ func (h *DashboardHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Compute health score.
+	healthScore, err := h.ch.ComputeHealthScore(r.Context(), tenantID, jobID.String())
+	if err != nil {
+		slog.Warn("failed to compute health score", "job_id", jobID, "error", err)
+	} else {
+		data.HealthScore = healthScore
+	}
+
 	// Cache for 5 minutes.
 	_ = h.redis.Set(r.Context(), cacheKey, data, 5*time.Minute)
 

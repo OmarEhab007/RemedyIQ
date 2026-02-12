@@ -2,7 +2,9 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -237,13 +239,19 @@ func (c *ClickHouseClient) queryGeneralStats(ctx context.Context, tenantID, jobI
 func (c *ClickHouseClient) queryTopN(ctx context.Context, tenantID, jobID string, logType domain.LogType, topN int) ([]domain.TopNEntry, error) {
 	// Identifier column varies by log type.
 	identifierExpr := "api_code"
+	var extraCols string
 	switch logType {
 	case domain.LogTypeSQL:
 		identifierExpr = "sql_table"
+		extraCols = ", sql_statement, sql_table"
 	case domain.LogTypeFilter:
 		identifierExpr = "filter_name"
+		extraCols = ", filter_name AS detail_filter_name, filter_level"
 	case domain.LogTypeEscalation:
 		identifierExpr = "esc_name"
+		extraCols = ", esc_name AS detail_esc_name, esc_pool, delay_ms, error_encountered"
+	default:
+		extraCols = ""
 	}
 
 	query := fmt.Sprintf(`
@@ -252,12 +260,14 @@ func (c *ClickHouseClient) queryTopN(ctx context.Context, tenantID, jobID string
 			trace_id, rpc_id, queue,
 			%s AS identifier,
 			form, user,
-			duration_ms, queue_time_ms, success
+			duration_ms, queue_time_ms, success,
+			thread_id, raw_text
+			%s
 		FROM log_entries
 		WHERE tenant_id = @tenantID AND job_id = @jobID AND log_type = @logType
 		ORDER BY duration_ms DESC
 		LIMIT @topN
-	`, identifierExpr)
+	`, identifierExpr, extraCols)
 
 	rows, err := c.conn.Query(ctx, query,
 		clickhouse.Named("tenantID", tenantID),
@@ -275,15 +285,85 @@ func (c *ClickHouseClient) queryTopN(ctx context.Context, tenantID, jobID string
 	for rows.Next() {
 		var e domain.TopNEntry
 		var durationMS, queueTimeMS uint32
-		if err := rows.Scan(
-			&e.LineNumber, &e.FileNumber, &e.Timestamp,
-			&e.TraceID, &e.RPCID, &e.Queue,
-			&e.Identifier,
-			&e.Form, &e.User,
-			&durationMS, &queueTimeMS, &e.Success,
-		); err != nil {
-			return nil, err
+		var threadID, rawText string
+
+		// Build detail map for JSON encoding
+		details := make(map[string]interface{})
+
+		switch logType {
+		case domain.LogTypeSQL:
+			var sqlStatement, sqlTable string
+			if err := rows.Scan(
+				&e.LineNumber, &e.FileNumber, &e.Timestamp,
+				&e.TraceID, &e.RPCID, &e.Queue,
+				&e.Identifier,
+				&e.Form, &e.User,
+				&durationMS, &queueTimeMS, &e.Success,
+				&threadID, &rawText,
+				&sqlStatement, &sqlTable,
+			); err != nil {
+				return nil, err
+			}
+			details["sql_statement"] = sqlStatement
+			details["sql_table"] = sqlTable
+
+		case domain.LogTypeFilter:
+			var filterName string
+			var filterLevel uint8
+			if err := rows.Scan(
+				&e.LineNumber, &e.FileNumber, &e.Timestamp,
+				&e.TraceID, &e.RPCID, &e.Queue,
+				&e.Identifier,
+				&e.Form, &e.User,
+				&durationMS, &queueTimeMS, &e.Success,
+				&threadID, &rawText,
+				&filterName, &filterLevel,
+			); err != nil {
+				return nil, err
+			}
+			details["filter_name"] = filterName
+			details["filter_level"] = filterLevel
+
+		case domain.LogTypeEscalation:
+			var escName, escPool string
+			var delayMS uint32
+			var errorEncountered bool
+			if err := rows.Scan(
+				&e.LineNumber, &e.FileNumber, &e.Timestamp,
+				&e.TraceID, &e.RPCID, &e.Queue,
+				&e.Identifier,
+				&e.Form, &e.User,
+				&durationMS, &queueTimeMS, &e.Success,
+				&threadID, &rawText,
+				&escName, &escPool, &delayMS, &errorEncountered,
+			); err != nil {
+				return nil, err
+			}
+			details["esc_name"] = escName
+			details["esc_pool"] = escPool
+			details["delay_ms"] = delayMS
+			details["error_encountered"] = errorEncountered
+
+		default:
+			if err := rows.Scan(
+				&e.LineNumber, &e.FileNumber, &e.Timestamp,
+				&e.TraceID, &e.RPCID, &e.Queue,
+				&e.Identifier,
+				&e.Form, &e.User,
+				&durationMS, &queueTimeMS, &e.Success,
+				&threadID, &rawText,
+			); err != nil {
+				return nil, err
+			}
 		}
+
+		details["thread_id"] = threadID
+		details["raw_text"] = rawText
+
+		if detailsJSON, err := json.Marshal(details); err == nil {
+			e.Details = string(detailsJSON)
+		}
+
 		e.Rank = rank
 		e.DurationMS = int(durationMS)
 		e.QueueTimeMS = int(queueTimeMS)
@@ -636,4 +716,637 @@ func (c *ClickHouseClient) GetTraceEntries(ctx context.Context, tenantID, jobID,
 	}
 
 	return entries, rows.Err()
+}
+
+// GetAggregates returns performance aggregates grouped by form (API), user (API), and table (SQL).
+func (c *ClickHouseClient) GetAggregates(ctx context.Context, tenantID, jobID string) (*domain.AggregatesResponse, error) {
+	resp := &domain.AggregatesResponse{}
+
+	// API by form
+	apiByForm, err := c.queryAggregateGroups(ctx, tenantID, jobID, "API", "form", "form != ''")
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse: aggregates api by form: %w", err)
+	}
+	if len(apiByForm.Groups) > 0 {
+		resp.API = apiByForm
+	}
+
+	// SQL by table
+	sqlByTable, err := c.queryAggregateGroups(ctx, tenantID, jobID, "SQL", "sql_table", "sql_table != ''")
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse: aggregates sql by table: %w", err)
+	}
+	if len(sqlByTable.Groups) > 0 {
+		resp.SQL = sqlByTable
+	}
+
+	// Filter by name
+	filterByName, err := c.queryAggregateGroups(ctx, tenantID, jobID, "FLTR", "filter_name", "filter_name != ''")
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse: aggregates filter by name: %w", err)
+	}
+	if len(filterByName.Groups) > 0 {
+		resp.Filter = filterByName
+	}
+
+	return resp, nil
+}
+
+func (c *ClickHouseClient) queryAggregateGroups(ctx context.Context, tenantID, jobID, logType, groupCol, extraFilter string) (*domain.AggregateSection, error) {
+	query := fmt.Sprintf(`
+		SELECT
+			%s AS name,
+			count() AS cnt,
+			toInt64(sum(duration_ms)) AS total_ms,
+			avg(duration_ms) AS avg_ms,
+			toInt64(min(duration_ms)) AS min_ms,
+			toInt64(max(duration_ms)) AS max_ms,
+			countIf(success = false) AS error_count,
+			if(count() > 0, countIf(success = false) / count(), 0) AS error_rate,
+			uniqExact(trace_id) AS unique_traces
+		FROM log_entries
+		WHERE tenant_id = @tenantID AND job_id = @jobID AND log_type = @logType AND %s
+		GROUP BY name
+		ORDER BY total_ms DESC
+	`, groupCol, extraFilter)
+
+	rows, err := c.conn.Query(ctx, query,
+		clickhouse.Named("tenantID", tenantID),
+		clickhouse.Named("jobID", jobID),
+		clickhouse.Named("logType", logType),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	section := &domain.AggregateSection{}
+	var grandCount, grandTotalMS, grandMinMS, grandMaxMS, grandErrors int64
+	var grandTraces int
+	first := true
+
+	for rows.Next() {
+		var g domain.AggregateGroup
+		if err := rows.Scan(
+			&g.Name, &g.Count, &g.TotalMS, &g.AvgMS,
+			&g.MinMS, &g.MaxMS, &g.ErrorCount, &g.ErrorRate, &g.UniqueTraces,
+		); err != nil {
+			return nil, err
+		}
+		section.Groups = append(section.Groups, g)
+
+		grandCount += g.Count
+		grandTotalMS += g.TotalMS
+		grandErrors += g.ErrorCount
+		grandTraces += g.UniqueTraces
+		if first || g.MinMS < grandMinMS {
+			grandMinMS = g.MinMS
+		}
+		if g.MaxMS > grandMaxMS {
+			grandMaxMS = g.MaxMS
+		}
+		first = false
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if grandCount > 0 {
+		section.GrandTotal = &domain.AggregateGroup{
+			Name:         "Total",
+			Count:        grandCount,
+			TotalMS:      grandTotalMS,
+			AvgMS:        float64(grandTotalMS) / float64(grandCount),
+			MinMS:        grandMinMS,
+			MaxMS:        grandMaxMS,
+			ErrorCount:   grandErrors,
+			ErrorRate:    float64(grandErrors) / float64(grandCount),
+			UniqueTraces: grandTraces,
+		}
+	}
+
+	return section, nil
+}
+
+// GetExceptions returns exception entries grouped by error code with frequency and error rates.
+func (c *ClickHouseClient) GetExceptions(ctx context.Context, tenantID, jobID string) (*domain.ExceptionsResponse, error) {
+	rows, err := c.conn.Query(ctx, `
+		SELECT
+			if(error_message != '', substring(error_message, 1, 100), 'Unknown Error') AS error_code,
+			any(error_message) AS message,
+			count() AS cnt,
+			min(timestamp) AS first_seen,
+			max(timestamp) AS last_seen,
+			any(log_type) AS log_type,
+			any(queue) AS queue,
+			any(form) AS form,
+			any(user) AS usr,
+			any(line_number) AS sample_line,
+			any(trace_id) AS sample_trace
+		FROM log_entries
+		WHERE tenant_id = @tenantID AND job_id = @jobID AND success = false
+		GROUP BY error_code
+		ORDER BY cnt DESC
+	`,
+		clickhouse.Named("tenantID", tenantID),
+		clickhouse.Named("jobID", jobID),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse: exceptions query: %w", err)
+	}
+	defer rows.Close()
+
+	resp := &domain.ExceptionsResponse{
+		Exceptions: []domain.ExceptionEntry{},
+		ErrorRates: make(map[string]float64),
+		TopCodes:   []string{},
+	}
+
+	for rows.Next() {
+		var e domain.ExceptionEntry
+		var sampleLine uint32
+		if err := rows.Scan(
+			&e.ErrorCode, &e.Message, &e.Count,
+			&e.FirstSeen, &e.LastSeen,
+			&e.LogType, &e.Queue, &e.Form, &e.User,
+			&sampleLine, &e.SampleTrace,
+		); err != nil {
+			return nil, err
+		}
+		e.SampleLine = int(sampleLine)
+		resp.Exceptions = append(resp.Exceptions, e)
+		resp.TotalCount += e.Count
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Top codes (up to 10)
+	for i, ex := range resp.Exceptions {
+		if i >= 10 {
+			break
+		}
+		resp.TopCodes = append(resp.TopCodes, ex.ErrorCode)
+	}
+
+	// Error rates per log type
+	rateRows, err := c.conn.Query(ctx, `
+		SELECT
+			log_type,
+			countIf(success = false) AS errors,
+			count() AS total
+		FROM log_entries
+		WHERE tenant_id = @tenantID AND job_id = @jobID
+		GROUP BY log_type
+	`,
+		clickhouse.Named("tenantID", tenantID),
+		clickhouse.Named("jobID", jobID),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse: error rates: %w", err)
+	}
+	defer rateRows.Close()
+
+	for rateRows.Next() {
+		var lt string
+		var errors, total int64
+		if err := rateRows.Scan(&lt, &errors, &total); err != nil {
+			return nil, err
+		}
+		if total > 0 {
+			resp.ErrorRates[lt] = float64(errors) / float64(total)
+		}
+	}
+
+	return resp, rateRows.Err()
+}
+
+// GetGaps detects time gaps between consecutive log entries.
+func (c *ClickHouseClient) GetGaps(ctx context.Context, tenantID, jobID string) (*domain.GapsResponse, error) {
+	resp := &domain.GapsResponse{
+		Gaps:        []domain.GapEntry{},
+		QueueHealth: []domain.QueueHealthSummary{},
+	}
+
+	// Line gaps — gaps across all entries ordered by timestamp
+	lineRows, err := c.conn.Query(ctx, `
+		SELECT
+			start_time, end_time, gap_ms,
+			before_line, after_line, log_type
+		FROM (
+			SELECT
+				timestamp AS start_time,
+				neighbor(timestamp, 1) AS end_time,
+				dateDiff('millisecond', timestamp, neighbor(timestamp, 1)) AS gap_ms,
+				line_number AS before_line,
+				neighbor(line_number, 1) AS after_line,
+				log_type
+			FROM log_entries
+			WHERE tenant_id = @tenantID AND job_id = @jobID
+			ORDER BY timestamp ASC
+		)
+		WHERE gap_ms > 0 AND end_time != toDateTime64('1970-01-01 00:00:00', 3)
+		ORDER BY gap_ms DESC
+		LIMIT 50
+	`,
+		clickhouse.Named("tenantID", tenantID),
+		clickhouse.Named("jobID", jobID),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse: line gaps: %w", err)
+	}
+	defer lineRows.Close()
+
+	for lineRows.Next() {
+		var g domain.GapEntry
+		var beforeLine, afterLine uint32
+		if err := lineRows.Scan(
+			&g.StartTime, &g.EndTime, &g.DurationMS,
+			&beforeLine, &afterLine, &g.LogType,
+		); err != nil {
+			return nil, err
+		}
+		g.BeforeLine = int(beforeLine)
+		g.AfterLine = int(afterLine)
+		resp.Gaps = append(resp.Gaps, g)
+	}
+	if err := lineRows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Queue health
+	qRows, err := c.conn.Query(ctx, `
+		SELECT
+			queue,
+			count() AS total_calls,
+			avg(duration_ms) AS avg_ms,
+			if(count() > 0, countIf(success = false) / count(), 0) AS error_rate,
+			toInt64(quantile(0.95)(duration_ms)) AS p95_ms
+		FROM log_entries
+		WHERE tenant_id = @tenantID AND job_id = @jobID AND queue != ''
+		GROUP BY queue
+		ORDER BY total_calls DESC
+	`,
+		clickhouse.Named("tenantID", tenantID),
+		clickhouse.Named("jobID", jobID),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse: queue health: %w", err)
+	}
+	defer qRows.Close()
+
+	for qRows.Next() {
+		var q domain.QueueHealthSummary
+		if err := qRows.Scan(&q.Queue, &q.TotalCalls, &q.AvgMS, &q.ErrorRate, &q.P95MS); err != nil {
+			return nil, err
+		}
+		resp.QueueHealth = append(resp.QueueHealth, q)
+	}
+
+	return resp, qRows.Err()
+}
+
+// GetThreadStats returns per-thread utilization statistics.
+func (c *ClickHouseClient) GetThreadStats(ctx context.Context, tenantID, jobID string) (*domain.ThreadStatsResponse, error) {
+	rows, err := c.conn.Query(ctx, `
+		SELECT
+			thread_id,
+			count() AS total_calls,
+			toInt64(sum(duration_ms)) AS total_ms,
+			avg(duration_ms) AS avg_ms,
+			toInt64(max(duration_ms)) AS max_ms,
+			countIf(success = false) AS error_count,
+			if(
+				dateDiff('millisecond', min(timestamp), max(timestamp)) > 0,
+				least((sum(duration_ms) / dateDiff('millisecond', min(timestamp), max(timestamp))) * 100, 100),
+				0
+			) AS busy_pct,
+			formatDateTime(min(timestamp), '%Y-%m-%d %H:%M:%S') AS active_start,
+			formatDateTime(max(timestamp), '%Y-%m-%d %H:%M:%S') AS active_end
+		FROM log_entries
+		WHERE tenant_id = @tenantID AND job_id = @jobID AND thread_id != ''
+		GROUP BY thread_id
+		ORDER BY busy_pct DESC
+	`,
+		clickhouse.Named("tenantID", tenantID),
+		clickhouse.Named("jobID", jobID),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse: thread stats: %w", err)
+	}
+	defer rows.Close()
+
+	resp := &domain.ThreadStatsResponse{
+		Threads: []domain.ThreadStatsEntry{},
+	}
+
+	for rows.Next() {
+		var t domain.ThreadStatsEntry
+		if err := rows.Scan(
+			&t.ThreadID, &t.TotalCalls, &t.TotalMS, &t.AvgMS,
+			&t.MaxMS, &t.ErrorCount, &t.BusyPct,
+			&t.ActiveStart, &t.ActiveEnd,
+		); err != nil {
+			return nil, err
+		}
+		resp.Threads = append(resp.Threads, t)
+		resp.TotalThreads++
+	}
+
+	return resp, rows.Err()
+}
+
+// GetFilterComplexity returns filter execution complexity metrics.
+func (c *ClickHouseClient) GetFilterComplexity(ctx context.Context, tenantID, jobID string) (*domain.FilterComplexityResponse, error) {
+	resp := &domain.FilterComplexityResponse{
+		MostExecuted:   []domain.MostExecutedFilter{},
+		PerTransaction: []domain.FilterPerTransaction{},
+	}
+
+	// Most executed filters
+	meRows, err := c.conn.Query(ctx, `
+		SELECT
+			filter_name AS name,
+			count() AS cnt,
+			toInt64(sum(duration_ms)) AS total_ms
+		FROM log_entries
+		WHERE tenant_id = @tenantID AND job_id = @jobID AND log_type = 'FLTR' AND filter_name != ''
+		GROUP BY filter_name
+		ORDER BY cnt DESC
+		LIMIT 50
+	`,
+		clickhouse.Named("tenantID", tenantID),
+		clickhouse.Named("jobID", jobID),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse: most executed filters: %w", err)
+	}
+	defer meRows.Close()
+
+	for meRows.Next() {
+		var f domain.MostExecutedFilter
+		if err := meRows.Scan(&f.Name, &f.Count, &f.TotalMS); err != nil {
+			return nil, err
+		}
+		resp.MostExecuted = append(resp.MostExecuted, f)
+	}
+	if err := meRows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Per transaction
+	ptRows, err := c.conn.Query(ctx, `
+		SELECT
+			trace_id AS transaction_id,
+			filter_name,
+			count() AS execution_count,
+			toInt64(sum(duration_ms)) AS total_ms,
+			avg(duration_ms) AS avg_ms,
+			toInt64(max(duration_ms)) AS max_ms,
+			any(queue) AS queue,
+			any(form) AS form
+		FROM log_entries
+		WHERE tenant_id = @tenantID AND job_id = @jobID AND log_type = 'FLTR' AND filter_name != '' AND trace_id != ''
+		GROUP BY trace_id, filter_name
+		ORDER BY total_ms DESC
+		LIMIT 100
+	`,
+		clickhouse.Named("tenantID", tenantID),
+		clickhouse.Named("jobID", jobID),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse: filter per transaction: %w", err)
+	}
+	defer ptRows.Close()
+
+	for ptRows.Next() {
+		var f domain.FilterPerTransaction
+		if err := ptRows.Scan(
+			&f.TransactionID, &f.FilterName, &f.ExecutionCount,
+			&f.TotalMS, &f.AvgMS, &f.MaxMS, &f.Queue, &f.Form,
+		); err != nil {
+			return nil, err
+		}
+		resp.PerTransaction = append(resp.PerTransaction, f)
+	}
+	if err := ptRows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Total filter time
+	var totalMS int64
+	row := c.conn.QueryRow(ctx, `
+		SELECT toInt64(sum(duration_ms))
+		FROM log_entries
+		WHERE tenant_id = @tenantID AND job_id = @jobID AND log_type = 'FLTR'
+	`,
+		clickhouse.Named("tenantID", tenantID),
+		clickhouse.Named("jobID", jobID),
+	)
+	if err := row.Scan(&totalMS); err != nil {
+		// If no rows, total is 0
+		totalMS = 0
+	}
+	resp.TotalFilterTimeMS = totalMS
+
+	return resp, nil
+}
+
+// ComputeHealthScore calculates a composite health score (0-100) from 4 weighted factors.
+func (c *ClickHouseClient) ComputeHealthScore(ctx context.Context, tenantID, jobID string) (*domain.HealthScore, error) {
+	// Fetch metrics in a single query
+	row := c.conn.QueryRow(ctx, `
+		SELECT
+			if(count() > 0, countIf(success = false) / count(), 0) AS error_rate,
+			avg(duration_ms) AS avg_duration_ms
+		FROM log_entries
+		WHERE tenant_id = @tenantID AND job_id = @jobID
+	`,
+		clickhouse.Named("tenantID", tenantID),
+		clickhouse.Named("jobID", jobID),
+	)
+
+	var errorRate, avgDuration float64
+	if err := row.Scan(&errorRate, &avgDuration); err != nil {
+		return nil, fmt.Errorf("clickhouse: health score base metrics: %w", err)
+	}
+
+	// Max thread busy pct
+	var maxBusyPct float64
+	busyRow := c.conn.QueryRow(ctx, `
+		SELECT if(
+			count() > 0,
+			max(busy_pct),
+			0
+		) FROM (
+			SELECT
+				if(
+					dateDiff('millisecond', min(timestamp), max(timestamp)) > 0,
+					least((sum(duration_ms) / dateDiff('millisecond', min(timestamp), max(timestamp))) * 100, 100),
+					0
+				) AS busy_pct
+			FROM log_entries
+			WHERE tenant_id = @tenantID AND job_id = @jobID AND thread_id != ''
+			GROUP BY thread_id
+		)
+	`,
+		clickhouse.Named("tenantID", tenantID),
+		clickhouse.Named("jobID", jobID),
+	)
+	if err := busyRow.Scan(&maxBusyPct); err != nil {
+		maxBusyPct = 0
+	}
+
+	// Max gap duration
+	var maxGapMS int64
+	gapRow := c.conn.QueryRow(ctx, `
+		SELECT if(count() > 0, max(gap_ms), 0)
+		FROM (
+			SELECT dateDiff('millisecond', timestamp, neighbor(timestamp, 1)) AS gap_ms
+			FROM log_entries
+			WHERE tenant_id = @tenantID AND job_id = @jobID
+			ORDER BY timestamp ASC
+		)
+		WHERE gap_ms > 0
+	`,
+		clickhouse.Named("tenantID", tenantID),
+		clickhouse.Named("jobID", jobID),
+	)
+	if err := gapRow.Scan(&maxGapMS); err != nil {
+		maxGapMS = 0
+	}
+
+	// Compute factor scores
+	factors := make([]domain.HealthScoreFactor, 4)
+
+	// Error Rate (weight: 0.30)
+	errScore := scoreErrorRate(errorRate)
+	factors[0] = domain.HealthScoreFactor{
+		Name:        "Error Rate",
+		Score:       errScore,
+		MaxScore:    100,
+		Weight:      0.30,
+		Description: fmt.Sprintf("%.2f%% of operations failed", errorRate*100),
+		Severity:    scoreSeverity(errScore),
+	}
+
+	// Avg Response Time (weight: 0.25)
+	rtScore := scoreResponseTime(avgDuration)
+	factors[1] = domain.HealthScoreFactor{
+		Name:        "Avg Response Time",
+		Score:       rtScore,
+		MaxScore:    100,
+		Weight:      0.25,
+		Description: fmt.Sprintf("%.0fms average duration", avgDuration),
+		Severity:    scoreSeverity(rtScore),
+	}
+
+	// Thread Saturation (weight: 0.25)
+	tsScore := scoreThreadSaturation(maxBusyPct)
+	factors[2] = domain.HealthScoreFactor{
+		Name:        "Thread Saturation",
+		Score:       tsScore,
+		MaxScore:    100,
+		Weight:      0.25,
+		Description: fmt.Sprintf("%.0f%% max thread utilization", maxBusyPct),
+		Severity:    scoreSeverity(tsScore),
+	}
+
+	// Gap Frequency (weight: 0.20)
+	gapSecs := float64(maxGapMS) / 1000.0
+	gfScore := scoreGapFrequency(gapSecs)
+	factors[3] = domain.HealthScoreFactor{
+		Name:        "Gap Frequency",
+		Score:       gfScore,
+		MaxScore:    100,
+		Weight:      0.20,
+		Description: fmt.Sprintf("%.1fs longest gap", gapSecs),
+		Severity:    scoreSeverity(gfScore),
+	}
+
+	// Weighted composite
+	composite := float64(errScore)*0.30 + float64(rtScore)*0.25 + float64(tsScore)*0.25 + float64(gfScore)*0.20
+	score := int(math.Round(composite))
+
+	status := "green"
+	if score < 50 {
+		status = "red"
+	} else if score <= 80 {
+		status = "yellow"
+	}
+
+	return &domain.HealthScore{
+		Score:   score,
+		Status:  status,
+		Factors: factors,
+	}, nil
+}
+
+func scoreErrorRate(rate float64) int {
+	switch {
+	case rate < 0.01:
+		return 100
+	case rate < 0.02:
+		return 80
+	case rate < 0.05:
+		return 50
+	case rate < 0.10:
+		return 25
+	default:
+		return 0
+	}
+}
+
+func scoreResponseTime(avgMS float64) int {
+	switch {
+	case avgMS < 500:
+		return 100
+	case avgMS < 1000:
+		return 80
+	case avgMS < 2000:
+		return 50
+	case avgMS < 5000:
+		return 25
+	default:
+		return 0
+	}
+}
+
+func scoreThreadSaturation(maxBusyPct float64) int {
+	switch {
+	case maxBusyPct < 50:
+		return 100
+	case maxBusyPct < 70:
+		return 80
+	case maxBusyPct < 85:
+		return 50
+	case maxBusyPct < 95:
+		return 25
+	default:
+		return 0
+	}
+}
+
+func scoreGapFrequency(maxGapSecs float64) int {
+	switch {
+	case maxGapSecs < 5:
+		return 100
+	case maxGapSecs < 15:
+		return 80
+	case maxGapSecs < 30:
+		return 50
+	case maxGapSecs < 60:
+		return 25
+	default:
+		return 0
+	}
+}
+
+func scoreSeverity(score int) string {
+	if score > 80 {
+		return "green"
+	} else if score >= 50 {
+		return "yellow"
+	}
+	return "red"
 }

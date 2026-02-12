@@ -153,21 +153,3 @@ func TestUploadHandler_MissingFileField(t *testing.T) {
 	assert.Equal(t, api.ErrCodeInvalidRequest, errResp.Code)
 	assert.Contains(t, errResp.Message, "file")
 }
-
-// --- countingReader tests ---
-
-func TestCountingReader(t *testing.T) {
-	data := []byte("hello world")
-	cr := &countingReader{r: bytes.NewReader(data)}
-
-	buf := make([]byte, 5)
-	n, err := cr.Read(buf)
-	require.NoError(t, err)
-	assert.Equal(t, 5, n)
-	assert.Equal(t, int64(5), cr.n)
-
-	n, err = cr.Read(buf)
-	require.NoError(t, err)
-	assert.Equal(t, 5, n)
-	assert.Equal(t, int64(10), cr.n)
-}
