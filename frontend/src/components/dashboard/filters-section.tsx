@@ -24,8 +24,8 @@ export function FiltersSection({ data, loading, error, refetch }: FiltersSection
       <div className="border rounded-lg p-6 bg-card">
         <h3 className="text-lg font-semibold mb-4">Filter Complexity</h3>
         <div className="animate-pulse space-y-4">
-          <div className="h-10 bg-gray-200 rounded"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
+          <div className="h-10 bg-muted rounded"></div>
+          <div className="h-64 bg-muted rounded"></div>
         </div>
       </div>
     );
@@ -35,11 +35,11 @@ export function FiltersSection({ data, loading, error, refetch }: FiltersSection
     return (
       <div className="border rounded-lg p-6 bg-card">
         <h3 className="text-lg font-semibold mb-4">Filter Complexity</h3>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800 mb-3">{error}</p>
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+          <p className="text-destructive mb-3">{error}</p>
           <button
             onClick={refetch}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            className="px-4 py-2 bg-destructive text-white rounded-lg hover:bg-destructive/90"
           >
             Retry
           </button>
@@ -79,7 +79,7 @@ export function FiltersSection({ data, loading, error, refetch }: FiltersSection
           onClick={() => setActiveTab("most_executed")}
           className={`px-4 py-2 font-medium text-sm transition-colors ${
             activeTab === "most_executed"
-              ? "border-b-2 border-blue-600 text-blue-600"
+              ? "border-b-2 border-primary text-primary"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -89,7 +89,7 @@ export function FiltersSection({ data, loading, error, refetch }: FiltersSection
           onClick={() => setActiveTab("per_transaction")}
           className={`px-4 py-2 font-medium text-sm transition-colors ${
             activeTab === "per_transaction"
-              ? "border-b-2 border-blue-600 text-blue-600"
+              ? "border-b-2 border-primary text-primary"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -105,8 +105,8 @@ export function FiltersSection({ data, loading, error, refetch }: FiltersSection
               No data available
             </div>
           ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-border">
+              <thead className="bg-muted">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Rank
@@ -122,9 +122,9 @@ export function FiltersSection({ data, loading, error, refetch }: FiltersSection
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-border">
                 {most_executed.map((filter: MostExecutedFilter, idx: number) => (
-                  <tr key={idx} className="hover:bg-gray-50">
+                  <tr key={idx} className="hover:bg-muted/60">
                     <td className="px-4 py-3 text-sm text-foreground">{idx + 1}</td>
                     <td className="px-4 py-3 text-sm font-medium text-foreground">
                       {filter.name}
@@ -151,8 +151,8 @@ export function FiltersSection({ data, loading, error, refetch }: FiltersSection
               No data available
             </div>
           ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-border">
+              <thead className="bg-muted">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Transaction ID
@@ -174,13 +174,13 @@ export function FiltersSection({ data, loading, error, refetch }: FiltersSection
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-border">
                 {per_transaction.map((txn: FilterPerTransaction, idx: number) => {
                   const isHighExecution = txn.execution_count > 100;
                   return (
                     <tr
                       key={idx}
-                      className={`hover:bg-gray-50 ${
+                      className={`hover:bg-muted/60 ${
                         isHighExecution ? "bg-amber-50" : ""
                       }`}
                     >

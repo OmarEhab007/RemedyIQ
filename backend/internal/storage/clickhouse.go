@@ -302,7 +302,7 @@ func (c *ClickHouseClient) queryTopN(ctx context.Context, tenantID, jobID string
 				&threadID, &rawText,
 				&sqlStatement, &sqlTable,
 			); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("clickhouse: topN scan (%s): %w", logType, err)
 			}
 			details["sql_statement"] = sqlStatement
 			details["sql_table"] = sqlTable
@@ -319,7 +319,7 @@ func (c *ClickHouseClient) queryTopN(ctx context.Context, tenantID, jobID string
 				&threadID, &rawText,
 				&filterName, &filterLevel,
 			); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("clickhouse: topN scan (%s): %w", logType, err)
 			}
 			details["filter_name"] = filterName
 			details["filter_level"] = filterLevel
@@ -337,7 +337,7 @@ func (c *ClickHouseClient) queryTopN(ctx context.Context, tenantID, jobID string
 				&threadID, &rawText,
 				&escName, &escPool, &delayMS, &errorEncountered,
 			); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("clickhouse: topN scan (%s): %w", logType, err)
 			}
 			details["esc_name"] = escName
 			details["esc_pool"] = escPool
@@ -353,7 +353,7 @@ func (c *ClickHouseClient) queryTopN(ctx context.Context, tenantID, jobID string
 				&durationMS, &queueTimeMS, &e.Success,
 				&threadID, &rawText,
 			); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("clickhouse: topN scan (%s): %w", logType, err)
 			}
 		}
 
@@ -1194,7 +1194,7 @@ func (c *ClickHouseClient) ComputeHealthScore(ctx context.Context, tenantID, job
 		clickhouse.Named("jobID", jobID),
 	)
 	if err := busyRow.Scan(&maxBusyPct); err != nil {
-		maxBusyPct = 0
+		return nil, fmt.Errorf("clickhouse: health score busy pct: %w", err)
 	}
 
 	// Max gap duration
@@ -1213,7 +1213,7 @@ func (c *ClickHouseClient) ComputeHealthScore(ctx context.Context, tenantID, job
 		clickhouse.Named("jobID", jobID),
 	)
 	if err := gapRow.Scan(&maxGapMS); err != nil {
-		maxGapMS = 0
+		return nil, fmt.Errorf("clickhouse: health score gaps: %w", err)
 	}
 
 	// Compute factor scores

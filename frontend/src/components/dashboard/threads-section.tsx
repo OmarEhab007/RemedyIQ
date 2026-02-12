@@ -56,8 +56,8 @@ export function ThreadsSection({ data, loading, error, refetch }: ThreadsSection
       <div className="border rounded-lg p-6 bg-card">
         <h3 className="text-lg font-semibold mb-4">Thread Statistics</h3>
         <div className="animate-pulse space-y-4">
-          <div className="h-10 bg-gray-200 rounded"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
+          <div className="h-10 bg-muted rounded"></div>
+          <div className="h-64 bg-muted rounded"></div>
         </div>
       </div>
     );
@@ -67,11 +67,11 @@ export function ThreadsSection({ data, loading, error, refetch }: ThreadsSection
     return (
       <div className="border rounded-lg p-6 bg-card">
         <h3 className="text-lg font-semibold mb-4">Thread Statistics</h3>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800 mb-3">{error}</p>
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+          <p className="text-destructive mb-3">{error}</p>
           <button
             onClick={refetch}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            className="px-4 py-2 bg-destructive text-white rounded-lg hover:bg-destructive/90"
           >
             Retry
           </button>
@@ -97,7 +97,7 @@ export function ThreadsSection({ data, loading, error, refetch }: ThreadsSection
   const renderHeader = (field: SortField, label: string) => (
     <th
       key={field}
-      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-gray-50"
+      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/60"
       onClick={() => handleSort(field)}
     >
       <div className="flex items-center gap-1">
@@ -119,8 +119,8 @@ export function ThreadsSection({ data, loading, error, refetch }: ThreadsSection
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="min-w-full divide-y divide-border">
+          <thead className="bg-muted">
             <tr>
               {renderHeader("thread_id", "Thread ID")}
               {renderHeader("total_calls", "Total Calls")}
@@ -131,13 +131,13 @@ export function ThreadsSection({ data, loading, error, refetch }: ThreadsSection
               {renderHeader("busy_pct", "Busy%")}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="divide-y divide-border">
             {sortedThreads.map((thread: ThreadStatsEntry, idx: number) => {
               const isWarning = thread.busy_pct > 90;
               return (
                 <tr
                   key={idx}
-                  className={`hover:bg-gray-50 ${
+                  className={`hover:bg-muted/60 ${
                     isWarning ? "bg-amber-50" : ""
                   }`}
                 >
@@ -156,12 +156,12 @@ export function ThreadsSection({ data, loading, error, refetch }: ThreadsSection
                   <td className="px-4 py-3 text-sm text-foreground">
                     {thread.max_ms.toFixed(2)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-red-600">
+                  <td className="px-4 py-3 text-sm text-destructive">
                     {thread.error_count}
                   </td>
                   <td className="px-4 py-3 text-sm">
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-gray-200 rounded-full h-4 overflow-hidden">
+                      <div className="flex-1 bg-muted rounded-full h-4 overflow-hidden">
                         <div
                           className={`h-full ${getBusyColor(
                             thread.busy_pct

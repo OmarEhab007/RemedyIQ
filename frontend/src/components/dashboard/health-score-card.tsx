@@ -15,9 +15,9 @@ export function HealthScoreCard({ healthScore }: HealthScoreCardProps) {
 
   // Determine color based on score
   const getScoreColor = (score: number): string => {
-    if (score > 80) return "stroke-green-500 text-green-600";
+    if (score > 80) return "stroke-primary text-primary";
     if (score >= 50) return "stroke-yellow-500 text-yellow-600";
-    return "stroke-red-500 text-red-600";
+    return "stroke-destructive text-destructive";
   };
 
   const scoreColor = getScoreColor(score);
@@ -71,21 +71,21 @@ export function HealthScoreCard({ healthScore }: HealthScoreCardProps) {
       </div>
 
       {/* Factor Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {factors.map((factor: HealthScoreFactor) => {
           const isRedZone = factor.severity === "red";
           return (
             <div
               key={factor.name}
               className={`border rounded-lg p-4 ${
-                isRedZone ? "border-red-500 bg-red-50" : "bg-card"
+                isRedZone ? "border-destructive bg-destructive/10" : "bg-card"
               }`}
             >
               <div className="flex items-start justify-between mb-2">
                 <h4 className="font-medium text-sm">{factor.name}</h4>
                 {isRedZone && (
                   <svg
-                    className="w-5 h-5 text-red-500 flex-shrink-0"
+                    className="w-5 h-5 text-destructive flex-shrink-0"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -102,7 +102,7 @@ export function HealthScoreCard({ healthScore }: HealthScoreCardProps) {
               <div className="flex items-baseline gap-2 mb-2">
                 <span
                   className={`text-xl font-bold ${
-                    isRedZone ? "text-red-600" : "text-foreground"
+                    isRedZone ? "text-destructive" : "text-foreground"
                   }`}
                 >
                   {factor.score}

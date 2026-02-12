@@ -46,7 +46,7 @@ func TestSummarizerSkill_Fallback_NilClient(t *testing.T) {
 	assert.Equal(t, 0.0, output.Confidence, "fallback confidence should be 0.0")
 	assert.Equal(t, "summarizer", output.SkillName)
 	assert.NotEmpty(t, output.Answer, "fallback answer should not be empty")
-	assert.Equal(t, fallbackMessage, output.Answer, "fallback should use the standard message")
+	assert.Equal(t, FallbackMessage, output.Answer, "fallback should use the standard message")
 }
 
 func TestSummarizerSkill_Fallback_UnavailableClient(t *testing.T) {
@@ -68,7 +68,7 @@ func TestSummarizerSkill_Fallback_UnavailableClient(t *testing.T) {
 	assert.Equal(t, 0.0, output.Confidence, "fallback confidence should be 0.0")
 	assert.Equal(t, "summarizer", output.SkillName)
 	assert.NotEmpty(t, output.Answer, "fallback answer should not be empty")
-	assert.Equal(t, fallbackMessage, output.Answer, "fallback should use the standard message")
+	assert.Equal(t, FallbackMessage, output.Answer, "fallback should use the standard message")
 }
 
 func TestSummarizerSkill_ValidationError_MissingTenantID(t *testing.T) {

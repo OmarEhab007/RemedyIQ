@@ -40,11 +40,8 @@ export function DistributionChart({ distribution, aggregatesData }: Distribution
   }
 
   // Build data based on selected dimension
-  let data: Record<string, number> | undefined;
-
-  if (dimension === "by_type" || dimension === "by_queue") {
-    data = distribution[dimension];
-  } else if (aggregatesData) {
+  let data: Record<string, number> | undefined = distribution[dimension];
+  if ((!data || Object.keys(data).length === 0) && aggregatesData) {
     // Compute distribution from aggregates data
     const distMap: Record<string, number> = {};
     if (dimension === "by_form" && aggregatesData.api) {
@@ -59,11 +56,6 @@ export function DistributionChart({ distribution, aggregatesData }: Distribution
     if (Object.keys(distMap).length > 0) {
       data = distMap;
     }
-  }
-
-  if (!data || Object.keys(data).length === 0) {
-    // Fall back to by_type
-    data = distribution["by_type"] || distribution[Object.keys(distribution)[0]];
   }
 
   if (!data || Object.keys(data).length === 0) {

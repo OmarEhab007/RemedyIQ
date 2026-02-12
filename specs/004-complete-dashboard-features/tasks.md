@@ -287,12 +287,12 @@
 ### Parallel Opportunities
 
 **Phase 2** (all 7 tasks are parallel — different functions in same file, but no interdependence):
-```
+```text
 T003 || T004 || T005 || T006 || T007 || T008 || T009
 ```
 
 **After Phase 2, all 9 user stories can run in parallel**:
-```
+```text
 US1 (T010-T013) || US2 (T014-T017) || US3 (T018-T021) || US4 (T022-T025)
 || US5 (T026) || US7 (T027-T029) || US6 (T030-T031) || US8 (T032-T035) || US9 (T036-T042)
 ```

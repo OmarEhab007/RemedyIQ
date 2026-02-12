@@ -29,7 +29,7 @@ make frontend
 
 ### Phase 1: Backend ClickHouse Queries (no frontend changes)
 
-1. Add 5 new query functions to `backend/internal/storage/clickhouse.go`:
+1. Add 6 new query functions to `backend/internal/storage/clickhouse.go`:
    - `GetAggregates(ctx, tenantID, jobID, aggregateType)` → `*domain.AggregatesResponse`
    - `GetExceptions(ctx, tenantID, jobID)` → `*domain.ExceptionsResponse`
    - `GetGaps(ctx, tenantID, jobID)` → `*domain.GapsResponse`

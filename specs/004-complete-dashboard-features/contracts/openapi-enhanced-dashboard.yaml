@@ -407,7 +407,7 @@ components:
           additionalProperties:
             type: number
             format: double
-          description: Per log_type error rate (e.g., {"API": 0.05, "SQL": 0.02})
+          description: 'Per log_type error rate (e.g., {"API": 0.05, "SQL": 0.02})'
         top_codes:
           type: array
           items:

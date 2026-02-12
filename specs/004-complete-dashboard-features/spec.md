@@ -171,7 +171,7 @@ As an AR Server administrator, I want the AI assistant skills (natural language 
 
 - What happens when the analysis contains zero entries for a specific log type (e.g., no SQL, no escalations)? The corresponding section should display "No [type] activity detected in this analysis" instead of empty tables or errors.
 - What happens when aggregate tables have 500+ rows (e.g., many unique forms)? Tables must remain responsive; virtual scrolling should be used for large datasets.
-- What happens when all operations succeed (0% error rate)? The exceptions section should show a positive "No errors detected" message rather than empty space.
+- What happens when all operations succeed (0% error rate)? The exceptions section should show a positive "No errors detected" message rather than leaving the section empty.
 - What happens when the backend endpoint returns a 500 error? Each lazy-loaded section should show its own error state with a "Retry" button, without crashing the entire dashboard.
 - What happens when the user navigates away from the dashboard while a lazy section is still loading? The in-flight request should be cancelled to avoid state updates on unmounted components.
 - What happens when the ClickHouse data has been partially ingested (job still storing)? The dashboard should only be accessible for completed jobs; in-progress jobs should show a "still processing" message.
@@ -220,7 +220,7 @@ As an AR Server administrator, I want the AI assistant skills (natural language 
 
 - **Aggregate Group**: A performance summary for a specific dimension value (form name, user, table). Contains success/fail counts, total count, and timing statistics (MIN, MAX, AVG, SUM). Groups are organized into sections (API, SQL, Filter) with optional grand totals.
 - **Exception Entry**: An error occurrence grouped by error code. Contains occurrence count, first/last seen timestamps, log type classification, and sample context (line number, trace ID, queue, form, user).
-- **Gap Entry**: A detected period of log silence. Contains start/end timestamps, duration, before/after line numbers, log type, and optional thread ID. Can be a "line gap" (silence across all threads) or "thread gap" (silence within a specific thread).
+- **Gap Entry**: A detected period of log silence. Contains start/end timestamps, duration, before/after line numbers, log type, and optional thread ID. It can be a "line gap" (silence across all threads) or "thread gap" (silence within a specific thread).
 - **Thread Statistics Entry**: Utilization metrics for a single thread. Contains total calls, total/average/max time, error count, busy percentage, and active time range.
 - **Filter Complexity Data**: Aggregated filter execution analysis. Contains most-executed filters ranked by count, per-transaction filter metrics, and total filter processing time.
 - **Health Score**: A composite metric (0-100) with contributing factors (error rate, response time, thread saturation, gap frequency). Each factor has a name, individual score, max score, weight, description, and severity level. Already defined in the codebase but needs to be computed and populated by the backend.

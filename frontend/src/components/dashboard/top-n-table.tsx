@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import type { TopNEntry } from "@/lib/api";
 
 interface TopNTableProps {
@@ -88,13 +88,13 @@ export function TopNTable({ apiCalls, sqlStatements, filters, escalations, jobId
         return [
           d.sql_table || entry.identifier || "-",
           d.sql_statement ? truncate(d.sql_statement, 60) : "-",
-          (entry as { queue_time_ms?: number }).queue_time_ms?.toLocaleString() || "-",
+          entry.queue_time_ms?.toLocaleString() || "-",
         ];
       case "filters":
         return [
           d.filter_name || entry.identifier || "-",
           d.filter_level?.toString() || "-",
-          (entry as { queue_time_ms?: number }).queue_time_ms?.toLocaleString() || "-",
+          entry.queue_time_ms?.toLocaleString() || "-",
         ];
       case "escalations":
         return [
@@ -144,9 +144,8 @@ export function TopNTable({ apiCalls, sqlStatements, filters, escalations, jobId
           </thead>
           <tbody>
             {entries.map((entry, idx) => (
-              <>
+              <Fragment key={idx}>
                 <tr
-                  key={idx}
                   className={`border-b hover:bg-muted/30 cursor-pointer ${
                     expandedRow === idx ? "bg-muted/20" : ""
                   }`}
@@ -212,7 +211,7 @@ export function TopNTable({ apiCalls, sqlStatements, filters, escalations, jobId
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             ))}
             {entries.length === 0 && (
               <tr>

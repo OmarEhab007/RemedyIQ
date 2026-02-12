@@ -49,7 +49,7 @@ export function TimeSeriesChart({ data }: TimeSeriesChartProps) {
               type="checkbox"
               checked={showDuration}
               onChange={(e) => setShowDuration(e.target.checked)}
-              className="rounded border-gray-400 h-3.5 w-3.5"
+              className="rounded border-input h-3.5 w-3.5"
             />
             <span className="text-muted-foreground">Duration</span>
           </label>
@@ -58,7 +58,7 @@ export function TimeSeriesChart({ data }: TimeSeriesChartProps) {
               type="checkbox"
               checked={showErrors}
               onChange={(e) => setShowErrors(e.target.checked)}
-              className="rounded border-gray-400 h-3.5 w-3.5"
+              className="rounded border-input h-3.5 w-3.5"
             />
             <span className="text-muted-foreground">Errors</span>
           </label>

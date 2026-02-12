@@ -133,10 +133,10 @@ func (s *ErrorExplainerSkill) fetchErrorContext(ctx context.Context, tenantID, j
 		if i >= 10 {
 			break
 		}
-		fmt.Fprintf(&b, "- **%s**: %s (count: %d, first: %s, last: %s, type: %s, user: %s, form: %s)\n",
+		fmt.Fprintf(&b, "- **%s**: %s (count: %d, first: %s, last: %s, type: %s)\n",
 			ex.ErrorCode, ex.Message, ex.Count,
 			ex.FirstSeen.Format(time.RFC3339), ex.LastSeen.Format(time.RFC3339),
-			ex.LogType, ex.User, ex.Form)
+			ex.LogType)
 	}
 
 	return b.String()
