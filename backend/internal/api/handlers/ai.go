@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 
@@ -35,6 +37,10 @@ func (h *AIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jobID := mux.Vars(r)["job_id"]
+	if jobID == "" {
+		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "job_id is required")
+		return
+	}
 
 	var req aiRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -59,7 +65,31 @@ func (h *AIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	output, err := h.registry.Execute(r.Context(), req.SkillName, input)
 	if err != nil {
-		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, err.Error())
+		// Distinguish between "skill not found" (client error) and
+		// internal execution errors (server error).
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "not found") {
+			api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, errMsg)
+			return
+		}
+
+		// For validation errors from the skill (missing tenant_id, job_id, query),
+		// return 400.
+		if strings.Contains(errMsg, "is required") {
+			api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, errMsg)
+			return
+		}
+
+		// Any other error is an internal server error -- log the details
+		// but return a user-friendly message.
+		slog.Error("AI skill execution failed",
+			"skill", req.SkillName,
+			"job_id", jobID,
+			"tenant_id", tenantID,
+			"error", err,
+		)
+		api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError,
+			"AI service is temporarily unavailable. Please try again later.")
 		return
 	}
 

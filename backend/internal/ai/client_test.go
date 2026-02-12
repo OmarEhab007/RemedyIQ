@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewClient_EmptyAPIKey(t *testing.T) {
@@ -13,13 +14,13 @@ func TestNewClient_EmptyAPIKey(t *testing.T) {
 
 func TestNewClient_DefaultModel(t *testing.T) {
 	c, err := NewClient("test-key", "")
-	assert.NoError(t, err)
-	assert.Equal(t, "claude-sonnet-4-5-20250929", c.model)
+	require.NoError(t, err)
+	assert.Equal(t, "claude-sonnet-4-20250514", c.model)
 }
 
 func TestNewClient_CustomModel(t *testing.T) {
 	c, err := NewClient("test-key", "claude-opus-4-6")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "claude-opus-4-6", c.model)
 }
 

@@ -1,0 +1,596 @@
+openapi: "3.1.0"
+info:
+  title: RemedyIQ Enhanced Dashboard API
+  version: "1.0.0"
+  description: API contracts for the 5 new dashboard endpoints (aggregates, exceptions, gaps, threads, filters) plus health score enhancement.
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+paths:
+  /analysis/{job_id}/dashboard:
+    get:
+      operationId: getDashboard
+      summary: Get dashboard data (enhanced with health score)
+      description: Returns the main dashboard data including the computed health score. Health score is now always populated.
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Dashboard data with health score
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardData"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /analysis/{job_id}/dashboard/aggregates:
+    get:
+      operationId: getDashboardAggregates
+      summary: Get performance aggregates by form, user, and table
+      description: Returns aggregated performance statistics grouped by form (API), user (API), and table (SQL). Lazy-loaded by the frontend.
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [api, sql, filter, all]
+            default: all
+          description: Filter to a specific aggregate type. Defaults to returning all.
+      responses:
+        "200":
+          description: Aggregated performance data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AggregatesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /analysis/{job_id}/dashboard/exceptions:
+    get:
+      operationId: getDashboardExceptions
+      summary: Get exceptions and error reports
+      description: Returns exception entries grouped by error code with frequency, error rates per log type, and top error codes.
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Exception and error report data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExceptionsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /analysis/{job_id}/dashboard/gaps:
+    get:
+      operationId: getDashboardGaps
+      summary: Get gap analysis (line gaps and thread gaps)
+      description: Returns a combined array of detected log gaps (both line gaps and thread gaps) sorted by duration descending, plus queue health metrics.
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Gap analysis data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GapsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /analysis/{job_id}/dashboard/threads:
+    get:
+      operationId: getDashboardThreads
+      summary: Get per-thread statistics
+      description: Returns per-thread utilization metrics including busy percentage, call counts, and active time ranges.
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Thread statistics data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ThreadStatsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /analysis/{job_id}/dashboard/filters:
+    get:
+      operationId: getDashboardFilters
+      summary: Get filter complexity insights
+      description: Returns most-executed filters, per-transaction filter metrics, and total filter processing time.
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Filter complexity data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FilterComplexityResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    JobId:
+      name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: The analysis job ID
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Analysis job not found or does not belong to tenant
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Analysis job is not in "complete" status
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+
+    DashboardData:
+      type: object
+      required: [general_stats, top_api_calls, top_sql_statements, top_filters, top_escalations, time_series, distribution, health_score]
+      properties:
+        general_stats:
+          $ref: "#/components/schemas/GeneralStatistics"
+        top_api_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopNEntry"
+        top_sql_statements:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopNEntry"
+        top_filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopNEntry"
+        top_escalations:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopNEntry"
+        time_series:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimeSeriesPoint"
+        distribution:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: integer
+        health_score:
+          $ref: "#/components/schemas/HealthScore"
+
+    GeneralStatistics:
+      type: object
+      properties:
+        total_lines:
+          type: integer
+          format: int64
+        api_count:
+          type: integer
+          format: int64
+        sql_count:
+          type: integer
+          format: int64
+        filter_count:
+          type: integer
+          format: int64
+        esc_count:
+          type: integer
+          format: int64
+        unique_users:
+          type: integer
+        unique_forms:
+          type: integer
+        unique_tables:
+          type: integer
+        log_start:
+          type: string
+          format: date-time
+        log_end:
+          type: string
+          format: date-time
+        log_duration:
+          type: string
+
+    TopNEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        line_number:
+          type: integer
+        file_number:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        trace_id:
+          type: string
+        rpc_id:
+          type: string
+        queue:
+          type: string
+        identifier:
+          type: string
+        form:
+          type: string
+        user:
+          type: string
+        duration_ms:
+          type: integer
+        queue_time_ms:
+          type: integer
+        success:
+          type: boolean
+        details:
+          type: string
+          description: JSON-encoded type-specific details for expanded view
+
+    TimeSeriesPoint:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        api_count:
+          type: integer
+        sql_count:
+          type: integer
+        filter_count:
+          type: integer
+        esc_count:
+          type: integer
+        avg_duration_ms:
+          type: number
+          format: double
+        error_count:
+          type: integer
+
+    HealthScore:
+      type: object
+      required: [score, status, factors]
+      properties:
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        status:
+          type: string
+          enum: [green, yellow, red]
+        factors:
+          type: array
+          items:
+            $ref: "#/components/schemas/HealthScoreFactor"
+
+    HealthScoreFactor:
+      type: object
+      properties:
+        name:
+          type: string
+        score:
+          type: integer
+        max_score:
+          type: integer
+        weight:
+          type: number
+          format: double
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [green, yellow, red]
+
+    AggregatesResponse:
+      type: object
+      properties:
+        api:
+          $ref: "#/components/schemas/AggregateSection"
+        sql:
+          $ref: "#/components/schemas/AggregateSection"
+        filter:
+          $ref: "#/components/schemas/AggregateSection"
+
+    AggregateSection:
+      type: object
+      required: [groups]
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/AggregateGroup"
+        grand_total:
+          $ref: "#/components/schemas/AggregateGroup"
+
+    AggregateGroup:
+      type: object
+      required: [name, count, total_ms, avg_ms, min_ms, max_ms, error_count, error_rate, unique_traces]
+      properties:
+        name:
+          type: string
+        count:
+          type: integer
+          format: int64
+        total_ms:
+          type: integer
+          format: int64
+        avg_ms:
+          type: number
+          format: double
+        min_ms:
+          type: integer
+          format: int64
+        max_ms:
+          type: integer
+          format: int64
+        error_count:
+          type: integer
+          format: int64
+        error_rate:
+          type: number
+          format: double
+        unique_traces:
+          type: integer
+
+    ExceptionsResponse:
+      type: object
+      required: [exceptions, total_count, error_rates, top_codes]
+      properties:
+        exceptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExceptionEntry"
+        total_count:
+          type: integer
+          format: int64
+        error_rates:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+          description: 'Per log_type error rate (e.g., {"API": 0.05, "SQL": 0.02})'
+        top_codes:
+          type: array
+          items:
+            type: string
+
+    ExceptionEntry:
+      type: object
+      properties:
+        error_code:
+          type: string
+        message:
+          type: string
+        count:
+          type: integer
+          format: int64
+        first_seen:
+          type: string
+          format: date-time
+        last_seen:
+          type: string
+          format: date-time
+        log_type:
+          type: string
+        queue:
+          type: string
+        form:
+          type: string
+        user:
+          type: string
+        sample_line:
+          type: integer
+        sample_trace:
+          type: string
+
+    GapsResponse:
+      type: object
+      required: [gaps, queue_health]
+      properties:
+        gaps:
+          type: array
+          items:
+            $ref: "#/components/schemas/GapEntry"
+        queue_health:
+          type: array
+          items:
+            $ref: "#/components/schemas/QueueHealthSummary"
+
+    GapEntry:
+      type: object
+      properties:
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        duration_ms:
+          type: integer
+          format: int64
+        before_line:
+          type: integer
+        after_line:
+          type: integer
+        log_type:
+          type: string
+        queue:
+          type: string
+        thread_id:
+          type: string
+
+    QueueHealthSummary:
+      type: object
+      properties:
+        queue:
+          type: string
+        total_calls:
+          type: integer
+          format: int64
+        avg_ms:
+          type: number
+          format: double
+        error_rate:
+          type: number
+          format: double
+        p95_ms:
+          type: integer
+          format: int64
+
+    ThreadStatsResponse:
+      type: object
+      required: [threads, total_threads]
+      properties:
+        threads:
+          type: array
+          items:
+            $ref: "#/components/schemas/ThreadStatsEntry"
+        total_threads:
+          type: integer
+
+    ThreadStatsEntry:
+      type: object
+      properties:
+        thread_id:
+          type: string
+        total_calls:
+          type: integer
+          format: int64
+        total_ms:
+          type: integer
+          format: int64
+        avg_ms:
+          type: number
+          format: double
+        max_ms:
+          type: integer
+          format: int64
+        error_count:
+          type: integer
+          format: int64
+        busy_pct:
+          type: number
+          format: double
+        active_start:
+          type: string
+        active_end:
+          type: string
+
+    FilterComplexityResponse:
+      type: object
+      required: [most_executed, per_transaction, total_filter_time_ms]
+      properties:
+        most_executed:
+          type: array
+          items:
+            $ref: "#/components/schemas/MostExecutedFilter"
+        per_transaction:
+          type: array
+          items:
+            $ref: "#/components/schemas/FilterPerTransaction"
+        total_filter_time_ms:
+          type: integer
+          format: int64
+
+    MostExecutedFilter:
+      type: object
+      properties:
+        name:
+          type: string
+        count:
+          type: integer
+          format: int64
+        total_ms:
+          type: integer
+          format: int64
+
+    FilterPerTransaction:
+      type: object
+      properties:
+        transaction_id:
+          type: string
+        filter_name:
+          type: string
+        execution_count:
+          type: integer
+        total_ms:
+          type: integer
+          format: int64
+        avg_ms:
+          type: number
+          format: double
+        max_ms:
+          type: integer
+          format: int64
+        queue:
+          type: string
+        form:
+          type: string

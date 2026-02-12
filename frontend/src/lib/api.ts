@@ -58,7 +58,9 @@ export interface TopNEntry {
   form?: string;
   user?: string;
   duration_ms: number;
+  queue_time_ms?: number;
   success: boolean;
+  details?: string;
 }
 
 export interface TimeSeriesPoint {
