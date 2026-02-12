@@ -87,7 +87,7 @@ paths:
     get:
       operationId: getDashboardGaps
       summary: Get gap analysis (line gaps and thread gaps)
-      description: Returns the top 50 line gaps and top 50 thread gaps sorted by duration descending, plus queue health metrics.
+      description: Returns a combined array of detected log gaps (both line gaps and thread gaps) sorted by duration descending, plus queue health metrics.
       parameters:
         - $ref: "#/components/parameters/JobId"
       responses:

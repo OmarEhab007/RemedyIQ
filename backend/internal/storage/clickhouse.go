@@ -224,7 +224,7 @@ func (c *ClickHouseClient) queryGeneralStats(ctx context.Context, tenantID, jobI
 		&logStart,
 		&logEnd,
 	); err != nil {
-		return err
+		return fmt.Errorf("clickhouse: general stats scan: %w", err)
 	}
 	stats.LogStart = logStart
 	stats.LogEnd = logEnd
@@ -276,7 +276,7 @@ func (c *ClickHouseClient) queryTopN(ctx context.Context, tenantID, jobID string
 		clickhouse.Named("topN", topN),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("clickhouse: topN query (%s): %w", logType, err)
 	}
 	defer rows.Close()
 
@@ -371,7 +371,11 @@ func (c *ClickHouseClient) queryTopN(ctx context.Context, tenantID, jobID string
 		results = append(results, e)
 	}
 
-	return results, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("clickhouse: topN rows (%s): %w", logType, err)
+	}
+
+	return results, nil
 }
 
 func (c *ClickHouseClient) queryTimeSeries(ctx context.Context, tenantID, jobID string) ([]domain.TimeSeriesPoint, error) {
@@ -393,7 +397,7 @@ func (c *ClickHouseClient) queryTimeSeries(ctx context.Context, tenantID, jobID 
 		clickhouse.Named("jobID", jobID),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("clickhouse: time series query: %w", err)
 	}
 	defer rows.Close()
 
@@ -406,12 +410,16 @@ func (c *ClickHouseClient) queryTimeSeries(ctx context.Context, tenantID, jobID 
 			&p.AvgDurationMS,
 			&p.ErrorCount,
 		); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("clickhouse: time series scan: %w", err)
 		}
 		results = append(results, p)
 	}
 
-	return results, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("clickhouse: time series rows: %w", err)
+	}
+
+	return results, nil
 }
 
 func (c *ClickHouseClient) queryDistribution(ctx context.Context, tenantID, jobID string, dash *domain.DashboardData) error {
@@ -426,7 +434,7 @@ func (c *ClickHouseClient) queryDistribution(ctx context.Context, tenantID, jobI
 		clickhouse.Named("jobID", jobID),
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("clickhouse: distribution by type query: %w", err)
 	}
 	defer typeRows.Close()
 
@@ -435,12 +443,12 @@ func (c *ClickHouseClient) queryDistribution(ctx context.Context, tenantID, jobI
 		var lt string
 		var cnt int
 		if err := typeRows.Scan(&lt, &cnt); err != nil {
-			return err
+			return fmt.Errorf("clickhouse: distribution by type scan: %w", err)
 		}
 		byType[lt] = cnt
 	}
 	if err := typeRows.Err(); err != nil {
-		return err
+		return fmt.Errorf("clickhouse: distribution by type rows: %w", err)
 	}
 	dash.Distribution["by_type"] = byType
 
@@ -457,7 +465,7 @@ func (c *ClickHouseClient) queryDistribution(ctx context.Context, tenantID, jobI
 		clickhouse.Named("jobID", jobID),
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("clickhouse: distribution by queue query: %w", err)
 	}
 	defer queueRows.Close()
 
@@ -466,12 +474,12 @@ func (c *ClickHouseClient) queryDistribution(ctx context.Context, tenantID, jobI
 		var q string
 		var cnt int
 		if err := queueRows.Scan(&q, &cnt); err != nil {
-			return err
+			return fmt.Errorf("clickhouse: distribution by queue scan: %w", err)
 		}
 		byQueue[q] = cnt
 	}
 	if err := queueRows.Err(); err != nil {
-		return err
+		return fmt.Errorf("clickhouse: distribution by queue rows: %w", err)
 	}
 	dash.Distribution["by_queue"] = byQueue
 
@@ -715,7 +723,11 @@ func (c *ClickHouseClient) GetTraceEntries(ctx context.Context, tenantID, jobID,
 		entries = append(entries, e)
 	}
 
-	return entries, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("clickhouse: trace rows: %w", err)
+	}
+
+	return entries, nil
 }
 
 // GetAggregates returns performance aggregates grouped by form (API), user (API), and table (SQL).
@@ -723,7 +735,7 @@ func (c *ClickHouseClient) GetAggregates(ctx context.Context, tenantID, jobID st
 	resp := &domain.AggregatesResponse{}
 
 	// API by form
-	apiByForm, err := c.queryAggregateGroups(ctx, tenantID, jobID, "API", "form", "form != ''")
+	apiByForm, err := c.queryAggregateGroups(ctx, tenantID, jobID, "API", "form")
 	if err != nil {
 		return nil, fmt.Errorf("clickhouse: aggregates api by form: %w", err)
 	}
@@ -732,7 +744,7 @@ func (c *ClickHouseClient) GetAggregates(ctx context.Context, tenantID, jobID st
 	}
 
 	// SQL by table
-	sqlByTable, err := c.queryAggregateGroups(ctx, tenantID, jobID, "SQL", "sql_table", "sql_table != ''")
+	sqlByTable, err := c.queryAggregateGroups(ctx, tenantID, jobID, "SQL", "sql_table")
 	if err != nil {
 		return nil, fmt.Errorf("clickhouse: aggregates sql by table: %w", err)
 	}
@@ -741,7 +753,7 @@ func (c *ClickHouseClient) GetAggregates(ctx context.Context, tenantID, jobID st
 	}
 
 	// Filter by name
-	filterByName, err := c.queryAggregateGroups(ctx, tenantID, jobID, "FLTR", "filter_name", "filter_name != ''")
+	filterByName, err := c.queryAggregateGroups(ctx, tenantID, jobID, "FLTR", "filter_name")
 	if err != nil {
 		return nil, fmt.Errorf("clickhouse: aggregates filter by name: %w", err)
 	}
@@ -752,7 +764,21 @@ func (c *ClickHouseClient) GetAggregates(ctx context.Context, tenantID, jobID st
 	return resp, nil
 }
 
-func (c *ClickHouseClient) queryAggregateGroups(ctx context.Context, tenantID, jobID, logType, groupCol, extraFilter string) (*domain.AggregateSection, error) {
+func (c *ClickHouseClient) queryAggregateGroups(ctx context.Context, tenantID, jobID, logType, groupCol string) (*domain.AggregateSection, error) {
+	var groupExpr, filterExpr string
+	switch groupCol {
+	case "form":
+		groupExpr, filterExpr = "form", "form != ''"
+	case "sql_table":
+		groupExpr, filterExpr = "sql_table", "sql_table != ''"
+	case "filter_name":
+		groupExpr, filterExpr = "filter_name", "filter_name != ''"
+	case "user":
+		groupExpr, filterExpr = "user", "user != ''"
+	default:
+		return nil, fmt.Errorf("clickhouse: invalid aggregate group column: %s", groupCol)
+	}
+
 	query := fmt.Sprintf(`
 		SELECT
 			%s AS name,
@@ -768,7 +794,7 @@ func (c *ClickHouseClient) queryAggregateGroups(ctx context.Context, tenantID, j
 		WHERE tenant_id = @tenantID AND job_id = @jobID AND log_type = @logType AND %s
 		GROUP BY name
 		ORDER BY total_ms DESC
-	`, groupCol, extraFilter)
+	`, groupExpr, filterExpr)
 
 	rows, err := c.conn.Query(ctx, query,
 		clickhouse.Named("tenantID", tenantID),
@@ -776,7 +802,7 @@ func (c *ClickHouseClient) queryAggregateGroups(ctx context.Context, tenantID, j
 		clickhouse.Named("logType", logType),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("clickhouse: aggregates query (%s/%s): %w", logType, groupCol, err)
 	}
 	defer rows.Close()
 
@@ -791,7 +817,7 @@ func (c *ClickHouseClient) queryAggregateGroups(ctx context.Context, tenantID, j
 			&g.Name, &g.Count, &g.TotalMS, &g.AvgMS,
 			&g.MinMS, &g.MaxMS, &g.ErrorCount, &g.ErrorRate, &g.UniqueTraces,
 		); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("clickhouse: aggregates scan (%s/%s): %w", logType, groupCol, err)
 		}
 		section.Groups = append(section.Groups, g)
 
@@ -808,7 +834,7 @@ func (c *ClickHouseClient) queryAggregateGroups(ctx context.Context, tenantID, j
 		first = false
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("clickhouse: aggregates rows (%s/%s): %w", logType, groupCol, err)
 	}
 
 	if grandCount > 0 {
@@ -871,14 +897,14 @@ func (c *ClickHouseClient) GetExceptions(ctx context.Context, tenantID, jobID st
 			&e.LogType, &e.Queue, &e.Form, &e.User,
 			&sampleLine, &e.SampleTrace,
 		); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("clickhouse: exceptions scan: %w", err)
 		}
 		e.SampleLine = int(sampleLine)
 		resp.Exceptions = append(resp.Exceptions, e)
 		resp.TotalCount += e.Count
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("clickhouse: exceptions rows: %w", err)
 	}
 
 	// Top codes (up to 10)
@@ -911,14 +937,18 @@ func (c *ClickHouseClient) GetExceptions(ctx context.Context, tenantID, jobID st
 		var lt string
 		var errors, total int64
 		if err := rateRows.Scan(&lt, &errors, &total); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("clickhouse: error rates scan: %w", err)
 		}
 		if total > 0 {
 			resp.ErrorRates[lt] = float64(errors) / float64(total)
 		}
 	}
 
-	return resp, rateRows.Err()
+	if err := rateRows.Err(); err != nil {
+		return nil, fmt.Errorf("clickhouse: error rates rows: %w", err)
+	}
+
+	return resp, nil
 }
 
 // GetGaps detects time gaps between consecutive log entries.
@@ -964,14 +994,14 @@ func (c *ClickHouseClient) GetGaps(ctx context.Context, tenantID, jobID string) 
 			&g.StartTime, &g.EndTime, &g.DurationMS,
 			&beforeLine, &afterLine, &g.LogType,
 		); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("clickhouse: line gaps scan: %w", err)
 		}
 		g.BeforeLine = int(beforeLine)
 		g.AfterLine = int(afterLine)
 		resp.Gaps = append(resp.Gaps, g)
 	}
 	if err := lineRows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("clickhouse: line gaps rows: %w", err)
 	}
 
 	// Queue health
@@ -998,12 +1028,16 @@ func (c *ClickHouseClient) GetGaps(ctx context.Context, tenantID, jobID string) 
 	for qRows.Next() {
 		var q domain.QueueHealthSummary
 		if err := qRows.Scan(&q.Queue, &q.TotalCalls, &q.AvgMS, &q.ErrorRate, &q.P95MS); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("clickhouse: queue health scan: %w", err)
 		}
 		resp.QueueHealth = append(resp.QueueHealth, q)
 	}
 
-	return resp, qRows.Err()
+	if err := qRows.Err(); err != nil {
+		return nil, fmt.Errorf("clickhouse: queue health rows: %w", err)
+	}
+
+	return resp, nil
 }
 
 // GetThreadStats returns per-thread utilization statistics.
@@ -1047,13 +1081,17 @@ func (c *ClickHouseClient) GetThreadStats(ctx context.Context, tenantID, jobID s
 			&t.MaxMS, &t.ErrorCount, &t.BusyPct,
 			&t.ActiveStart, &t.ActiveEnd,
 		); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("clickhouse: thread stats scan: %w", err)
 		}
 		resp.Threads = append(resp.Threads, t)
 		resp.TotalThreads++
 	}
 
-	return resp, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("clickhouse: thread stats rows: %w", err)
+	}
+
+	return resp, nil
 }
 
 // GetFilterComplexity returns filter execution complexity metrics.
@@ -1086,12 +1124,12 @@ func (c *ClickHouseClient) GetFilterComplexity(ctx context.Context, tenantID, jo
 	for meRows.Next() {
 		var f domain.MostExecutedFilter
 		if err := meRows.Scan(&f.Name, &f.Count, &f.TotalMS); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("clickhouse: most executed filters scan: %w", err)
 		}
 		resp.MostExecuted = append(resp.MostExecuted, f)
 	}
 	if err := meRows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("clickhouse: most executed filters rows: %w", err)
 	}
 
 	// Per transaction
@@ -1125,12 +1163,12 @@ func (c *ClickHouseClient) GetFilterComplexity(ctx context.Context, tenantID, jo
 			&f.TransactionID, &f.FilterName, &f.ExecutionCount,
 			&f.TotalMS, &f.AvgMS, &f.MaxMS, &f.Queue, &f.Form,
 		); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("clickhouse: filter per transaction scan: %w", err)
 		}
 		resp.PerTransaction = append(resp.PerTransaction, f)
 	}
 	if err := ptRows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("clickhouse: filter per transaction rows: %w", err)
 	}
 
 	// Total filter time
