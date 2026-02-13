@@ -20,17 +20,19 @@ export default function UploadPage() {
   const handleFileSelected = async (file: File) => {
     setError(null);
     setUploadStatus("uploading");
-    setUploadProgress(10);
+    setUploadProgress(0);
 
     try {
-      setUploadProgress(30);
-      const logFile = await uploadFile(file);
+      const logFile = await uploadFile(file, undefined, (pct) => {
+        setUploadProgress(pct);
+      });
       setUploadProgress(100);
       setFileId(logFile.id);
       setUploadStatus("uploaded");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
       setUploadStatus("idle");
+      setUploadProgress(0);
     }
   };
 
@@ -78,7 +80,7 @@ export default function UploadPage() {
 
       {uploadStatus === "uploaded" && (
         <div className="space-y-4">
-          <ProgressTracker status="complete" progressPct={100} message="File uploaded successfully" />
+          <ProgressTracker status="uploaded" progressPct={100} message="File uploaded successfully" />
           <button
             onClick={handleStartAnalysis}
             className="w-full py-2.5 px-4 bg-primary text-primary-foreground rounded-md font-medium hover:bg-primary/90 transition-colors"

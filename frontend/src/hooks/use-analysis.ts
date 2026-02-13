@@ -43,6 +43,8 @@ export function useAnalysisProgress(jobId: string | null) {
 
     // Try WebSocket for real-time updates.
     const ws = getWSClient();
+    // Ensure the WebSocket is connected (uses dev token in development).
+    ws.connect("dev");
     const unsubscribe = ws.subscribeJobProgress(jobId, (progress) => {
       setJob((prev) =>
         prev
@@ -64,6 +66,7 @@ export function useAnalysisProgress(jobId: string | null) {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
+      ws.disconnect();
     };
   }, [jobId, fetchJob]);
 

@@ -72,37 +72,14 @@ func TestFiltersHandler_ServeHTTP(t *testing.T) {
 		checkBody      func(t *testing.T, body []byte)
 	}{
 		{
-			name:     "cache_miss_queries_clickhouse_returns_200",
-			tenantID: tenantID.String(),
-			jobIDStr: jobID.String(),
-			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
-				pg.On("GetJob", mock.Anything, tenantID, jobID).Return(completeJob, nil)
-				cacheKey := fmt.Sprintf("tenant:%s:filters:%s", tenantID.String(), jobID.String())
-				redis.On("TenantKey", tenantID.String(), "filters", jobID.String()).Return(cacheKey)
-				redis.On("Get", mock.Anything, cacheKey).Return("", errors.New("cache miss"))
-				ch.On("GetFilterComplexity", mock.Anything, tenantID.String(), jobID.String()).Return(sampleResponse, nil)
-				redis.On("Set", mock.Anything, cacheKey, sampleResponse, 5*time.Minute).Return(nil)
-			},
-			expectedStatus: http.StatusOK,
-			checkBody: func(t *testing.T, body []byte) {
-				var resp domain.FilterComplexityResponse
-				require.NoError(t, json.Unmarshal(body, &resp))
-				assert.Len(t, resp.MostExecuted, 2)
-				assert.Equal(t, "SHR:ComputedField", resp.MostExecuted[0].Name)
-				assert.Equal(t, int64(450), resp.MostExecuted[0].Count)
-				assert.Len(t, resp.PerTransaction, 1)
-				assert.Equal(t, int64(14000), resp.TotalFilterTimeMS)
-			},
-		},
-		{
 			name:     "cache_hit_returns_200_with_cached_data",
 			tenantID: tenantID.String(),
 			jobIDStr: jobID.String(),
 			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
 				pg.On("GetJob", mock.Anything, tenantID, jobID).Return(completeJob, nil)
-				cacheKey := fmt.Sprintf("tenant:%s:filters:%s", tenantID.String(), jobID.String())
-				redis.On("TenantKey", tenantID.String(), "filters", jobID.String()).Return(cacheKey)
-				redis.On("Get", mock.Anything, cacheKey).Return(string(cachedJSON), nil)
+				baseKey := fmt.Sprintf("tenant:%s:dashboard:%s", tenantID.String(), jobID.String())
+				redis.On("TenantKey", tenantID.String(), "dashboard", jobID.String()).Return(baseKey)
+				redis.On("Get", mock.Anything, baseKey+":filters").Return(string(cachedJSON), nil)
 			},
 			expectedStatus: http.StatusOK,
 			checkBody: func(t *testing.T, body []byte) {
@@ -111,6 +88,22 @@ func TestFiltersHandler_ServeHTTP(t *testing.T) {
 				assert.Len(t, resp.MostExecuted, 2)
 				assert.Len(t, resp.PerTransaction, 1)
 				assert.Equal(t, int64(14000), resp.TotalFilterTimeMS)
+			},
+		},
+		{
+			name:     "cache_miss_returns_500",
+			tenantID: tenantID.String(),
+			jobIDStr: jobID.String(),
+			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
+				pg.On("GetJob", mock.Anything, tenantID, jobID).Return(completeJob, nil)
+				baseKey := fmt.Sprintf("tenant:%s:dashboard:%s", tenantID.String(), jobID.String())
+				redis.On("TenantKey", tenantID.String(), "dashboard", jobID.String()).Return(baseKey)
+				redis.On("Get", mock.Anything, baseKey+":filters").Return("", errors.New("cache miss"))
+				redis.On("Get", mock.Anything, baseKey).Return("", errors.New("dashboard cache miss"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+			checkBody: func(t *testing.T, body []byte) {
+				assert.Contains(t, string(body), "filters data not available")
 			},
 		},
 		{
@@ -118,7 +111,6 @@ func TestFiltersHandler_ServeHTTP(t *testing.T) {
 			tenantID: "",
 			jobIDStr: jobID.String(),
 			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
-				// No mocks needed; handler exits early.
 			},
 			expectedStatus: http.StatusUnauthorized,
 			checkBody: func(t *testing.T, body []byte) {
@@ -130,7 +122,6 @@ func TestFiltersHandler_ServeHTTP(t *testing.T) {
 			tenantID: tenantID.String(),
 			jobIDStr: "not-a-uuid",
 			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
-				// No mocks needed; handler exits early.
 			},
 			expectedStatus: http.StatusBadRequest,
 			checkBody: func(t *testing.T, body []byte) {
@@ -161,22 +152,6 @@ func TestFiltersHandler_ServeHTTP(t *testing.T) {
 				assert.Contains(t, string(body), "analysis is not yet complete")
 			},
 		},
-		{
-			name:     "clickhouse_error_returns_500",
-			tenantID: tenantID.String(),
-			jobIDStr: jobID.String(),
-			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
-				pg.On("GetJob", mock.Anything, tenantID, jobID).Return(completeJob, nil)
-				cacheKey := fmt.Sprintf("tenant:%s:filters:%s", tenantID.String(), jobID.String())
-				redis.On("TenantKey", tenantID.String(), "filters", jobID.String()).Return(cacheKey)
-				redis.On("Get", mock.Anything, cacheKey).Return("", errors.New("cache miss"))
-				ch.On("GetFilterComplexity", mock.Anything, tenantID.String(), jobID.String()).Return(nil, fmt.Errorf("clickhouse connection failed"))
-			},
-			expectedStatus: http.StatusInternalServerError,
-			checkBody: func(t *testing.T, body []byte) {
-				assert.Contains(t, string(body), "failed to retrieve filter complexity data")
-			},
-		},
 	}
 
 	for _, tc := range tests {
@@ -205,7 +180,6 @@ func TestFiltersHandler_ServeHTTP(t *testing.T) {
 			}
 
 			pg.AssertExpectations(t)
-			ch.AssertExpectations(t)
 			redis.AssertExpectations(t)
 		})
 	}

@@ -8,6 +8,7 @@ interface ProgressTrackerProps {
 
 const statusLabels: Record<string, string> = {
   uploading: "Uploading file...",
+  uploaded: "Upload complete",
   queued: "Queued for analysis",
   parsing: "Parsing log file",
   analyzing: "Analyzing results",
@@ -18,7 +19,7 @@ const statusLabels: Record<string, string> = {
 
 export function ProgressTracker({ status, progressPct, message }: ProgressTrackerProps) {
   const label = statusLabels[status] || status;
-  const isComplete = status === "complete";
+  const isComplete = status === "complete" || status === "uploaded";
   const isFailed = status === "failed";
 
   return (

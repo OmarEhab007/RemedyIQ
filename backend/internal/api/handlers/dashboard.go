@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -63,33 +62,20 @@ func (h *DashboardHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check Redis cache first.
 	cacheKey := h.redis.TenantKey(tenantID, "dashboard", jobID.String())
-	if cached, err := h.redis.Get(r.Context(), cacheKey); err == nil && cached != "" {
-		var data domain.DashboardData
-		if json.Unmarshal([]byte(cached), &data) == nil {
-			api.JSON(w, http.StatusOK, data)
-			return
-		}
-	}
-
-	// Query ClickHouse for dashboard data.
-	data, err := h.ch.GetDashboardData(r.Context(), tenantID, jobID.String(), 50)
-	if err != nil {
-		api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "failed to retrieve dashboard data")
+	cached, err := h.redis.Get(r.Context(), cacheKey)
+	if err != nil || cached == "" {
+		slog.Error("dashboard data not found in cache", "job_id", jobID, "error", err)
+		api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "dashboard data not available - analysis may need to be re-run")
 		return
 	}
 
-	// Compute health score.
-	healthScore, err := h.ch.ComputeHealthScore(r.Context(), tenantID, jobID.String())
-	if err != nil {
-		slog.Warn("failed to compute health score", "job_id", jobID, "error", err)
-	} else {
-		data.HealthScore = healthScore
+	var data domain.DashboardData
+	if err := json.Unmarshal([]byte(cached), &data); err != nil {
+		slog.Error("failed to unmarshal cached dashboard data", "job_id", jobID, "error", err)
+		api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "failed to parse dashboard data")
+		return
 	}
-
-	// Cache for 5 minutes.
-	_ = h.redis.Set(r.Context(), cacheKey, data, 5*time.Minute)
 
 	api.JSON(w, http.StatusOK, data)
 }

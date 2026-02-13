@@ -20,7 +20,9 @@ import (
 
 func main() {
 	// Load .env file if present (development convenience).
-	_ = godotenv.Load()
+	_ = godotenv.Load()             // backend/.env
+	_ = godotenv.Load("../.env")    // running from backend/ -> project root .env
+	_ = godotenv.Load("../../.env") // running from backend/cmd/*/ -> project root .env
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -86,6 +88,7 @@ func main() {
 	)
 
 	uploadHandler := handlers.NewUploadHandler(pg, s3Client)
+	fileHandlers := handlers.NewFileHandlers(pg)
 	analysisHandlers := handlers.NewAnalysisHandlers(pg, natsClient)
 	dashboardHandler := handlers.NewDashboardHandler(pg, ch, redis)
 	streamHandler := handlers.NewStreamHandler(wsHub, []string{"*"})
@@ -97,6 +100,7 @@ func main() {
 		ClerkSecretKey:        cfg.ClerkSecretKey,
 		HealthHandler:         healthHandler,
 		UploadFileHandler:     uploadHandler,
+		ListFilesHandler:      fileHandlers.ListFiles(),
 		CreateAnalysisHandler: analysisHandlers.CreateAnalysis(),
 		ListAnalysesHandler:   analysisHandlers.ListAnalyses(),
 		GetAnalysisHandler:    analysisHandlers.GetAnalysis(),

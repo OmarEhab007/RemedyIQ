@@ -77,36 +77,14 @@ func TestThreadsHandler_ServeHTTP(t *testing.T) {
 		checkBody      func(t *testing.T, body []byte)
 	}{
 		{
-			name:     "cache_miss_queries_clickhouse_returns_200",
-			tenantID: tenantID.String(),
-			jobIDStr: jobID.String(),
-			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
-				pg.On("GetJob", mock.Anything, tenantID, jobID).Return(completeJob, nil)
-				cacheKey := fmt.Sprintf("tenant:%s:threads:%s", tenantID.String(), jobID.String())
-				redis.On("TenantKey", tenantID.String(), "threads", jobID.String()).Return(cacheKey)
-				redis.On("Get", mock.Anything, cacheKey).Return("", errors.New("cache miss"))
-				ch.On("GetThreadStats", mock.Anything, tenantID.String(), jobID.String()).Return(sampleResponse, nil)
-				redis.On("Set", mock.Anything, cacheKey, sampleResponse, 5*time.Minute).Return(nil)
-			},
-			expectedStatus: http.StatusOK,
-			checkBody: func(t *testing.T, body []byte) {
-				var resp domain.ThreadStatsResponse
-				require.NoError(t, json.Unmarshal(body, &resp))
-				assert.Equal(t, 2, resp.TotalThreads)
-				assert.Len(t, resp.Threads, 2)
-				assert.Equal(t, "thread-001", resp.Threads[0].ThreadID)
-				assert.Equal(t, int64(1500), resp.Threads[0].TotalCalls)
-			},
-		},
-		{
 			name:     "cache_hit_returns_200_with_cached_data",
 			tenantID: tenantID.String(),
 			jobIDStr: jobID.String(),
 			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
 				pg.On("GetJob", mock.Anything, tenantID, jobID).Return(completeJob, nil)
-				cacheKey := fmt.Sprintf("tenant:%s:threads:%s", tenantID.String(), jobID.String())
-				redis.On("TenantKey", tenantID.String(), "threads", jobID.String()).Return(cacheKey)
-				redis.On("Get", mock.Anything, cacheKey).Return(string(cachedJSON), nil)
+				baseKey := fmt.Sprintf("tenant:%s:dashboard:%s", tenantID.String(), jobID.String())
+				redis.On("TenantKey", tenantID.String(), "dashboard", jobID.String()).Return(baseKey)
+				redis.On("Get", mock.Anything, baseKey+":threads").Return(string(cachedJSON), nil)
 			},
 			expectedStatus: http.StatusOK,
 			checkBody: func(t *testing.T, body []byte) {
@@ -114,6 +92,22 @@ func TestThreadsHandler_ServeHTTP(t *testing.T) {
 				require.NoError(t, json.Unmarshal(body, &resp))
 				assert.Equal(t, 2, resp.TotalThreads)
 				assert.Len(t, resp.Threads, 2)
+			},
+		},
+		{
+			name:     "cache_miss_returns_500",
+			tenantID: tenantID.String(),
+			jobIDStr: jobID.String(),
+			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
+				pg.On("GetJob", mock.Anything, tenantID, jobID).Return(completeJob, nil)
+				baseKey := fmt.Sprintf("tenant:%s:dashboard:%s", tenantID.String(), jobID.String())
+				redis.On("TenantKey", tenantID.String(), "dashboard", jobID.String()).Return(baseKey)
+				redis.On("Get", mock.Anything, baseKey+":threads").Return("", errors.New("cache miss"))
+				redis.On("Get", mock.Anything, baseKey).Return("", errors.New("dashboard cache miss"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+			checkBody: func(t *testing.T, body []byte) {
+				assert.Contains(t, string(body), "threads data not available")
 			},
 		},
 		{
@@ -121,7 +115,6 @@ func TestThreadsHandler_ServeHTTP(t *testing.T) {
 			tenantID: "",
 			jobIDStr: jobID.String(),
 			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
-				// No mocks needed; handler exits early.
 			},
 			expectedStatus: http.StatusUnauthorized,
 			checkBody: func(t *testing.T, body []byte) {
@@ -133,7 +126,6 @@ func TestThreadsHandler_ServeHTTP(t *testing.T) {
 			tenantID: tenantID.String(),
 			jobIDStr: "not-a-uuid",
 			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
-				// No mocks needed; handler exits early.
 			},
 			expectedStatus: http.StatusBadRequest,
 			checkBody: func(t *testing.T, body []byte) {
@@ -164,22 +156,6 @@ func TestThreadsHandler_ServeHTTP(t *testing.T) {
 				assert.Contains(t, string(body), "analysis is not yet complete")
 			},
 		},
-		{
-			name:     "clickhouse_error_returns_500",
-			tenantID: tenantID.String(),
-			jobIDStr: jobID.String(),
-			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
-				pg.On("GetJob", mock.Anything, tenantID, jobID).Return(completeJob, nil)
-				cacheKey := fmt.Sprintf("tenant:%s:threads:%s", tenantID.String(), jobID.String())
-				redis.On("TenantKey", tenantID.String(), "threads", jobID.String()).Return(cacheKey)
-				redis.On("Get", mock.Anything, cacheKey).Return("", errors.New("cache miss"))
-				ch.On("GetThreadStats", mock.Anything, tenantID.String(), jobID.String()).Return(nil, fmt.Errorf("clickhouse connection failed"))
-			},
-			expectedStatus: http.StatusInternalServerError,
-			checkBody: func(t *testing.T, body []byte) {
-				assert.Contains(t, string(body), "failed to retrieve thread stats data")
-			},
-		},
 	}
 
 	for _, tc := range tests {
@@ -208,7 +184,6 @@ func TestThreadsHandler_ServeHTTP(t *testing.T) {
 			}
 
 			pg.AssertExpectations(t)
-			ch.AssertExpectations(t)
 			redis.AssertExpectations(t)
 		})
 	}

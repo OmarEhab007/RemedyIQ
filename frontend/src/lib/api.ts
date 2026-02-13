@@ -301,14 +301,64 @@ async function apiFetch<T>(
 
 // --- API functions ---
 
-export async function uploadFile(file: File, token?: string): Promise<LogFile> {
+export async function uploadFile(
+  file: File,
+  token?: string,
+  onProgress?: (pct: number) => void,
+): Promise<LogFile> {
   const formData = new FormData();
   formData.append("file", file);
 
-  return apiFetch<LogFile>("/files/upload", {
-    method: "POST",
-    body: formData,
-  }, token);
+  // Use XMLHttpRequest for upload progress tracking (fetch API doesn't support it)
+  return new Promise<LogFile>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE}/files/upload`);
+
+    // Apply auth headers
+    if (token) {
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    } else {
+      const headers = getApiHeaders();
+      Object.entries(headers).forEach(([key, value]) => {
+        xhr.setRequestHeader(key, value);
+      });
+    }
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        const pct = Math.round((event.loaded / event.total) * 100);
+        onProgress(pct);
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText));
+        } catch {
+          reject(new ApiError(xhr.status, "parse_error", "Failed to parse response"));
+        }
+      } else {
+        let body: { code?: string; message?: string } = { code: "unknown", message: xhr.statusText };
+        try {
+          body = JSON.parse(xhr.responseText);
+        } catch {
+          // use default
+        }
+        reject(new ApiError(xhr.status, body.code || "unknown", body.message || xhr.statusText));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new ApiError(0, "network_error", "Network error during upload"));
+    };
+
+    xhr.onabort = () => {
+      reject(new ApiError(0, "aborted", "Upload was cancelled"));
+    };
+
+    xhr.send(formData);
+  });
 }
 
 export async function listFiles(

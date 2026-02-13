@@ -6,18 +6,23 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/config"
+	"github.com/OmarEhab007/RemedyIQ/backend/internal/domain"
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/jar"
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/storage"
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/streaming"
+	"github.com/OmarEhab007/RemedyIQ/backend/internal/worker"
 )
 
 func main() {
 	// Load .env file if present (development convenience).
-	_ = godotenv.Load()
+	_ = godotenv.Load()             // backend/.env
+	_ = godotenv.Load("../.env")    // running from backend/ -> project root .env
+	_ = godotenv.Load("../../.env") // running from backend/cmd/*/ -> project root .env
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -80,26 +85,37 @@ func main() {
 		"timeout_sec", cfg.JARTimeoutSec,
 	)
 
-	// Keep references alive for future phases — these will be wired into
-	// the ingestion pipeline (T035) and job processor (T036).
-	_ = pg
-	_ = ch
-	_ = natsClient
-	_ = redis
-	_ = s3Client
-	_ = jarRunner
+	// --- Build ingestion pipeline ---
+	anomalyDetector := worker.NewAnomalyDetector(3.0)
+	pipeline := worker.NewPipeline(pg, ch, s3Client, redis, natsClient, jarRunner, anomalyDetector)
+
+	// --- Subscribe to NATS job queue (all tenants) ---
+	err = natsClient.SubscribeAllJobSubmits(ctx, func(job domain.AnalysisJob) {
+		logger := slog.With("job_id", job.ID.String(), "tenant_id", job.TenantID.String())
+		logger.Info("received job submission", "file_id", job.FileID.String())
+
+		jobCtx, jobCancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		defer jobCancel()
+
+		if err := pipeline.ProcessJob(jobCtx, job); err != nil {
+			logger.Error("job processing failed", "error", err)
+			return
+		}
+		logger.Info("job processing completed")
+	})
+	if err != nil {
+		slog.Error("failed to subscribe to job queue", "error", err)
+		os.Exit(1)
+	}
+
+	slog.Info("worker ready, listening for jobs on NATS")
 
 	// --- Wait for shutdown signal ---
-	// In Phase 3 (T035-T036), this section will subscribe to the NATS job
-	// queue and start the processing loop. For now, the worker starts up,
-	// validates all connections, and waits for a signal.
-	slog.Info("worker ready, waiting for jobs (job processing will be enabled in Phase 3)")
-
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-sigCh
 
-	slog.Info("received shutdown signal", "signal", sig)
+	slog.Info("received shutdown signal, draining...", "signal", sig)
 	cancel()
 	slog.Info("RemedyIQ Worker stopped")
 }

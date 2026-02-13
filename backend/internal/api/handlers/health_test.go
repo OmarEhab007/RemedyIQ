@@ -17,7 +17,7 @@ import (
 // Ping function stubs
 // ---------------------------------------------------------------------------
 
-func okPing(_ context.Context) error  { return nil }
+func okPing(_ context.Context) error   { return nil }
 func failPing(_ context.Context) error { return fmt.Errorf("connection refused") }
 
 func slowPing(ctx context.Context) error {
@@ -37,15 +37,15 @@ func TestHealthHandler_ServeHTTP(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name               string
-		pgPing             PingFunc
-		chPing             PingFunc
-		natsPing           PingFunc
-		redisPing          PingFunc
-		wantHTTPStatus     int
-		wantOverallStatus  string
-		wantServiceStatus  map[string]string // service name -> expected status
-		wantServiceErrors  map[string]string // service name -> expected error substring
+		name              string
+		pgPing            PingFunc
+		chPing            PingFunc
+		natsPing          PingFunc
+		redisPing         PingFunc
+		wantHTTPStatus    int
+		wantOverallStatus string
+		wantServiceStatus map[string]string // service name -> expected status
+		wantServiceErrors map[string]string // service name -> expected error substring
 	}{
 		{
 			name:              "all_healthy",

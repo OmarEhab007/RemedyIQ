@@ -1,10 +1,7 @@
 package handlers
 
 import (
-	"encoding/json"
-	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -15,7 +12,6 @@ import (
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/storage"
 )
 
-// ExceptionsHandler serves GET /api/v1/analysis/{job_id}/dashboard/exceptions.
 type ExceptionsHandler struct {
 	pg    storage.PostgresStore
 	ch    storage.ClickHouseStore
@@ -51,7 +47,6 @@ func (h *ExceptionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if storage.IsNotFound(err) {
 			api.Error(w, http.StatusNotFound, api.ErrCodeNotFound, "analysis job not found")
 		} else {
-			slog.Error("failed to retrieve job", "job_id", jobID, "error", err)
 			api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "failed to retrieve analysis job")
 		}
 		return
@@ -62,23 +57,11 @@ func (h *ExceptionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cacheKey := h.redis.TenantKey(tenantID, "exceptions", jobID.String())
-	if cached, err := h.redis.Get(r.Context(), cacheKey); err == nil && cached != "" {
-		var data domain.ExceptionsResponse
-		if json.Unmarshal([]byte(cached), &data) == nil {
-			api.JSON(w, http.StatusOK, data)
-			return
-		}
-	}
-
-	data, err := h.ch.GetExceptions(r.Context(), tenantID, jobID.String())
+	data, err := getOrComputeExceptions(r.Context(), h.redis, tenantID, jobID.String())
 	if err != nil {
-		slog.Error("failed to retrieve exceptions", "job_id", jobID, "error", err)
-		api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "failed to retrieve exceptions data")
+		api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "exceptions data not available")
 		return
 	}
-
-	_ = h.redis.Set(r.Context(), cacheKey, data, 5*time.Minute)
 
 	api.JSON(w, http.StatusOK, data)
 }

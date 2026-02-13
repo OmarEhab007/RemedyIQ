@@ -8,8 +8,12 @@ vi.mock("@/lib/api", () => ({
 }));
 
 const mockUnsubscribe = vi.fn();
+const mockConnect = vi.fn();
+const mockDisconnect = vi.fn();
 vi.mock("@/lib/websocket", () => ({
   getWSClient: vi.fn(() => ({
+    connect: mockConnect,
+    disconnect: mockDisconnect,
     subscribeJobProgress: vi.fn(() => mockUnsubscribe),
   })),
 }));
@@ -163,6 +167,8 @@ describe("useAnalysis", () => {
       let wsCallback: (progress: any) => void = () => {};
       const { getWSClient } = await import("@/lib/websocket");
       vi.mocked(getWSClient).mockReturnValue({
+        connect: mockConnect,
+        disconnect: mockDisconnect,
         subscribeJobProgress: vi.fn((_id: string, cb: any) => {
           wsCallback = cb;
           return mockUnsubscribe;
@@ -189,6 +195,8 @@ describe("useAnalysis", () => {
       let wsCallback: (progress: any) => void = () => {};
       const { getWSClient } = await import("@/lib/websocket");
       vi.mocked(getWSClient).mockReturnValue({
+        connect: mockConnect,
+        disconnect: mockDisconnect,
         subscribeJobProgress: vi.fn((_id: string, cb: any) => {
           wsCallback = cb;
           return mockUnsubscribe;

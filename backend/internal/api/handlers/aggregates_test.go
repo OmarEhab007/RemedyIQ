@@ -26,17 +26,17 @@ func TestAggregatesHandler_ServeHTTP(t *testing.T) {
 	now := time.Now()
 
 	completeJob := &domain.AnalysisJob{
-		ID:       jobID,
-		TenantID: tenantID,
-		Status:   domain.JobStatusComplete,
+		ID:        jobID,
+		TenantID:  tenantID,
+		Status:    domain.JobStatusComplete,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
 
 	parsingJob := &domain.AnalysisJob{
-		ID:       jobID,
-		TenantID: tenantID,
-		Status:   domain.JobStatusParsing,
+		ID:        jobID,
+		TenantID:  tenantID,
+		Status:    domain.JobStatusParsing,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -61,16 +61,14 @@ func TestAggregatesHandler_ServeHTTP(t *testing.T) {
 		checkBody      func(t *testing.T, body []byte)
 	}{
 		{
-			name:     "cache_miss_queries_clickhouse_returns_200",
+			name:     "cache_hit_returns_200_with_cached_data",
 			tenantID: tenantID.String(),
 			jobIDStr: jobID.String(),
 			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
 				pg.On("GetJob", mock.Anything, tenantID, jobID).Return(completeJob, nil)
-				cacheKey := fmt.Sprintf("tenant:%s:aggregates:%s", tenantID.String(), jobID.String())
-				redis.On("TenantKey", tenantID.String(), "aggregates", jobID.String()).Return(cacheKey)
-				redis.On("Get", mock.Anything, cacheKey).Return("", errors.New("cache miss"))
-				ch.On("GetAggregates", mock.Anything, tenantID.String(), jobID.String()).Return(sampleResponse, nil)
-				redis.On("Set", mock.Anything, cacheKey, sampleResponse, 5*time.Minute).Return(nil)
+				baseKey := fmt.Sprintf("tenant:%s:dashboard:%s", tenantID.String(), jobID.String())
+				redis.On("TenantKey", tenantID.String(), "dashboard", jobID.String()).Return(baseKey)
+				redis.On("Get", mock.Anything, baseKey+":agg").Return(string(cachedJSON), nil)
 			},
 			expectedStatus: http.StatusOK,
 			checkBody: func(t *testing.T, body []byte) {
@@ -81,21 +79,47 @@ func TestAggregatesHandler_ServeHTTP(t *testing.T) {
 			},
 		},
 		{
-			name:     "cache_hit_returns_200_with_cached_data",
+			name:     "cache_miss_returns_500",
 			tenantID: tenantID.String(),
 			jobIDStr: jobID.String(),
 			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
 				pg.On("GetJob", mock.Anything, tenantID, jobID).Return(completeJob, nil)
-				cacheKey := fmt.Sprintf("tenant:%s:aggregates:%s", tenantID.String(), jobID.String())
-				redis.On("TenantKey", tenantID.String(), "aggregates", jobID.String()).Return(cacheKey)
-				redis.On("Get", mock.Anything, cacheKey).Return(string(cachedJSON), nil)
+				baseKey := fmt.Sprintf("tenant:%s:dashboard:%s", tenantID.String(), jobID.String())
+				redis.On("TenantKey", tenantID.String(), "dashboard", jobID.String()).Return(baseKey)
+				redis.On("Get", mock.Anything, baseKey+":agg").Return("", errors.New("cache miss"))
+				redis.On("Get", mock.Anything, baseKey).Return("", errors.New("dashboard cache miss"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+			checkBody: func(t *testing.T, body []byte) {
+				assert.Contains(t, string(body), "aggregates data not available")
+			},
+		},
+		{
+			name:     "cache_miss_computes_from_dashboard",
+			tenantID: tenantID.String(),
+			jobIDStr: jobID.String(),
+			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
+				pg.On("GetJob", mock.Anything, tenantID, jobID).Return(completeJob, nil)
+				baseKey := fmt.Sprintf("tenant:%s:dashboard:%s", tenantID.String(), jobID.String())
+				redis.On("TenantKey", tenantID.String(), "dashboard", jobID.String()).Return(baseKey)
+				redis.On("Get", mock.Anything, baseKey+":agg").Return("", errors.New("cache miss"))
+				dashboard := &domain.DashboardData{
+					TopAPICalls: []domain.TopNEntry{
+						{Form: "HPD:Help Desk", DurationMS: 100, Success: true, TraceID: "T001"},
+					},
+					Distribution: make(map[string]map[string]int),
+				}
+				dashboardJSON, _ := json.Marshal(dashboard)
+				redis.On("Get", mock.Anything, baseKey).Return(string(dashboardJSON), nil)
+				redis.On("Set", mock.Anything, baseKey+":agg", mock.Anything, mock.Anything).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			checkBody: func(t *testing.T, body []byte) {
 				var resp domain.AggregatesResponse
 				require.NoError(t, json.Unmarshal(body, &resp))
 				require.NotNil(t, resp.API)
-				assert.Equal(t, int64(100), resp.API.Groups[0].Count)
+				assert.Len(t, resp.API.Groups, 1)
+				assert.Equal(t, "HPD:Help Desk", resp.API.Groups[0].Name)
 			},
 		},
 		{
@@ -103,7 +127,6 @@ func TestAggregatesHandler_ServeHTTP(t *testing.T) {
 			tenantID: "",
 			jobIDStr: jobID.String(),
 			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
-				// No mocks needed; handler exits early.
 			},
 			expectedStatus: http.StatusUnauthorized,
 			checkBody: func(t *testing.T, body []byte) {
@@ -115,7 +138,6 @@ func TestAggregatesHandler_ServeHTTP(t *testing.T) {
 			tenantID: tenantID.String(),
 			jobIDStr: "not-a-uuid",
 			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
-				// No mocks needed; handler exits early.
 			},
 			expectedStatus: http.StatusBadRequest,
 			checkBody: func(t *testing.T, body []byte) {
@@ -146,22 +168,6 @@ func TestAggregatesHandler_ServeHTTP(t *testing.T) {
 				assert.Contains(t, string(body), "analysis is not yet complete")
 			},
 		},
-		{
-			name:     "clickhouse_error_returns_500",
-			tenantID: tenantID.String(),
-			jobIDStr: jobID.String(),
-			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
-				pg.On("GetJob", mock.Anything, tenantID, jobID).Return(completeJob, nil)
-				cacheKey := fmt.Sprintf("tenant:%s:aggregates:%s", tenantID.String(), jobID.String())
-				redis.On("TenantKey", tenantID.String(), "aggregates", jobID.String()).Return(cacheKey)
-				redis.On("Get", mock.Anything, cacheKey).Return("", errors.New("cache miss"))
-				ch.On("GetAggregates", mock.Anything, tenantID.String(), jobID.String()).Return(nil, fmt.Errorf("clickhouse connection failed"))
-			},
-			expectedStatus: http.StatusInternalServerError,
-			checkBody: func(t *testing.T, body []byte) {
-				assert.Contains(t, string(body), "failed to retrieve aggregates data")
-			},
-		},
 	}
 
 	for _, tc := range tests {
@@ -190,7 +196,6 @@ func TestAggregatesHandler_ServeHTTP(t *testing.T) {
 			}
 
 			pg.AssertExpectations(t)
-			ch.AssertExpectations(t)
 			redis.AssertExpectations(t)
 		})
 	}

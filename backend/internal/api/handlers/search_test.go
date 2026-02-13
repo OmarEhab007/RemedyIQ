@@ -189,7 +189,7 @@ func TestSearchHandler_GET_SuccessSimpleTerm(t *testing.T) {
 				},
 			},
 		},
-		Total: 2,
+		Total:  2,
 		Facets: bleveSearch.FacetResults{},
 	}
 	mockSearcher.On("Search", mock.Anything, tenantID, mock.AnythingOfType("*bleve.SearchRequest")).
@@ -470,10 +470,10 @@ func TestSearchHandler_GET_BooleanKQLQuery(t *testing.T) {
 func TestSearchHandler_TotalPagesCalculation(t *testing.T) {
 	// Verify total_pages is calculated correctly with various total/page_size combos.
 	tests := []struct {
-		name           string
-		total          uint64
-		pageSize       int
-		expectedPages  int
+		name          string
+		total         uint64
+		pageSize      int
+		expectedPages int
 	}{
 		{"exact_division", 10, 5, 2},
 		{"with_remainder", 11, 5, 3},
