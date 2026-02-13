@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Timeline } from "@/components/trace/timeline";
 import { getApiHeaders } from "@/lib/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
 
 interface TraceEntry {
   id: string;
@@ -31,7 +31,7 @@ export default function TracePage() {
 
     try {
       const res = await fetch(
-        `${API_BASE}/api/v1/search?q=${encodeURIComponent(`trace:${traceId}`)}`,
+        `${API_BASE}/search?q=${encodeURIComponent(`trace:${traceId}`)}`,
         {
           headers: getApiHeaders(),
         }

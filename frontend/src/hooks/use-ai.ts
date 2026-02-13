@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { getApiHeaders } from "@/lib/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
 
 export interface AIMessage {
   id: string;
@@ -39,7 +39,7 @@ export function useAI(jobId: string) {
 
   const fetchSkills = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/ai/skills`, {
+      const res = await fetch(`${API_BASE}/ai/skills`, {
         headers: getApiHeaders(),
       });
       if (res.ok) {
@@ -63,7 +63,7 @@ export function useAI(jobId: string) {
     setError(null);
 
     try {
-      const res = await fetch(`${API_BASE}/api/v1/analysis/${jobId}/ai`, {
+      const res = await fetch(`${API_BASE}/analysis/${jobId}/ai`, {
         method: "POST",
         headers: getApiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ query, skill_name: skillName }),
