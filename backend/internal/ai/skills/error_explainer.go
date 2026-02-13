@@ -14,12 +14,12 @@ import (
 // ErrorExplainerSkill analyzes error log entries and suggests remediation.
 type ErrorExplainerSkill struct {
 	client *ai.Client
-	ch     *storage.ClickHouseClient
+	ch     storage.ClickHouseStore
 	logger *slog.Logger
 }
 
 // NewErrorExplainerSkill creates a new error explainer skill.
-func NewErrorExplainerSkill(client *ai.Client, ch *storage.ClickHouseClient) *ErrorExplainerSkill {
+func NewErrorExplainerSkill(client *ai.Client, ch storage.ClickHouseStore) *ErrorExplainerSkill {
 	return &ErrorExplainerSkill{
 		client: client,
 		ch:     ch,

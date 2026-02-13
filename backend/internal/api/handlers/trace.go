@@ -14,10 +14,10 @@ import (
 
 // TraceHandler serves GET /api/v1/analysis/{job_id}/trace/{trace_id}.
 type TraceHandler struct {
-	bleveManager *search.BleveManager
+	bleveManager search.SearchIndexer
 }
 
-func NewTraceHandler(bm *search.BleveManager) *TraceHandler {
+func NewTraceHandler(bm search.SearchIndexer) *TraceHandler {
 	return &TraceHandler{bleveManager: bm}
 }
 

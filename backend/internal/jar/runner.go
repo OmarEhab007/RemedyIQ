@@ -6,7 +6,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -205,9 +208,11 @@ func (r *Runner) buildCommandArgs(heapMB int, jarArgs []string) []string {
 		args := []string{
 			r.javaCmd,
 			fmt.Sprintf("-Xmx%dm", heapMB),
-			"-jar",
-			r.jarPath,
 		}
+		// On macOS aarch64, the bundled snappy-java native lib is missing.
+		// Point the JVM to our extracted aarch64 native lib if available.
+		args = append(args, r.snappyNativeArgs()...)
+		args = append(args, "-jar", r.jarPath)
 		args = append(args, jarArgs...)
 		return args
 	}
@@ -216,4 +221,31 @@ func (r *Runner) buildCommandArgs(heapMB int, jarArgs []string) []string {
 	args := []string{r.javaCmd}
 	args = append(args, jarArgs...)
 	return args
+}
+
+// snappyNativeArgs returns JVM flags to load the snappy native library
+// for the current OS/arch if the bundled version doesn't support it.
+func (r *Runner) snappyNativeArgs() []string {
+	if runtime.GOOS != "darwin" || runtime.GOARCH != "arm64" {
+		return nil
+	}
+	// Look for the native lib relative to the JAR path.
+	jarDir := filepath.Dir(r.jarPath)
+	libPath := filepath.Join(jarDir, "..", "..", "backend", "lib", "snappy-native", "org", "xerial", "snappy", "native", "Mac", "aarch64")
+	if _, err := os.Stat(filepath.Join(libPath, "libsnappyjava.dylib")); err != nil {
+		// Also try relative to the working directory.
+		libPath = filepath.Join("lib", "snappy-native", "org", "xerial", "snappy", "native", "Mac", "aarch64")
+		if _, err := os.Stat(filepath.Join(libPath, "libsnappyjava.dylib")); err != nil {
+			return nil
+		}
+	}
+	absPath, err := filepath.Abs(libPath)
+	if err != nil {
+		return nil
+	}
+	slog.Debug("using snappy native lib for aarch64", "path", absPath)
+	return []string{
+		"-Dorg.xerial.snappy.lib.path=" + absPath,
+		"-Dorg.xerial.snappy.lib.name=libsnappyjava.dylib",
+	}
 }

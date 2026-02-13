@@ -14,11 +14,11 @@ import (
 // SummarizerSkill generates executive summary reports.
 type SummarizerSkill struct {
 	client *ai.Client
-	ch     *storage.ClickHouseClient
+	ch     storage.ClickHouseStore
 	logger *slog.Logger
 }
 
-func NewSummarizerSkill(client *ai.Client, ch *storage.ClickHouseClient) *SummarizerSkill {
+func NewSummarizerSkill(client *ai.Client, ch storage.ClickHouseStore) *SummarizerSkill {
 	return &SummarizerSkill{
 		client: client,
 		ch:     ch,

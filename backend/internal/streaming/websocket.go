@@ -157,8 +157,9 @@ func (h *Hub) addClient(c *Client) {
 	}
 	tenantClients[c] = struct{}{}
 
-	h.logger.Info("client registered", "tenant", c.tenantID, "total_clients", h.totalClientsLocked())
+	h.logger.Info("client registered", "tenant", c.tenantID, "total_clients", h.totalClientsNoLock())
 }
+
 
 func (h *Hub) removeClient(c *Client) {
 	h.mu.Lock()
@@ -193,12 +194,19 @@ func (h *Hub) removeClient(c *Client) {
 
 	close(c.send)
 
-	h.logger.Info("client unregistered", "tenant", c.tenantID, "total_clients", h.totalClientsLocked())
+	h.logger.Info("client unregistered", "tenant", c.tenantID, "total_clients", h.totalClients())
 }
 
-func (h *Hub) totalClientsLocked() int {
+// totalClients returns the total number of connected clients (acquires read lock).
+func (h *Hub) totalClients() int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
+	return h.totalClientsNoLock()
+}
+
+// totalClientsNoLock returns the total number of connected clients.
+// Caller must hold h.mu (read or write).
+func (h *Hub) totalClientsNoLock() int {
 	n := 0
 	for _, m := range h.clients {
 		n += len(m)

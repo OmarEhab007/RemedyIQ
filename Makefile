@@ -41,14 +41,38 @@ deps: ## Install all dependencies (Go + npm)
 
 ##@ Testing & Quality
 
-test: ## Run all backend tests
-	@echo "$(GREEN)Running tests...$(RESET)"
-	cd backend && go test -v -race -coverprofile=coverage.out ./...
+test: ## Run unit tests only (no external services required)
+	@echo "$(GREEN)Running unit tests...$(RESET)"
+	cd backend && go test -v -race -count=1 -coverprofile=coverage.out ./...
+	@echo "Coverage report:"
+	@cd backend && go tool cover -func=coverage.out | tail -1
 
-test-coverage: test ## Run tests with coverage report
+test-integration: ## Run integration tests only (requires Docker services)
+	@echo "$(GREEN)Running integration tests...$(RESET)"
+	cd backend && go test -v -race -count=1 -tags=integration -coverprofile=coverage-integration.out ./...
+
+test-all: test test-integration ## Run all tests (unit + integration)
+
+test-coverage: ## Generate HTML coverage report
 	@echo "$(GREEN)Generating coverage report...$(RESET)"
+	cd backend && go test -v -race -count=1 -coverprofile=coverage.out ./...
 	cd backend && go tool cover -html=coverage.out -o coverage.html
 	@echo "$(GREEN)Coverage report: backend/coverage.html$(RESET)"
+
+test-coverage-detail: ## Generate per-package coverage breakdown
+	@echo "$(GREEN)Generating per-package coverage...$(RESET)"
+	@cd backend && go test -coverprofile=coverage.out ./... 2>/dev/null
+	@cd backend && go tool cover -func=coverage.out
+
+test-frontend: ## Run frontend tests
+	@echo "$(GREEN)Running frontend tests...$(RESET)"
+	cd frontend && npx vitest run --coverage
+
+test-frontend-watch: ## Run frontend tests in watch mode
+	@echo "$(GREEN)Running frontend tests in watch mode...$(RESET)"
+	cd frontend && npx vitest
+
+test-full: test test-frontend ## Run all tests (backend + frontend)
 
 lint: ## Run linter
 	@echo "$(GREEN)Running linter...$(RESET)"

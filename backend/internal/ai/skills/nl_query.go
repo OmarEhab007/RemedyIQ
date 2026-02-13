@@ -14,12 +14,12 @@ import (
 // NLQuerySkill converts natural language to KQL and searches logs.
 type NLQuerySkill struct {
 	client *ai.Client
-	ch     *storage.ClickHouseClient
+	ch     storage.ClickHouseStore
 	logger *slog.Logger
 }
 
 // NewNLQuerySkill creates a new natural language query skill.
-func NewNLQuerySkill(client *ai.Client, ch *storage.ClickHouseClient) *NLQuerySkill {
+func NewNLQuerySkill(client *ai.Client, ch storage.ClickHouseStore) *NLQuerySkill {
 	return &NLQuerySkill{
 		client: client,
 		ch:     ch,

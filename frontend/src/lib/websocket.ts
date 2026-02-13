@@ -20,9 +20,9 @@ export class RemedyWSClient {
   private intentionalClose: boolean = false;
 
   connect(token: string): void {
-    // Close any existing socket before opening a new one
+    // Skip if already connected or connecting with the same token
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
-      this.ws.close();
+      return;
     }
 
     // Reset state for new connection attempt

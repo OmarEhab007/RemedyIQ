@@ -14,24 +14,29 @@ import (
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/streaming"
 )
 
+// JARRunner abstracts the JAR execution so tests can substitute a mock.
+type JARRunner interface {
+	Run(ctx context.Context, filePath string, flags domain.JARFlags, heapMB int, lineCallback func(string)) (*jar.Result, error)
+}
+
 // Pipeline orchestrates the ingestion flow: download -> JAR -> parse -> store.
 type Pipeline struct {
-	pg      *storage.PostgresClient
-	ch      *storage.ClickHouseClient
-	s3      *storage.S3Client
-	redis   *storage.RedisClient
-	nats    *streaming.NATSClient
-	jar     *jar.Runner
+	pg      storage.PostgresStore
+	ch      storage.ClickHouseStore
+	s3      storage.S3Storage
+	redis   storage.RedisCache
+	nats    streaming.NATSStreamer
+	jar     JARRunner
 	anomaly *AnomalyDetector
 }
 
 func NewPipeline(
-	pg *storage.PostgresClient,
-	ch *storage.ClickHouseClient,
-	s3 *storage.S3Client,
-	redis *storage.RedisClient,
-	nats *streaming.NATSClient,
-	jarRunner *jar.Runner,
+	pg storage.PostgresStore,
+	ch storage.ClickHouseStore,
+	s3 storage.S3Storage,
+	redis storage.RedisCache,
+	nats streaming.NATSStreamer,
+	jarRunner JARRunner,
 	anomalyDetector *AnomalyDetector,
 ) *Pipeline {
 	return &Pipeline{pg: pg, ch: ch, s3: s3, redis: redis, nats: nats, jar: jarRunner, anomaly: anomalyDetector}
@@ -110,7 +115,10 @@ func (p *Pipeline) ProcessJob(ctx context.Context, job domain.AnalysisJob) error
 	}
 	dashboard := parseResult.Dashboard
 
-	// 5b. Run anomaly detection on parsed dashboard data.
+	// 5b. Compute enhanced sections from dashboard data.
+	parseResult = ComputeEnhancedSections(dashboard)
+
+	// 5c. Run anomaly detection on parsed dashboard data.
 	var anomalies []Anomaly
 	if p.anomaly != nil {
 		anomalies = p.detectAnomalies(ctx, jobID, tenantID, dashboard)
@@ -121,10 +129,17 @@ func (p *Pipeline) ProcessJob(ctx context.Context, job domain.AnalysisJob) error
 		}
 	}
 
-	// 5c. Cache section data in Redis for lazy-loaded dashboard sections.
+	// 5d. Cache dashboard and section data in Redis.
 	if p.redis != nil {
 		sectionTTL := 24 * time.Hour
 		cachePrefix := p.redis.TenantKey(tenantID, "dashboard", jobID)
+
+		// Cache the full dashboard data (used by GET /analysis/{job_id}/dashboard).
+		if err := p.redis.Set(ctx, cachePrefix, dashboard, sectionTTL); err != nil {
+			logger.Warn("redis cache set failed", "section", "dashboard", "error", err)
+		}
+
+		// Cache individual sections for lazy-loaded dashboard endpoints.
 		if parseResult.Aggregates != nil {
 			if err := p.redis.Set(ctx, cachePrefix+":agg", parseResult.Aggregates, sectionTTL); err != nil {
 				logger.Warn("redis cache set failed", "section", "agg", "error", err)

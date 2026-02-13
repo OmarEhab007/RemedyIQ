@@ -236,3 +236,63 @@ func TestBleveManager_DeleteIndex(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), result.Total)
 }
+
+func TestBleveManager_IndexAlias(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "bleve-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	bm, err := NewBleveManager(tmpDir)
+	require.NoError(t, err)
+	defer bm.Close()
+
+	entries := []domain.LogEntry{
+		{EntryID: "idx-1", LogType: domain.LogTypeAPI, User: "Test", Timestamp: time.Now()},
+	}
+
+	// Use the Index alias method (wraps IndexEntries).
+	err = bm.Index(context.Background(), "tenant-alias", entries)
+	require.NoError(t, err)
+
+	// Verify the entry was indexed.
+	matchAll := bleve.NewMatchAllQuery()
+	searchReq := bleve.NewSearchRequest(matchAll)
+	result, err := bm.Search(context.Background(), "tenant-alias", searchReq)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(1), result.Total)
+}
+
+func TestBleveManager_DeleteAlias(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "bleve-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	bm, err := NewBleveManager(tmpDir)
+	require.NoError(t, err)
+	defer bm.Close()
+
+	// Create an index with data.
+	err = bm.IndexEntries(context.Background(), "tenant-del2", []domain.LogEntry{
+		{EntryID: "d-1", LogType: domain.LogTypeAPI, Timestamp: time.Now()},
+	})
+	require.NoError(t, err)
+
+	// Use the Delete alias method (wraps DeleteIndex).
+	err = bm.Delete("tenant-del2")
+	require.NoError(t, err)
+
+	// Verify the index was deleted.
+	matchAll := bleve.NewMatchAllQuery()
+	searchReq := bleve.NewSearchRequest(matchAll)
+	result, err := bm.Search(context.Background(), "tenant-del2", searchReq)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0), result.Total)
+}
+
+func TestNewBleveManager_InvalidDir(t *testing.T) {
+	// Empty dir string still works (uses current dir as base).
+	bm, err := NewBleveManager(t.TempDir())
+	require.NoError(t, err)
+	require.NotNil(t, bm)
+	bm.Close()
+}

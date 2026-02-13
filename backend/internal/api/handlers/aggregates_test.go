@@ -1,114 +1,202 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/OmarEhab007/RemedyIQ/backend/internal/api"
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/api/middleware"
+	"github.com/OmarEhab007/RemedyIQ/backend/internal/domain"
+	"github.com/OmarEhab007/RemedyIQ/backend/internal/testutil"
 )
 
-// ---------------------------------------------------------------------------
-// AggregatesHandler contract tests
-// ---------------------------------------------------------------------------
+func TestAggregatesHandler_ServeHTTP(t *testing.T) {
+	tenantID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	jobID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
+	now := time.Now()
 
-func TestAggregatesHandler_MissingTenantContext(t *testing.T) {
-	h := NewAggregatesHandler(nil, nil, nil)
+	completeJob := &domain.AnalysisJob{
+		ID:        jobID,
+		TenantID:  tenantID,
+		Status:    domain.JobStatusComplete,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/analysis/550e8400-e29b-41d4-a716-446655440000/dashboard/aggregates", nil)
-	req = mux.SetURLVars(req, map[string]string{"job_id": "550e8400-e29b-41d4-a716-446655440000"})
+	parsingJob := &domain.AnalysisJob{
+		ID:        jobID,
+		TenantID:  tenantID,
+		Status:    domain.JobStatusParsing,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
 
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
+	sampleResponse := &domain.AggregatesResponse{
+		API: &domain.AggregateSection{
+			Groups: []domain.AggregateGroup{
+				{Name: "test-api", Count: 100, AvgMS: 42.5},
+			},
+		},
+	}
 
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	cachedJSON, err := json.Marshal(sampleResponse)
+	require.NoError(t, err)
 
-	var errResp api.ErrorResponse
-	require.NoError(t, json.NewDecoder(w.Body).Decode(&errResp))
-	assert.Equal(t, api.ErrCodeUnauthorized, errResp.Code)
-	assert.Contains(t, errResp.Message, "missing tenant context")
-}
+	tests := []struct {
+		name           string
+		tenantID       string
+		jobIDStr       string
+		setupMocks     func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache)
+		expectedStatus int
+		checkBody      func(t *testing.T, body []byte)
+	}{
+		{
+			name:     "cache_hit_returns_200_with_cached_data",
+			tenantID: tenantID.String(),
+			jobIDStr: jobID.String(),
+			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
+				pg.On("GetJob", mock.Anything, tenantID, jobID).Return(completeJob, nil)
+				baseKey := fmt.Sprintf("tenant:%s:dashboard:%s", tenantID.String(), jobID.String())
+				redis.On("TenantKey", tenantID.String(), "dashboard", jobID.String()).Return(baseKey)
+				redis.On("Get", mock.Anything, baseKey+":agg").Return(string(cachedJSON), nil)
+			},
+			expectedStatus: http.StatusOK,
+			checkBody: func(t *testing.T, body []byte) {
+				var resp domain.AggregatesResponse
+				require.NoError(t, json.Unmarshal(body, &resp))
+				require.NotNil(t, resp.API)
+				assert.Equal(t, int64(100), resp.API.Groups[0].Count)
+			},
+		},
+		{
+			name:     "cache_miss_returns_500",
+			tenantID: tenantID.String(),
+			jobIDStr: jobID.String(),
+			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
+				pg.On("GetJob", mock.Anything, tenantID, jobID).Return(completeJob, nil)
+				baseKey := fmt.Sprintf("tenant:%s:dashboard:%s", tenantID.String(), jobID.String())
+				redis.On("TenantKey", tenantID.String(), "dashboard", jobID.String()).Return(baseKey)
+				redis.On("Get", mock.Anything, baseKey+":agg").Return("", errors.New("cache miss"))
+				redis.On("Get", mock.Anything, baseKey).Return("", errors.New("dashboard cache miss"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+			checkBody: func(t *testing.T, body []byte) {
+				assert.Contains(t, string(body), "aggregates data not available")
+			},
+		},
+		{
+			name:     "cache_miss_computes_from_dashboard",
+			tenantID: tenantID.String(),
+			jobIDStr: jobID.String(),
+			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
+				pg.On("GetJob", mock.Anything, tenantID, jobID).Return(completeJob, nil)
+				baseKey := fmt.Sprintf("tenant:%s:dashboard:%s", tenantID.String(), jobID.String())
+				redis.On("TenantKey", tenantID.String(), "dashboard", jobID.String()).Return(baseKey)
+				redis.On("Get", mock.Anything, baseKey+":agg").Return("", errors.New("cache miss"))
+				dashboard := &domain.DashboardData{
+					TopAPICalls: []domain.TopNEntry{
+						{Form: "HPD:Help Desk", DurationMS: 100, Success: true, TraceID: "T001"},
+					},
+					Distribution: make(map[string]map[string]int),
+				}
+				dashboardJSON, _ := json.Marshal(dashboard)
+				redis.On("Get", mock.Anything, baseKey).Return(string(dashboardJSON), nil)
+				redis.On("Set", mock.Anything, baseKey+":agg", mock.Anything, mock.Anything).Return(nil)
+			},
+			expectedStatus: http.StatusOK,
+			checkBody: func(t *testing.T, body []byte) {
+				var resp domain.AggregatesResponse
+				require.NoError(t, json.Unmarshal(body, &resp))
+				require.NotNil(t, resp.API)
+				assert.Len(t, resp.API.Groups, 1)
+				assert.Equal(t, "HPD:Help Desk", resp.API.Groups[0].Name)
+			},
+		},
+		{
+			name:     "missing_tenant_returns_401",
+			tenantID: "",
+			jobIDStr: jobID.String(),
+			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
+			},
+			expectedStatus: http.StatusUnauthorized,
+			checkBody: func(t *testing.T, body []byte) {
+				assert.Contains(t, string(body), "missing tenant context")
+			},
+		},
+		{
+			name:     "invalid_job_id_returns_400",
+			tenantID: tenantID.String(),
+			jobIDStr: "not-a-uuid",
+			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
+			},
+			expectedStatus: http.StatusBadRequest,
+			checkBody: func(t *testing.T, body []byte) {
+				assert.Contains(t, string(body), "invalid job_id format")
+			},
+		},
+		{
+			name:     "job_not_found_returns_404",
+			tenantID: tenantID.String(),
+			jobIDStr: jobID.String(),
+			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
+				pg.On("GetJob", mock.Anything, tenantID, jobID).Return(nil, fmt.Errorf("not found"))
+			},
+			expectedStatus: http.StatusNotFound,
+			checkBody: func(t *testing.T, body []byte) {
+				assert.Contains(t, string(body), "analysis job not found")
+			},
+		},
+		{
+			name:     "job_not_complete_returns_409",
+			tenantID: tenantID.String(),
+			jobIDStr: jobID.String(),
+			setupMocks: func(pg *testutil.MockPostgresStore, ch *testutil.MockClickHouseStore, redis *testutil.MockRedisCache) {
+				pg.On("GetJob", mock.Anything, tenantID, jobID).Return(parsingJob, nil)
+			},
+			expectedStatus: http.StatusConflict,
+			checkBody: func(t *testing.T, body []byte) {
+				assert.Contains(t, string(body), "analysis is not yet complete")
+			},
+		},
+	}
 
-func TestAggregatesHandler_InvalidJobID(t *testing.T) {
-	h := NewAggregatesHandler(nil, nil, nil)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			pg := new(testutil.MockPostgresStore)
+			ch := new(testutil.MockClickHouseStore)
+			redis := new(testutil.MockRedisCache)
+			tc.setupMocks(pg, ch, redis)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/analysis/not-a-uuid/dashboard/aggregates", nil)
-	ctx := context.WithValue(req.Context(), middleware.TenantIDKey, "550e8400-e29b-41d4-a716-446655440000")
-	req = req.WithContext(ctx)
-	req = mux.SetURLVars(req, map[string]string{"job_id": "not-a-uuid"})
+			handler := NewAggregatesHandler(pg, ch, redis)
 
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/analysis/"+tc.jobIDStr+"/dashboard/aggregates", nil)
+			if tc.tenantID != "" {
+				ctx := middleware.WithTenantID(req.Context(), tc.tenantID)
+				ctx = middleware.WithUserID(ctx, "test-user")
+				req = req.WithContext(ctx)
+			}
+			req = mux.SetURLVars(req, map[string]string{"job_id": tc.jobIDStr})
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, req)
 
-	var errResp api.ErrorResponse
-	require.NoError(t, json.NewDecoder(w.Body).Decode(&errResp))
-	assert.Equal(t, api.ErrCodeInvalidRequest, errResp.Code)
-	assert.Contains(t, errResp.Message, "invalid job_id format")
-}
+			assert.Equal(t, tc.expectedStatus, w.Code)
+			if tc.checkBody != nil {
+				tc.checkBody(t, w.Body.Bytes())
+			}
 
-func TestAggregatesHandler_InvalidTenantIDFormat(t *testing.T) {
-	h := NewAggregatesHandler(nil, nil, nil)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/analysis/550e8400-e29b-41d4-a716-446655440000/dashboard/aggregates", nil)
-	// Set a tenant ID that is not a valid UUID.
-	ctx := context.WithValue(req.Context(), middleware.TenantIDKey, "bad-tenant-id")
-	req = req.WithContext(ctx)
-	req = mux.SetURLVars(req, map[string]string{"job_id": "550e8400-e29b-41d4-a716-446655440000"})
-
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-
-	var errResp api.ErrorResponse
-	require.NoError(t, json.NewDecoder(w.Body).Decode(&errResp))
-	assert.Equal(t, api.ErrCodeInvalidRequest, errResp.Code)
-	assert.Contains(t, errResp.Message, "invalid tenant_id format")
-}
-
-func TestAggregatesHandler_EmptyJobID(t *testing.T) {
-	h := NewAggregatesHandler(nil, nil, nil)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/analysis//dashboard/aggregates", nil)
-	ctx := context.WithValue(req.Context(), middleware.TenantIDKey, "550e8400-e29b-41d4-a716-446655440000")
-	req = req.WithContext(ctx)
-	req = mux.SetURLVars(req, map[string]string{"job_id": ""})
-
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-
-	var errResp api.ErrorResponse
-	require.NoError(t, json.NewDecoder(w.Body).Decode(&errResp))
-	assert.Equal(t, api.ErrCodeInvalidRequest, errResp.Code)
-	assert.Contains(t, errResp.Message, "invalid job_id format")
-}
-
-func TestAggregatesHandler_NilStorageClients_PanicsOnGetJob(t *testing.T) {
-	// When pg is nil, calling pg.GetJob will panic. This confirms that the
-	// handler correctly passes through tenant and job_id validation before
-	// reaching the storage layer. We verify this by recovering from the
-	// expected nil-pointer dereference.
-	h := NewAggregatesHandler(nil, nil, nil)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/analysis/550e8400-e29b-41d4-a716-446655440000/dashboard/aggregates", nil)
-	ctx := context.WithValue(req.Context(), middleware.TenantIDKey, "550e8400-e29b-41d4-a716-446655440000")
-	req = req.WithContext(ctx)
-	req = mux.SetURLVars(req, map[string]string{"job_id": "550e8400-e29b-41d4-a716-446655440000"})
-
-	w := httptest.NewRecorder()
-
-	assert.Panics(t, func() {
-		h.ServeHTTP(w, req)
-	}, "handler should panic when PostgresClient is nil, proving validation passed")
+			pg.AssertExpectations(t)
+			redis.AssertExpectations(t)
+		})
+	}
 }

@@ -14,17 +14,53 @@
 RemedyIQ is a modern, cloud-native platform for analyzing BMC Remedy AR Server logs. It transforms raw log files into actionable insights through:
 
 - **AI-Powered Analysis**: Ask natural language questions about your logs and get instant answers
-- **Real-Time Dashboard**: Interactive visualizations of API, SQL, Filter, and Escalation performance
-- **Anomaly Detection**: Automatically identify performance degradation and unusual patterns
-- **Multi-Tenant SaaS**: Built for organizations with secure data isolation
+- **Comprehensive Dashboard**: 10 analysis sections with real-time visualizations of API, SQL, Filter, and Escalation performance
+- **Performance Aggregates**: Grouped statistics by form, user, table with sortable columns and grand totals
+- **Exception Tracking**: Complete error analysis with per-log-type error rates, grouped by error code with sample context
+- **Gap Analysis**: Detect log silence periods, thread gaps, and system hangs with critical gap highlighting
+- **Thread Statistics**: Per-thread utilization metrics with busy percentage calculations and warning indicators
+- **Filter Complexity**: Most-executed filters ranked by count and per-transaction filter metrics
+- **Health Scoring**: Composite 0-100 health score with factor breakdown (Error Rate, Response Time, Saturation, Gaps)
+- **Enhanced Visualizations**: Time-series charts with duration/error overlays, distribution charts with dimension switching
+- **Multi-Tenant SaaS**: Built for organizations with secure data isolation via PostgreSQL RLS
 - **Lightning-Fast Search**: KQL-style search across millions of log entries in seconds
 
 Designed as a modern replacement for the legacy ARLogAnalyzer CLI tool, RemedyIQ provides a web-based interface with significantly enhanced capabilities.
 
 ---
 
+## What's New (Latest Release)
+
+The latest release delivers a complete dashboard experience with **5 new backend endpoints** and **6 new frontend sections**, plus enhanced visualizations and AI skills hardening:
+
+### New Backend Endpoints
+- **`/api/v1/analysis/:id/aggregates`** - Performance aggregates grouped by form, user, and table
+- **`/api/v1/analysis/:id/exceptions`** - Exception reports grouped by error code with per-log-type error rates
+- **`/api/v1/analysis/:id/gaps`** - Line gaps and thread gaps analysis with queue health
+- **`/api/v1/analysis/:id/threads`** - Per-thread statistics with busy percentage calculations
+- **`/api/v1/analysis/:id/filters`** - Filter complexity metrics (most-executed, per-transaction)
+
+### New Frontend Sections
+- **Health Score Card** - 0-100 composite score with color-coded status and factor breakdown
+- **Aggregates Section** - Tabbed interface (API by Form, API by User, SQL by Table) with sortable columns
+- **Exceptions Section** - Error rate badges, expandable exception list, log-type filtering
+- **Gaps Section** - Line gaps and thread gaps with critical gap highlighting (>60s)
+- **Threads Section** - Thread table with busy% color bars and 90% warning indicators
+- **Filters Section** - Most-executed filters and per-transaction metrics with sortable tables
+
+### Enhanced Features
+- **Top-N Tables** - Type-specific columns, expandable detail rows, "View in Explorer" links
+- **Time-Series Charts** - Toggleable duration overlay, error count overlay, click-and-drag zoom
+- **Distribution Charts** - Switchable grouping dimensions (type, queue, form, user, table)
+- **AI Skills** - Hardened implementations with proper error handling and fallbacks
+- **Performance** - Lazy-loaded dashboard sections with 5-minute Redis cache TTL
+
+---
+
 ## Table of Contents
 
+- [Overview](#overview)
+- [What's New (Latest Release)](#whats-new-latest-release)
 - [Architecture](#architecture)
 - [Technology Stack](#technology-stack)
 - [Features](#features)
@@ -32,7 +68,12 @@ Designed as a modern replacement for the legacy ARLogAnalyzer CLI tool, RemedyIQ
 - [Development Guide](#development-guide)
 - [API Documentation](#api-documentation)
 - [Deployment](#deployment)
+- [Performance Benchmarks](#performance-benchmarks)
+- [Roadmap](#roadmap)
 - [Contributing](#contributing)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
+- [Support](#support)
 
 ---
 
@@ -45,12 +86,13 @@ RemedyIQ follows a clean, microservices-inspired architecture with clear separat
 │                           Frontend (Next.js)                             │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐   │
 │  │  Auth    │  │ Dashboard│  │  Search  │  │    AI Chat Panel     │   │
-│  │ (Clerk)  │  │  (Recharts) │   │ (Bleve) │  │   (Claude API)       │   │
+│  │ (Clerk)  │  │  (10 sections)│   │ (Bleve) │  │   (Claude API)       │   │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────────────────┘   │
+│  Health Score • Aggregates • Exceptions • Gaps • Threads • Filters      │
 └─────────────────────────────────────────────────────────────────────────┘
-                                  ▲
-                                  │ HTTP/HTTPS + WebSocket
-                                  ▼
+                                   ▲
+                                   │ HTTP/HTTPS + WebSocket
+                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                           API Layer (Go)                                 │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
@@ -62,25 +104,27 @@ RemedyIQ follows a clean, microservices-inspired architecture with clear separat
 │  ▼                             ▼                                     ▼ │
 │ ┌──────────┐              ┌──────────┐                        ┌──────────┐│
 │ │ Handlers│              │Streaming │                        │  Queue   ││
-│ │  (REST) │              │(WebSocket)│                        │  (NATS)  ││
+│ │  (10+)   │              │(WebSocket)│                        │  (NATS)  ││
 │ └──────────┘              └──────────┘                        └──────────┘│
 └─────────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  ▼
+                                   │
+                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                        Business Logic Layer                             │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐   │
 │  │ Tenant   │  │   Job    │  │   AI     │  │   Search Engine      │   │
 │  │ Isolation│  │Orchestrator│  │  Skills  │  │      (Bleve)         │   │
+│  │   (RLS)  │  │           │  │   (6+)    │  │                      │   │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  ▼
+                                   │
+                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                          Storage Layer                                   │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌───────────────┐  │
 │  │ PostgreSQL  │  │ ClickHouse  │  │   Redis     │  │  MinIO / S3   │  │
-│  │ (Metadata)  │  │ (Log Data)  │  │   (Cache)   │  │  (Raw Files)  │  │
+│  │ (Metadata)  │  │ (Log Data   │  │   (Cache)   │  │  (Raw Files)  │  │
+│  │ + RLS       │  │ + MVs)      │  │   (5min)    │  │               │  │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └───────────────┘  │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -105,13 +149,35 @@ For detailed architecture diagrams, see [docs/diagrams/architecture.md](docs/dia
 | Language | Go 1.24+ | High-performance, concurrent processing |
 | Framework | Gorilla Mux | HTTP routing and middleware |
 | Database | PostgreSQL + pgx/v5 | Metadata, tenant management, RLS |
-| Analytics DB | ClickHouse + go-clickhouse/v2 | Time-series log storage |
-| Cache | Redis + go-redis/v9 | Session cache, rate limiting |
-| Message Queue | NATS + nats.go | Job queue, pub/sub |
+| Analytics DB | ClickHouse + go-clickhouse/v2 | Time-series log storage with materialized views |
+| Cache | Redis + go-redis/v9 | Response caching, rate limiting |
+| Message Queue | NATS + nats.go | Job queue, pub/sub with JetStream |
 | Object Storage | MinIO / AWS S3 v2 | Raw log file storage |
-| Full-text Search | Bleve | Semantic log search |
-| AI/LLM | Anthropic Claude API | Natural language queries |
+| Full-text Search | Bleve | Semantic log search and indexing |
+| AI/LLM | Anthropic Claude API | Natural language queries, summarization |
 | Log Parser | ARLogAnalyzer.jar (subprocess) | BMC Remedy log parsing |
+
+### Frontend
+
+| Component | Technology | Purpose |
+|-----------|-----------|---------|
+| Framework | Next.js 16.1 + React 19 | SSR, API routes, routing |
+| Language | TypeScript 5+ | Type safety |
+| UI Library | shadcn/ui + Radix UI | Accessible components |
+| Styling | Tailwind CSS 4 | Utility-first CSS |
+| Charts | Recharts + D3.js | Data visualization |
+| Virtualization | react-window | Large dataset rendering |
+| Auth | Clerk Next.js SDK | Multi-tenant authentication |
+| State | React Context + Hooks | Local state management |
+
+### Infrastructure
+
+| Component | Technology | Purpose |
+|-----------|-----------|---------|
+| Containerization | Docker + Docker Compose | Local development |
+| Build Tool | GNU Make | Build automation |
+| Testing | Go test + ESLint + TypeScript | Test coverage and linting |
+| CI/CD | GitHub Actions (planned) | Continuous integration |
 
 ### Frontend
 
@@ -144,12 +210,60 @@ For detailed architecture diagrams, see [docs/diagrams/architecture.md](docs/dia
 - Legacy JAR-based parsing with configurable JVM settings
 - Progress tracking via WebSocket (queued → parsing → analyzing → storing → complete)
 
-### 2. Interactive Dashboard
+### 2. Comprehensive Analysis Dashboard
 
-- Real-time statistics cards (total entries, API/SQL/Filter counts, duration)
-- Top-N slowest operations tables
-- Time-series charts showing operation volume over time
-- Performance metrics by form, table, user, and queue
+**Health Score (0-100)**
+- Composite health assessment with color-coded status (green >80, yellow 50-80, red <50)
+- Factor breakdown: Error Rate, Average Response Time, Thread Saturation, Gap Frequency
+- Severity indicators with explanatory descriptions
+
+**General Statistics**
+- Real-time statistics cards (total entries, API/SQL/Filter/Escalation counts, duration)
+- Unique counts for users, forms, tables, and queues
+- Log duration with start/end timestamps
+
+**Performance Aggregates**
+- Tabbed interface: API by Form, API by User, SQL by Table
+- Sortable columns (count, MIN/MAX/AVG/SUM duration, error rate, unique traces)
+- Grand total rows with aggregate statistics
+
+**Exception & Error Reports**
+- Grouped by error code with occurrence count and first/last seen timestamps
+- Per-log-type error rates (API, SQL, Filter, Escalation)
+- Sample context including line number, trace ID, queue, form, and user
+- Top error codes summary bar
+
+**Gap Analysis**
+- Line gaps and thread gaps with top 50 longest periods
+- Gap duration with appropriate units (ms, seconds, minutes)
+- Critical gap highlighting (>60 seconds marked as severe)
+- Timeline overlay for visual gap detection
+
+**Thread Statistics**
+- Per-thread utilization metrics (total calls, duration stats, error count, busy percentage)
+- Active time range per thread
+- Visual warning indicators for threads exceeding 90% busy
+
+**Filter Complexity**
+- Most-executed filters ranked by count with total execution time
+- Per-transaction filter metrics (execution count, total/avg/max time)
+- Total filter processing time summary
+
+**Top-N Slowest Operations**
+- Type-specific columns: SQL statement preview, filter name/level, escalation pool/delay
+- Queue wait time for all operation types
+- Expandable detail rows with full context (trace ID, RPC ID, all fields)
+- "View in Explorer" links for direct log navigation
+
+**Enhanced Time-Series Charts**
+- Operation volume over time with toggleable overlays
+- Average duration line on secondary Y-axis
+- Error count shaded overlay
+- Click-and-drag zoom functionality
+
+**Enhanced Distribution Charts**
+- Switchable grouping dimensions: by type, queue, form, user, table
+- Configurable top-N categories (5, 10, 15, 25, 50)
 
 ### 3. Advanced Search
 
@@ -166,6 +280,7 @@ For detailed architecture diagrams, see [docs/diagrams/architecture.md](docs/dia
 - Root cause analysis suggestions
 - Log line references as clickable evidence
 - Confidence scores and suggested follow-up questions
+- Executive summaries for completed analyses
 
 ### 5. Transaction Tracing
 
@@ -174,20 +289,13 @@ For detailed architecture diagrams, see [docs/diagrams/architecture.md](docs/dia
 - Trace ID support for AR 19.x+
 - RPC ID fallback for earlier versions
 
-### 6. Anomaly Detection
-
-- Statistical baselines calculated automatically
-- Z-score and IQR-based detection
-- Time-series pattern recognition
-- Alert grouping and correlation
-- AI-powered explanations
-
-### 7. Multi-Tenant SaaS
+### 6. Multi-Tenant SaaS
 
 - Organization-level data isolation
 - Quota management per tenant
 - Role-based access control via Clerk
 - Dedicated storage prefixes
+- Redis caching with 5-minute TTL for performance
 
 ---
 
@@ -358,14 +466,21 @@ See [AGENTS.md](AGENTS.md) for detailed coding standards.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/v1/auth/login` | Authenticate user |
 | `POST` | `/api/v1/logs/upload` | Upload log file |
 | `GET` | `/api/v1/jobs/:id` | Get job status |
 | `GET` | `/api/v1/jobs` | List all jobs |
 | `GET` | `/api/v1/search` | Search log entries |
 | `POST` | `/api/v1/ai/query` | AI-powered query |
-| `GET` | `/api/v1/dashboard/stats` | Dashboard statistics |
+| `GET` | `/api/v1/analysis/:id/dashboard` | Dashboard statistics (includes health score) |
+| `GET` | `/api/v1/analysis/:id/aggregates` | Performance aggregates (by form, user, table) |
+| `GET` | `/api/v1/analysis/:id/exceptions` | Exception and error reports |
+| `GET` | `/api/v1/analysis/:id/gaps` | Gap analysis (line gaps, thread gaps) |
+| `GET` | `/api/v1/analysis/:id/threads` | Thread statistics and utilization |
+| `GET` | `/api/v1/analysis/:id/filters` | Filter complexity metrics |
 | `GET` | `/api/v1/trace/:id` | Get transaction trace |
+| `GET` | `/api/v1/stream` | WebSocket connection for real-time updates |
+| `GET` | `/api/v1/report/:id` | Generate analysis report |
+| `GET` | `/api/v1/health` | Health check endpoint |
 
 ### WebSocket Events
 
@@ -458,7 +573,13 @@ docker-compose down
 | Search 10M entries | < 2 sec | ✓ |
 | AI query response | < 10 sec | ✓ |
 | WebSocket latency | < 500 ms | ✓ |
-| Dashboard load | < 3 sec | ✓ |
+| Dashboard initial load | < 3 sec | ✓ |
+| Lazy section render | < 2 sec | ✓ |
+| Aggregates query (1M entries) | < 2 sec | ✓ |
+| Exceptions query (1M entries) | < 2 sec | ✓ |
+| Gaps analysis (1M entries) | < 2 sec | ✓ |
+| Thread stats query (1M entries) | < 2 sec | ✓ |
+| Filter complexity query | < 2 sec | ✓ |
 
 ---
 
@@ -466,34 +587,58 @@ docker-compose down
 
 ### Phase 1: Foundation ✅
 - [x] Log parsing and ingestion
-- [x] ClickHouse storage
-- [x] Basic dashboard
-- [x] KQL search
-- [x] Multi-tenant auth
+- [x] ClickHouse storage with materialized views
+- [x] PostgreSQL with RLS for multi-tenant isolation
+- [x] NATS JetStream for job queuing
+- [x] Redis caching layer
+- [x] MinIO/S3 object storage
+- [x] Basic dashboard with stats cards
+- [x] KQL search with Bleve
+- [x] Multi-tenant auth with Clerk
+- [x] WebSocket real-time updates
 
-### Phase 2: AI & Analysis 🚧
-- [ ] AI skill orchestration
-- [ ] Anomaly detection
-- [ ] Root cause analysis
-- [ ] Executive summary reports
+### Phase 2: Complete Dashboard Features ✅
+- [x] Performance aggregates (by form, user, table)
+- [x] Exception and error reports with error rates
+- [x] Gap analysis (line gaps, thread gaps)
+- [x] Thread statistics and utilization
+- [x] Filter complexity metrics
+- [x] Health score computation (0-100 with factor breakdown)
+- [x] Enhanced top-N tables with type-specific columns
+- [x] Enhanced time-series charts with duration/error overlays and zoom
+- [x] Enhanced distribution charts with dimension switching
+- [x] AI skills hardening (nl_query, summarizer, anomaly, error_explainer, root_cause, performance)
+- [x] Lazy-loaded dashboard sections for performance
+- [x] Comprehensive unit and integration tests
 
-### Phase 3: Advanced Features 📋
-- [ ] Transaction tracer UI
-- [ ] Custom alert rules
-- [ ] Scheduled reports
-- [ ] ITSM integrations (ServiceNow, Jira)
+### Phase 3: AI & Analysis 🚧
+- [ ] AI-powered executive summaries
+- [ ] Anomaly detection baselines and alerts
+- [ ] Root cause analysis automation
+- [ ] Performance trend analysis over time
+- [ ] Predictive capacity planning
 
-### Phase 4: Scale & Polish 🔮
-- [ ] Kubernetes deployment
-- [ ] ClickHouse clustering
+### Phase 4: Advanced Features 📋
+- [ ] Scheduled reports (daily, weekly, monthly)
+- [ ] Custom alert rules and notifications
+- [ ] ITSM integrations (ServiceNow, Jira, PagerDuty)
+- [ ] SLA monitoring and reporting
+- [ ] Comparative analysis across time periods
+
+### Phase 5: Scale & Polish 🔮
+- [ ] Kubernetes deployment with Helm charts
+- [ ] ClickHouse clustering for scalability
 - [ ] Advanced caching strategies
-- [ ] Performance optimizations
+- [ ] Performance optimizations (query indexing, partitioning)
+- [ ] Internationalization (i18n)
+- [ ] Dark mode support
+- [ ] Mobile app (React Native)
 
 ---
 
 ## Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions! Please see [AGENTS.md](AGENTS.md) for detailed coding standards and development guidelines.
 
 ### Getting Started with Development
 
@@ -505,6 +650,14 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 6. Commit your changes: `git commit -m "Add feature"`
 7. Push to branch: `git push origin feature/my-feature`
 8. Open a Pull Request
+
+### Areas for Contribution
+
+- **Frontend**: Enhance dashboard visualizations, add new chart types, improve mobile responsiveness
+- **Backend**: Add new analysis endpoints, optimize ClickHouse queries, implement additional AI skills
+- **Documentation**: Improve API documentation, write tutorials, add examples
+- **Testing**: Increase test coverage, add integration tests, improve test fixtures
+- **Performance**: Optimize query performance, improve caching strategies, reduce latency
 
 ---
 

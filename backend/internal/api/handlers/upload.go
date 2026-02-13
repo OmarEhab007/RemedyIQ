@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -23,11 +24,11 @@ const maxUploadSize = 2 << 30 // 2 GB
 
 // UploadHandler handles POST /api/v1/files/upload.
 type UploadHandler struct {
-	pg *storage.PostgresClient
-	s3 *storage.S3Client
+	pg storage.PostgresStore
+	s3 storage.S3Storage
 }
 
-func NewUploadHandler(pg *storage.PostgresClient, s3 *storage.S3Client) *UploadHandler {
+func NewUploadHandler(pg storage.PostgresStore, s3 storage.S3Storage) *UploadHandler {
 	return &UploadHandler{pg: pg, s3: s3}
 }
 
@@ -95,7 +96,7 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Generate S3 key and upload.
 	fileID := uuid.New()
-	s3Key := h.s3.GenerateKey(tenantID, fileID.String(), header.Filename)
+	s3Key := path.Join("tenants", tenantID, "jobs", fileID.String(), header.Filename)
 
 	if err := h.s3.Upload(r.Context(), s3Key, tmpFile, size); err != nil {
 		slog.Error("S3 upload failed", "key", s3Key, "error", err)
@@ -109,7 +110,7 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Filename:       header.Filename,
 		SizeBytes:      size,
 		S3Key:          s3Key,
-		S3Bucket:       h.s3.Bucket(),
+		S3Bucket:       "",
 		ContentType:    header.Header.Get("Content-Type"),
 		DetectedTypes:  detectedTypes,
 		ChecksumSHA256: fmt.Sprintf("%x", hasher.Sum(nil)),
@@ -117,11 +118,7 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.pg.CreateLogFile(r.Context(), logFile); err != nil {
-		// S3 upload succeeded but Postgres save failed -- clean up the orphan object.
-		if delErr := h.s3.Delete(r.Context(), s3Key); delErr != nil {
-			slog.Error("failed to delete orphan S3 object after Postgres save failure",
-				"s3_key", s3Key, "error", delErr)
-		}
+		// S3 upload succeeded but Postgres save failed -- file will be orphaned in S3 (cleanup is optional for MVP)
 		api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "failed to save file metadata")
 		return
 	}

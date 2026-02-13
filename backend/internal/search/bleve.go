@@ -127,6 +127,11 @@ func (bm *BleveManager) IndexEntries(ctx context.Context, tenantID string, entri
 	return idx.Batch(batch)
 }
 
+// Index is an alias for IndexEntries to satisfy the SearchIndexer interface.
+func (bm *BleveManager) Index(ctx context.Context, tenantID string, entries []domain.LogEntry) error {
+	return bm.IndexEntries(ctx, tenantID, entries)
+}
+
 // entryToDoc converts a LogEntry to a map suitable for Bleve indexing.
 func entryToDoc(e domain.LogEntry) map[string]interface{} {
 	return map[string]interface{}{
@@ -177,6 +182,11 @@ func (bm *BleveManager) DeleteIndex(tenantID string) error {
 
 	indexPath := filepath.Join(bm.basePath, tenantID)
 	return os.RemoveAll(indexPath)
+}
+
+// Delete is an alias for DeleteIndex to satisfy the SearchIndexer interface.
+func (bm *BleveManager) Delete(tenantID string) error {
+	return bm.DeleteIndex(tenantID)
 }
 
 // Close closes all open indexes.

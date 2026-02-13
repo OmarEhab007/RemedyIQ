@@ -14,11 +14,11 @@ import (
 // RootCauseSkill analyzes correlated anomalies to find root causes.
 type RootCauseSkill struct {
 	client *ai.Client
-	ch     *storage.ClickHouseClient
+	ch     storage.ClickHouseStore
 	logger *slog.Logger
 }
 
-func NewRootCauseSkill(client *ai.Client, ch *storage.ClickHouseClient) *RootCauseSkill {
+func NewRootCauseSkill(client *ai.Client, ch storage.ClickHouseStore) *RootCauseSkill {
 	return &RootCauseSkill{
 		client: client,
 		ch:     ch,

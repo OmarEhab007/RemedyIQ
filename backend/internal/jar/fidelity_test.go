@@ -318,6 +318,7 @@ func TestFidelity_SplitKeyValueNumeric(t *testing.T) {
 // Note: splitSections includes all lines (including blank lines) in each
 // section body. The trailing newline at the end of input produces an empty
 // string when split, which is included in the last section's body.
+// Preamble text (before the first section header) is now captured in "_preamble".
 func TestFidelity_SplitSections(t *testing.T) {
 	output := `Some preamble text
 === Section One ===
@@ -330,9 +331,13 @@ line C
 `
 
 	sections := splitSections(output)
-	assert.Len(t, sections, 2)
+	assert.Len(t, sections, 3, "should have _preamble, Section One, Section Two")
+	assert.Contains(t, sections, "_preamble")
 	assert.Contains(t, sections, "Section One")
 	assert.Contains(t, sections, "Section Two")
+
+	// Preamble captured.
+	assert.Equal(t, "Some preamble text", sections["_preamble"][0])
 
 	// Section One body: "line 1", "line 2" -- no blank line between the last
 	// content line and the next section header because they are adjacent.

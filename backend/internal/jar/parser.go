@@ -12,9 +12,15 @@ import (
 
 // Section header patterns used by ARLogAnalyzer.jar plain-text output.
 // The JAR produces a structured report with clearly delimited sections.
+//
+// v3 format: === Section Name ===
+// v4 format: ###  SECTION: Name  ##### (major) or ### Subsection Name (sub)
 var (
-	sectionHeaderRe = regexp.MustCompile(`^={3,}\s*(.+?)\s*={3,}$`)
-	separatorRe     = regexp.MustCompile(`^-{3,}$`)
+	sectionHeaderRe    = regexp.MustCompile(`^={3,}\s*(.+?)\s*={3,}$`)
+	v4MajorSectionRe   = regexp.MustCompile(`^#{3,}\s+SECTION:\s*(.+?)\s*#{3,}`)
+	v4SubsectionRe     = regexp.MustCompile(`^###\s+(.+)$`)
+	dashSeparatorLineRe = regexp.MustCompile(`^[-\s]+$`)
+	separatorRe        = regexp.MustCompile(`^-{3,}$`)
 )
 
 // Common timestamp layouts produced by the JAR.
@@ -54,31 +60,53 @@ func ParseOutput(output string) (*domain.ParseResult, error) {
 		normalized := strings.ToLower(strings.TrimSpace(name))
 
 		switch {
+		// Preamble contains general stats in v4 format.
+		case name == "_preamble":
+			parseGeneralStatistics(body, &data.GeneralStats)
+
+		// v3: "General Statistics"
 		case strings.Contains(normalized, "general statistic"):
 			parseGeneralStatistics(body, &data.GeneralStats)
 
+		// v3: "Top API Calls", v4: "50 LONGEST RUNNING INDIVIDUAL API CALLS"
+		// Note: must include "running" to avoid matching "QUEUED" sections.
 		case strings.Contains(normalized, "top") && strings.Contains(normalized, "api"):
 			data.TopAPICalls = parseTopNSection(body)
+		case strings.Contains(normalized, "longest") && strings.Contains(normalized, "running") && strings.Contains(normalized, "api"):
+			data.TopAPICalls = parseTopNSection(body)
 
+		// v3: "Top SQL Statements", v4: "50 LONGEST RUNNING INDIVIDUAL SQL CALLS"
 		case strings.Contains(normalized, "top") && strings.Contains(normalized, "sql"):
 			data.TopSQL = parseTopNSection(body)
+		case strings.Contains(normalized, "longest") && strings.Contains(normalized, "running") && strings.Contains(normalized, "sql"):
+			data.TopSQL = parseTopNSection(body)
 
+		// v3: "Top Filter Executions", v4: "LONGEST RUNNING INDIVIDUAL FLTR"
 		case strings.Contains(normalized, "top") && strings.Contains(normalized, "filter"):
 			data.TopFilters = parseTopNSection(body)
+		case strings.Contains(normalized, "longest") && strings.Contains(normalized, "running") && strings.Contains(normalized, "fltr"):
+			data.TopFilters = parseTopNSection(body)
 
+		// v3: "Top Escalation Executions", v4: "LONGEST RUNNING INDIVIDUAL ESCL" / "ESCALATION"
 		case strings.Contains(normalized, "top") && strings.Contains(normalized, "escalation"):
 			data.TopEscalations = parseTopNSection(body)
+		case strings.Contains(normalized, "longest") && strings.Contains(normalized, "running") && (strings.Contains(normalized, "escl") || strings.Contains(normalized, "escalation")):
+			data.TopEscalations = parseTopNSection(body)
 
-		case strings.Contains(normalized, "thread"):
+		// v3/v4: Thread distribution / thread statistics
+		case strings.Contains(normalized, "thread") && !strings.Contains(normalized, "gap"):
 			parseDistribution(body, data, "threads")
 
+		// v3/v4: Exception / error distribution
 		case strings.Contains(normalized, "exception") || strings.Contains(normalized, "error"):
 			parseDistribution(body, data, "errors")
 
-		case strings.Contains(normalized, "user"):
+		// v3: "User Distribution/Statistics"
+		case strings.Contains(normalized, "user") && !strings.Contains(normalized, "count"):
 			parseDistribution(body, data, "users")
 
-		case strings.Contains(normalized, "form"):
+		// v3: "Form Distribution/Statistics"
+		case strings.Contains(normalized, "form") && !strings.Contains(normalized, "count") && !strings.Contains(normalized, "longest"):
 			parseDistribution(body, data, "forms")
 		}
 	}
@@ -87,27 +115,72 @@ func ParseOutput(output string) (*domain.ParseResult, error) {
 }
 
 // splitSections splits the JAR output into named sections.
-// A section starts with a line matching "=== Section Name ===" and
-// continues until the next section header or end of input.
+//
+// Supports two formats:
+//   - v3: "=== Section Name ===" headers
+//   - v4: "###  SECTION: Name  ###..." major headers and "### Subsection" sub-headers
+//
+// Lines before the first section header are collected into a special
+// "_preamble" section so that v4 general statistics (which appear before
+// any section) are not lost.
 func splitSections(output string) map[string][]string {
 	sections := make(map[string][]string)
 	lines := strings.Split(output, "\n")
 
 	currentSection := ""
 	var currentBody []string
+	hasSectionHeader := false
 
 	for _, line := range lines {
+		// v3 format: === Section Name ===
 		if m := sectionHeaderRe.FindStringSubmatch(line); m != nil {
-			// Save previous section.
-			if currentSection != "" {
-				sections[currentSection] = currentBody
+			if currentSection != "" || !hasSectionHeader {
+				if currentSection != "" {
+					sections[currentSection] = currentBody
+				} else if len(currentBody) > 0 {
+					sections["_preamble"] = currentBody
+				}
 			}
 			currentSection = m[1]
 			currentBody = nil
+			hasSectionHeader = true
 			continue
 		}
 
-		if currentSection != "" {
+		// v4 format: ###  SECTION: Name  #####...
+		if m := v4MajorSectionRe.FindStringSubmatch(line); m != nil {
+			if currentSection != "" {
+				sections[currentSection] = currentBody
+			} else if len(currentBody) > 0 {
+				sections["_preamble"] = currentBody
+			}
+			currentSection = m[1]
+			currentBody = nil
+			hasSectionHeader = true
+			continue
+		}
+
+		// v4 subsection: ### Subsection Name
+		if m := v4SubsectionRe.FindStringSubmatch(line); m != nil {
+			// Don't treat lines inside a non-### context as subsections
+			// (e.g., markdown in other content). Only split on subsections
+			// when we've already seen at least one ### or === header,
+			// or we're still in the preamble.
+			if currentSection != "" {
+				sections[currentSection] = currentBody
+			} else if len(currentBody) > 0 {
+				sections["_preamble"] = currentBody
+			}
+			currentSection = m[1]
+			currentBody = nil
+			hasSectionHeader = true
+			continue
+		}
+
+		if hasSectionHeader || currentSection != "" {
+			currentBody = append(currentBody, line)
+		} else {
+			// Accumulate preamble lines before any header is found.
 			currentBody = append(currentBody, line)
 		}
 	}
@@ -115,6 +188,8 @@ func splitSections(output string) map[string][]string {
 	// Save the last section.
 	if currentSection != "" {
 		sections[currentSection] = currentBody
+	} else if len(currentBody) > 0 && !hasSectionHeader {
+		sections["_preamble"] = currentBody
 	}
 
 	return sections
@@ -153,25 +228,45 @@ func parseGeneralStatistics(lines []string, stats *domain.GeneralStatistics) {
 		switch {
 		case strings.Contains(keyLower, "total line"):
 			stats.TotalLines = parseIntSafe(value)
-		case strings.Contains(keyLower, "api"):
+
+		// v3: "API Calls", v4: "API Count"
+		case strings.Contains(keyLower, "api") && !strings.Contains(keyLower, "exception") && !strings.Contains(keyLower, "thread"):
 			stats.APICount = parseIntSafe(value)
-		case strings.Contains(keyLower, "sql"):
+
+		// v3: "SQL Operations", v4: "SQL Count"
+		case strings.Contains(keyLower, "sql") && !strings.Contains(keyLower, "exception") && !strings.Contains(keyLower, "thread"):
 			stats.SQLCount = parseIntSafe(value)
-		case strings.Contains(keyLower, "filter"):
+
+		// v3: "Filter Executions", v4: not present in preamble
+		case strings.Contains(keyLower, "filter") && !strings.Contains(keyLower, "thread"):
 			stats.FilterCount = parseIntSafe(value)
-		case strings.Contains(keyLower, "escalation"):
+
+		// v3: "Escalation Executions", v4: "ESC Count"
+		case (strings.Contains(keyLower, "escalation") || keyLower == "esc count") && !strings.Contains(keyLower, "thread") && !strings.Contains(keyLower, "exception"):
 			stats.EscCount = parseIntSafe(value)
-		case strings.Contains(keyLower, "unique user"):
+
+		// v3: "Unique Users", v4: "User Count"
+		case strings.Contains(keyLower, "unique user") || keyLower == "user count":
 			stats.UniqueUsers = int(parseIntSafe(value))
-		case strings.Contains(keyLower, "unique form"):
+
+		// v3: "Unique Forms", v4: "Form Count"
+		case strings.Contains(keyLower, "unique form") || keyLower == "form count":
 			stats.UniqueForms = int(parseIntSafe(value))
-		case strings.Contains(keyLower, "unique table"):
+
+		// v3: "Unique Tables", v4: "Table Count"
+		case strings.Contains(keyLower, "unique table") || keyLower == "table count":
 			stats.UniqueTables = int(parseIntSafe(value))
-		case strings.Contains(keyLower, "log start"):
+
+		// v3: "Log Start", v4: "Start Time"
+		case strings.Contains(keyLower, "log start") || keyLower == "start time":
 			stats.LogStart = parseTimestampSafe(value)
-		case strings.Contains(keyLower, "log end"):
+
+		// v3: "Log End", v4: "End Time"
+		case strings.Contains(keyLower, "log end") || keyLower == "end time":
 			stats.LogEnd = parseTimestampSafe(value)
-		case strings.Contains(keyLower, "log duration") || strings.Contains(keyLower, "duration"):
+
+		// v3: "Log Duration", v4: "Elapsed Time"
+		case strings.Contains(keyLower, "log duration") || strings.Contains(keyLower, "elapsed"):
 			stats.LogDuration = value
 		}
 	}
@@ -195,19 +290,27 @@ func parseGeneralStatistics(lines []string, stats *domain.GeneralStatistics) {
 func parseTopNSection(lines []string) []domain.TopNEntry {
 	var entries []domain.TopNEntry
 
-	// Detect pipe-delimited format.
+	// Detect the table format by scanning lines.
 	isPipeFormat := false
+	isFixedWidth := false
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "|") && strings.Count(trimmed, "|") >= 3 {
 			isPipeFormat = true
 			break
 		}
+		if isDashSeparator(line) && strings.Contains(line, " ") {
+			isFixedWidth = true
+			break
+		}
 	}
 
-	if isPipeFormat {
+	switch {
+	case isPipeFormat:
 		entries = parsePipeTable(lines)
-	} else {
+	case isFixedWidth:
+		entries = parseFixedWidthTable(lines)
+	default:
 		entries = parseWhitespaceTable(lines)
 	}
 
@@ -421,6 +524,219 @@ func parseDistribution(lines []string, data *domain.DashboardData, category stri
 	if len(dist) > 0 {
 		data.Distribution[category] = dist
 	}
+}
+
+// parseFixedWidthTable parses a fixed-width (dash-aligned) table produced by
+// JAR v4.0.0. Column boundaries are inferred from the dashed separator line.
+//
+// Example:
+//
+//	    Run Time First Line# Last Line#                           TrID Queue      API        Form
+//	------------ ----------- ---------- ------------------------------ ---------- ---------- -----------------------------------------------------------
+//	       0.122        8620      10031 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 SE         SRM:RequestApDetailSignature
+func parseFixedWidthTable(lines []string) []domain.TopNEntry {
+	// Step 1: Find the dashed separator line and the header line above it.
+	sepIdx := -1
+	for i, line := range lines {
+		if isDashSeparator(line) {
+			sepIdx = i
+			break
+		}
+	}
+	if sepIdx < 1 {
+		return nil
+	}
+
+	headerLine := lines[sepIdx-1]
+	sepLine := lines[sepIdx]
+
+	// Step 2: Extract column boundaries from the separator.
+	boundaries := extractColumnBoundaries(sepLine)
+	if len(boundaries) < 2 {
+		return nil
+	}
+
+	// Step 3: Extract header names using the boundaries.
+	headers := extractColumnValues(headerLine, boundaries)
+
+	// Step 4: Parse data rows.
+	var entries []domain.TopNEntry
+	rank := 0
+	for i := sepIdx + 1; i < len(lines); i++ {
+		line := lines[i]
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		// Stop at sub-total lines (====) or next subsection header.
+		if strings.HasPrefix(trimmed, "===") || strings.HasPrefix(trimmed, "###") {
+			break
+		}
+		// Skip lines that are purely dash separators (subtotals in aggregate tables).
+		if isDashSeparator(line) {
+			break
+		}
+		// Skip "No ..." lines (e.g. "No Queued API's").
+		if strings.HasPrefix(trimmed, "No ") {
+			continue
+		}
+
+		values := extractColumnValues(line, boundaries)
+		entry := mapFixedWidthToEntry(headers, values)
+		if entry.Identifier != "" || entry.DurationMS > 0 || entry.LineNumber > 0 {
+			rank++
+			entry.Rank = rank
+			entries = append(entries, entry)
+		}
+	}
+
+	return entries
+}
+
+// isDashSeparator returns true if the line consists of only dashes and spaces,
+// with at least one run of 3+ dashes. This detects column separator lines like
+// "------------ ----------- ---------- --------------------------"
+func isDashSeparator(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return false
+	}
+	hasDashes := false
+	for _, ch := range trimmed {
+		if ch == '-' {
+			hasDashes = true
+		} else if ch != ' ' {
+			return false
+		}
+	}
+	return hasDashes
+}
+
+// extractColumnBoundaries returns the start positions of each column
+// by finding runs of dashes in the separator line.
+// Returns pairs of [start, end) for each column.
+func extractColumnBoundaries(sepLine string) [][2]int {
+	var boundaries [][2]int
+	i := 0
+	for i < len(sepLine) {
+		// Skip spaces.
+		for i < len(sepLine) && sepLine[i] == ' ' {
+			i++
+		}
+		if i >= len(sepLine) {
+			break
+		}
+		// Mark start of dash run.
+		start := i
+		for i < len(sepLine) && sepLine[i] == '-' {
+			i++
+		}
+		if i > start {
+			boundaries = append(boundaries, [2]int{start, i})
+		}
+	}
+	return boundaries
+}
+
+// extractColumnValues extracts trimmed string values from a line given
+// column boundaries derived from the separator line.
+func extractColumnValues(line string, boundaries [][2]int) []string {
+	values := make([]string, len(boundaries))
+	for i, b := range boundaries {
+		start := b[0]
+		end := b[1]
+		// For the last column, take everything to end of line.
+		if i == len(boundaries)-1 && end < len(line) {
+			end = len(line)
+		}
+		if start >= len(line) {
+			values[i] = ""
+			continue
+		}
+		if end > len(line) {
+			end = len(line)
+		}
+		values[i] = strings.TrimSpace(line[start:end])
+	}
+	return values
+}
+
+// mapFixedWidthToEntry maps column header names to TopNEntry fields.
+// Handles both API and SQL table column names from JAR v4.0.0.
+func mapFixedWidthToEntry(headers, values []string) domain.TopNEntry {
+	entry := domain.TopNEntry{}
+	for i, header := range headers {
+		if i >= len(values) || values[i] == "" {
+			continue
+		}
+		h := strings.ToLower(strings.TrimSpace(header))
+		v := values[i]
+
+		switch {
+		case h == "run time":
+			entry.DurationMS = parseFloatSecondsToMS(v)
+		case h == "first line#" || h == "line#":
+			entry.LineNumber, _ = strconv.Atoi(v)
+		case h == "last line#":
+			// Store in Details for reference.
+			if entry.Details != "" {
+				entry.Details += "; "
+			}
+			entry.Details += "last_line=" + v
+		case h == "trid":
+			entry.TraceID = v
+		case h == "queue":
+			entry.Queue = v
+		case h == "api":
+			entry.Identifier = v
+		case h == "sql statement":
+			entry.Identifier = v
+		case h == "filter":
+			entry.Identifier = v
+		case h == "escalation":
+			entry.Identifier = v
+		case h == "form":
+			entry.Form = v
+		case h == "table":
+			entry.Form = v // Reuse Form field for table name
+		case h == "pool":
+			entry.Queue = v // Reuse Queue field for escalation pool
+		case h == "start time" || h == "date/time":
+			entry.Timestamp = parseTimestampSafe(v)
+		case h == "q time":
+			entry.QueueTimeMS = parseFloatSecondsToMS(v)
+		case h == "success":
+			entry.Success = strings.EqualFold(v, "true")
+		case h == "thread":
+			entry.TraceID = v
+		case h == "line gap" || h == "thread gap":
+			entry.DurationMS = parseFloatSecondsToMS(v)
+		case h == "details" || h == "error":
+			entry.Details = v
+		case h == "identifier" || h == "name":
+			entry.Identifier = v
+		case strings.Contains(h, "duration"):
+			entry.DurationMS, _ = strconv.Atoi(v)
+		case h == "status":
+			entry.Success = strings.EqualFold(v, "success") || strings.EqualFold(v, "ok") || strings.EqualFold(v, "true")
+		case h == "user":
+			entry.User = v
+		case h == "file" || h == "file#":
+			entry.FileNumber, _ = strconv.Atoi(v)
+		}
+	}
+	return entry
+}
+
+// parseFloatSecondsToMS converts a float-seconds string (e.g., "0.122") to
+// integer milliseconds (e.g., 122). Returns 0 on failure.
+func parseFloatSecondsToMS(s string) int {
+	s = strings.TrimSpace(s)
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0
+	}
+	return int(f*1000 + 0.5) // Round to nearest ms.
 }
 
 // --- Utility functions ---

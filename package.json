@@ -1,7 +1,7 @@
 {
   "name": "remedyiq",
   "version": "0.1.0",
-  "description": "AI-powered BMC Remedy AR Server log analysis platform with real-time insights, anomaly detection, and natural language query capabilities",
+  "description": "AI-powered BMC Remedy AR Server log analysis platform with comprehensive dashboard, performance aggregates, health scoring, exception tracking, gap analysis, and natural language query capabilities",
   "private": true,
   "repository": {
     "type": "git",

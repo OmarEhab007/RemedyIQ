@@ -14,11 +14,11 @@ import (
 // PerformanceSkill analyzes slow operations and suggests tuning.
 type PerformanceSkill struct {
 	client *ai.Client
-	ch     *storage.ClickHouseClient
+	ch     storage.ClickHouseStore
 	logger *slog.Logger
 }
 
-func NewPerformanceSkill(client *ai.Client, ch *storage.ClickHouseClient) *PerformanceSkill {
+func NewPerformanceSkill(client *ai.Client, ch storage.ClickHouseStore) *PerformanceSkill {
 	return &PerformanceSkill{
 		client: client,
 		ch:     ch,

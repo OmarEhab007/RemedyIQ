@@ -19,12 +19,12 @@ import (
 
 // ReportHandler serves POST /api/v1/analysis/{job_id}/report.
 type ReportHandler struct {
-	pg       *storage.PostgresClient
+	pg       storage.PostgresStore
 	registry *ai.Registry
 }
 
 // NewReportHandler creates a new report handler.
-func NewReportHandler(pg *storage.PostgresClient, registry *ai.Registry) *ReportHandler {
+func NewReportHandler(pg storage.PostgresStore, registry *ai.Registry) *ReportHandler {
 	return &ReportHandler{pg: pg, registry: registry}
 }
 

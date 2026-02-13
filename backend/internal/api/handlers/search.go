@@ -15,12 +15,12 @@ import (
 
 // SearchHandler serves GET /api/v1/analysis/{job_id}/search
 type SearchHandler struct {
-	ch    *storage.ClickHouseClient
-	bleve *search.BleveManager
+	ch    storage.ClickHouseStore
+	bleve search.SearchIndexer
 }
 
 // NewSearchHandler creates a new SearchHandler backed by ClickHouse and Bleve.
-func NewSearchHandler(ch *storage.ClickHouseClient, bleve *search.BleveManager) *SearchHandler {
+func NewSearchHandler(ch storage.ClickHouseStore, bleve search.SearchIndexer) *SearchHandler {
 	return &SearchHandler{ch: ch, bleve: bleve}
 }
 

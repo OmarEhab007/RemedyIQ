@@ -53,6 +53,21 @@ func GetOrgID(ctx context.Context) string {
 	return v
 }
 
+// WithUserID returns a new context with the given user ID set.
+func WithUserID(ctx context.Context, userID string) context.Context {
+	return context.WithValue(ctx, UserIDKey, userID)
+}
+
+// WithTenantID returns a new context with the given tenant ID set.
+func WithTenantID(ctx context.Context, tenantID string) context.Context {
+	return context.WithValue(ctx, TenantIDKey, tenantID)
+}
+
+// WithOrgID returns a new context with the given org ID set.
+func WithOrgID(ctx context.Context, orgID string) context.Context {
+	return context.WithValue(ctx, OrgIDKey, orgID)
+}
+
 // AuthMiddleware validates JWT tokens from the Authorization header.
 type AuthMiddleware struct {
 	clerkSecretKey string
