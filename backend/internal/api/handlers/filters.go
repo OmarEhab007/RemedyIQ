@@ -17,12 +17,12 @@ import (
 
 // FiltersHandler serves GET /api/v1/analysis/{job_id}/dashboard/filters.
 type FiltersHandler struct {
-	pg    *storage.PostgresClient
-	ch    *storage.ClickHouseClient
-	redis *storage.RedisClient
+	pg    storage.PostgresStore
+	ch    storage.ClickHouseStore
+	redis storage.RedisCache
 }
 
-func NewFiltersHandler(pg *storage.PostgresClient, ch *storage.ClickHouseClient, redis *storage.RedisClient) *FiltersHandler {
+func NewFiltersHandler(pg storage.PostgresStore, ch storage.ClickHouseStore, redis storage.RedisCache) *FiltersHandler {
 	return &FiltersHandler{pg: pg, ch: ch, redis: redis}
 }
 

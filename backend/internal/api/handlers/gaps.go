@@ -17,12 +17,12 @@ import (
 
 // GapsHandler serves GET /api/v1/analysis/{job_id}/dashboard/gaps.
 type GapsHandler struct {
-	pg    *storage.PostgresClient
-	ch    *storage.ClickHouseClient
-	redis *storage.RedisClient
+	pg    storage.PostgresStore
+	ch    storage.ClickHouseStore
+	redis storage.RedisCache
 }
 
-func NewGapsHandler(pg *storage.PostgresClient, ch *storage.ClickHouseClient, redis *storage.RedisClient) *GapsHandler {
+func NewGapsHandler(pg storage.PostgresStore, ch storage.ClickHouseStore, redis storage.RedisCache) *GapsHandler {
 	return &GapsHandler{pg: pg, ch: ch, redis: redis}
 }
 

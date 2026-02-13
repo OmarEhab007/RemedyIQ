@@ -14,11 +14,11 @@ import (
 // AnomalyNarratorSkill describes detected anomalies in natural language.
 type AnomalyNarratorSkill struct {
 	client *ai.Client
-	ch     *storage.ClickHouseClient
+	ch     storage.ClickHouseStore
 	logger *slog.Logger
 }
 
-func NewAnomalyNarratorSkill(client *ai.Client, ch *storage.ClickHouseClient) *AnomalyNarratorSkill {
+func NewAnomalyNarratorSkill(client *ai.Client, ch storage.ClickHouseStore) *AnomalyNarratorSkill {
 	return &AnomalyNarratorSkill{
 		client: client,
 		ch:     ch,

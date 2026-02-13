@@ -17,12 +17,12 @@ import (
 
 // ExceptionsHandler serves GET /api/v1/analysis/{job_id}/dashboard/exceptions.
 type ExceptionsHandler struct {
-	pg    *storage.PostgresClient
-	ch    *storage.ClickHouseClient
-	redis *storage.RedisClient
+	pg    storage.PostgresStore
+	ch    storage.ClickHouseStore
+	redis storage.RedisCache
 }
 
-func NewExceptionsHandler(pg *storage.PostgresClient, ch *storage.ClickHouseClient, redis *storage.RedisClient) *ExceptionsHandler {
+func NewExceptionsHandler(pg storage.PostgresStore, ch storage.ClickHouseStore, redis storage.RedisCache) *ExceptionsHandler {
 	return &ExceptionsHandler{pg: pg, ch: ch, redis: redis}
 }
 

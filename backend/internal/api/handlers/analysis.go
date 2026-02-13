@@ -16,7 +16,7 @@ import (
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/streaming"
 )
 
-// analysisJobCreateRequest matches the OpenAPI AnalysisJobCreate schema.
+// analysisJobCreateRequest matches ~= OpenAPI AnalysisJobCreate schema.
 type analysisJobCreateRequest struct {
 	FileID   string           `json:"file_id"`
 	JARFlags *domain.JARFlags `json:"jar_flags,omitempty"`
@@ -24,11 +24,11 @@ type analysisJobCreateRequest struct {
 
 // AnalysisHandlers provides HTTP handlers for analysis job endpoints.
 type AnalysisHandlers struct {
-	pg   *storage.PostgresClient
-	nats *streaming.NATSClient
+	pg   storage.PostgresStore
+	nats streaming.NATSStreamer
 }
 
-func NewAnalysisHandlers(pg *storage.PostgresClient, nats *streaming.NATSClient) *AnalysisHandlers {
+func NewAnalysisHandlers(pg storage.PostgresStore, nats streaming.NATSStreamer) *AnalysisHandlers {
 	return &AnalysisHandlers{pg: pg, nats: nats}
 }
 

@@ -16,11 +16,11 @@ const defaultJobTimeout = 30 * time.Minute
 // using the ingestion Pipeline.
 type Processor struct {
 	pipeline *Pipeline
-	nats     *streaming.NATSClient
+	nats     streaming.NATSStreamer
 	tenantID string
 }
 
-func NewProcessor(pipeline *Pipeline, nats *streaming.NATSClient, tenantID string) *Processor {
+func NewProcessor(pipeline *Pipeline, nats streaming.NATSStreamer, tenantID string) *Processor {
 	return &Processor{pipeline: pipeline, nats: nats, tenantID: tenantID}
 }
 

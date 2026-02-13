@@ -81,10 +81,16 @@ func TestNewRouter_StubEndpoints(t *testing.T) {
 		{http.MethodGet, "/api/v1/analysis"},
 		{http.MethodGet, "/api/v1/analysis/550e8400-e29b-41d4-a716-446655440000"},
 		{http.MethodGet, "/api/v1/analysis/550e8400-e29b-41d4-a716-446655440000/dashboard"},
+		{http.MethodGet, "/api/v1/analysis/550e8400-e29b-41d4-a716-446655440000/dashboard/aggregates"},
+		{http.MethodGet, "/api/v1/analysis/550e8400-e29b-41d4-a716-446655440000/dashboard/exceptions"},
+		{http.MethodGet, "/api/v1/analysis/550e8400-e29b-41d4-a716-446655440000/dashboard/gaps"},
+		{http.MethodGet, "/api/v1/analysis/550e8400-e29b-41d4-a716-446655440000/dashboard/threads"},
+		{http.MethodGet, "/api/v1/analysis/550e8400-e29b-41d4-a716-446655440000/dashboard/filters"},
 		{http.MethodGet, "/api/v1/analysis/550e8400-e29b-41d4-a716-446655440000/search"},
 		{http.MethodGet, "/api/v1/analysis/550e8400-e29b-41d4-a716-446655440000/entries/abc123"},
 		{http.MethodGet, "/api/v1/analysis/550e8400-e29b-41d4-a716-446655440000/trace/trace-1"},
 		{http.MethodPost, "/api/v1/analysis/550e8400-e29b-41d4-a716-446655440000/ai"},
+		{http.MethodPost, "/api/v1/analysis/550e8400-e29b-41d4-a716-446655440000/report"},
 		{http.MethodGet, "/api/v1/search/autocomplete"},
 	}
 

@@ -17,12 +17,12 @@ import (
 
 // DashboardHandler serves GET /api/v1/analysis/{job_id}/dashboard.
 type DashboardHandler struct {
-	pg    *storage.PostgresClient
-	ch    *storage.ClickHouseClient
-	redis *storage.RedisClient
+	pg    storage.PostgresStore
+	ch    storage.ClickHouseStore
+	redis storage.RedisCache
 }
 
-func NewDashboardHandler(pg *storage.PostgresClient, ch *storage.ClickHouseClient, redis *storage.RedisClient) *DashboardHandler {
+func NewDashboardHandler(pg storage.PostgresStore, ch storage.ClickHouseStore, redis storage.RedisCache) *DashboardHandler {
 	return &DashboardHandler{pg: pg, ch: ch, redis: redis}
 }
 

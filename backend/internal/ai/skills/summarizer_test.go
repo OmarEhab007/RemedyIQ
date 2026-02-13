@@ -10,6 +10,14 @@ import (
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/ai"
 )
 
+func TestNewSummarizerSkill(t *testing.T) {
+	skill := NewSummarizerSkill(nil, nil)
+	require.NotNil(t, skill)
+	assert.Nil(t, skill.client)
+	assert.Nil(t, skill.ch)
+	assert.NotNil(t, skill.logger)
+}
+
 func TestSummarizerSkill_Name(t *testing.T) {
 	skill := NewSummarizerSkill(nil, nil)
 	assert.Equal(t, "summarizer", skill.Name())
@@ -18,19 +26,75 @@ func TestSummarizerSkill_Name(t *testing.T) {
 func TestSummarizerSkill_Description(t *testing.T) {
 	skill := NewSummarizerSkill(nil, nil)
 	desc := skill.Description()
-	assert.NotEmpty(t, desc, "description should not be empty")
+	assert.NotEmpty(t, desc)
+	assert.Contains(t, desc, "summary")
 }
 
 func TestSummarizerSkill_Examples(t *testing.T) {
 	skill := NewSummarizerSkill(nil, nil)
 	examples := skill.Examples()
-	assert.NotEmpty(t, examples, "examples should not be empty")
-	for _, ex := range examples {
-		assert.NotEmpty(t, ex, "each example should be a non-empty string")
+	assert.NotEmpty(t, examples)
+	assert.GreaterOrEqual(t, len(examples), 2, "should have at least 2 examples")
+	for i, ex := range examples {
+		assert.NotEmpty(t, ex, "example at index %d should not be empty", i)
 	}
 }
 
-func TestSummarizerSkill_Fallback_NilClient(t *testing.T) {
+func TestSummarizerSkill_ImplementsSkillInterface(t *testing.T) {
+	skill := NewSummarizerSkill(nil, nil)
+	var _ ai.Skill = skill
+}
+
+func TestSummarizerSkill_Execute_Validation(t *testing.T) {
+	skill := NewSummarizerSkill(nil, nil)
+
+	tests := []struct {
+		name   string
+		input  ai.SkillInput
+		errMsg string
+	}{
+		{
+			name: "missing tenant_id",
+			input: ai.SkillInput{
+				Query: "Generate a summary",
+				JobID: "job-1",
+			},
+			errMsg: "tenant_id is required",
+		},
+		{
+			name: "missing job_id",
+			input: ai.SkillInput{
+				Query:    "Generate a summary",
+				TenantID: "tenant-1",
+			},
+			errMsg: "job_id is required",
+		},
+		{
+			name: "missing query",
+			input: ai.SkillInput{
+				JobID:    "job-1",
+				TenantID: "tenant-1",
+			},
+			errMsg: "query is required",
+		},
+		{
+			name:   "all fields empty",
+			input:  ai.SkillInput{},
+			errMsg: "tenant_id is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output, err := skill.Execute(context.Background(), tt.input)
+			require.Error(t, err)
+			assert.Nil(t, output)
+			assert.Contains(t, err.Error(), tt.errMsg)
+		})
+	}
+}
+
+func TestSummarizerSkill_Execute_FallbackNilClient(t *testing.T) {
 	skill := NewSummarizerSkill(nil, nil)
 
 	input := ai.SkillInput{
@@ -40,20 +104,21 @@ func TestSummarizerSkill_Fallback_NilClient(t *testing.T) {
 	}
 
 	output, err := skill.Execute(context.Background(), input)
-	require.NoError(t, err, "Execute should not return an error for nil client fallback")
-	require.NotNil(t, output, "output should not be nil")
+	require.NoError(t, err)
+	require.NotNil(t, output)
 
-	assert.Equal(t, 0.0, output.Confidence, "fallback confidence should be 0.0")
+	assert.Equal(t, FallbackMessage, output.Answer)
+	assert.Equal(t, 0.0, output.Confidence)
 	assert.Equal(t, "summarizer", output.SkillName)
-	assert.NotEmpty(t, output.Answer, "fallback answer should not be empty")
-	assert.Equal(t, FallbackMessage, output.Answer, "fallback should use the standard message")
+	assert.Zero(t, output.TokensUsed)
+	assert.Zero(t, output.LatencyMS)
 }
 
-func TestSummarizerSkill_Fallback_UnavailableClient(t *testing.T) {
-	var client *ai.Client
-	assert.False(t, client.IsAvailable(), "nil client should not be available")
+func TestSummarizerSkill_Execute_FallbackUnavailableClient(t *testing.T) {
+	var nilClient *ai.Client
+	assert.False(t, nilClient.IsAvailable())
 
-	skill := NewSummarizerSkill(client, nil)
+	skill := NewSummarizerSkill(nilClient, nil)
 
 	input := ai.SkillInput{
 		Query:    "Generate a health report",
@@ -62,56 +127,44 @@ func TestSummarizerSkill_Fallback_UnavailableClient(t *testing.T) {
 	}
 
 	output, err := skill.Execute(context.Background(), input)
-	require.NoError(t, err, "Execute should not return an error for unavailable client fallback")
-	require.NotNil(t, output, "output should not be nil")
+	require.NoError(t, err)
+	require.NotNil(t, output)
 
-	assert.Equal(t, 0.0, output.Confidence, "fallback confidence should be 0.0")
+	assert.Equal(t, FallbackMessage, output.Answer)
+	assert.Equal(t, 0.0, output.Confidence)
 	assert.Equal(t, "summarizer", output.SkillName)
-	assert.NotEmpty(t, output.Answer, "fallback answer should not be empty")
-	assert.Equal(t, FallbackMessage, output.Answer, "fallback should use the standard message")
 }
 
-func TestSummarizerSkill_ValidationError_MissingTenantID(t *testing.T) {
+func TestSummarizerSkill_FetchLogContext_NilClickHouse(t *testing.T) {
 	skill := NewSummarizerSkill(nil, nil)
+	ctx := context.Background()
 
-	input := ai.SkillInput{
-		Query: "Generate a summary",
-		JobID: "test-job-id",
-		// TenantID intentionally omitted
-	}
-
-	output, err := skill.Execute(context.Background(), input)
-	assert.Error(t, err, "should return error for missing tenant_id")
-	assert.Nil(t, output)
-	assert.Contains(t, err.Error(), "tenant_id is required")
+	result := skill.fetchLogContext(ctx, "tenant-1", "job-1")
+	assert.Contains(t, result, "ClickHouse not configured")
 }
 
-func TestSummarizerSkill_ValidationError_MissingJobID(t *testing.T) {
-	skill := NewSummarizerSkill(nil, nil)
+func TestSummarizerSkill_Execute_AIQueryError_ReturnsFallback(t *testing.T) {
+	// Use a real client with an invalid key -- the query will fail and the
+	// skill should gracefully return a fallback output rather than an error.
+	client, err := ai.NewClient("sk-ant-test-invalid-key", "test-model")
+	require.NoError(t, err)
+	require.True(t, client.IsAvailable())
+
+	skill := NewSummarizerSkill(client, nil)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately to make the API call fail fast
 
 	input := ai.SkillInput{
 		Query:    "Generate a summary",
-		TenantID: "test-tenant-id",
-		// JobID intentionally omitted
+		JobID:    "job-1",
+		TenantID: "tenant-1",
 	}
 
-	output, err := skill.Execute(context.Background(), input)
-	assert.Error(t, err, "should return error for missing job_id")
-	assert.Nil(t, output)
-	assert.Contains(t, err.Error(), "job_id is required")
-}
-
-func TestSummarizerSkill_ValidationError_MissingQuery(t *testing.T) {
-	skill := NewSummarizerSkill(nil, nil)
-
-	input := ai.SkillInput{
-		JobID:    "test-job-id",
-		TenantID: "test-tenant-id",
-		// Query intentionally omitted
-	}
-
-	output, err := skill.Execute(context.Background(), input)
-	assert.Error(t, err, "should return error for missing query")
-	assert.Nil(t, output)
-	assert.Contains(t, err.Error(), "query is required")
+	output, err := skill.Execute(ctx, input)
+	require.NoError(t, err, "skill should return fallback, not an error")
+	require.NotNil(t, output)
+	assert.Equal(t, FallbackMessage, output.Answer)
+	assert.Equal(t, 0.0, output.Confidence)
+	assert.Equal(t, "summarizer", output.SkillName)
 }

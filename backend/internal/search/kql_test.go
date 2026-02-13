@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/blevesearch/bleve/v2/search/query"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -841,4 +842,179 @@ func TestParseKQL_DoubleNOT(t *testing.T) {
 	assert.True(t, leaf.IsLeaf())
 	assert.Equal(t, "type", leaf.Field)
 	assert.Equal(t, "API", leaf.Value)
+}
+
+// ---------------------------------------------------------------------------
+// token.String
+// ---------------------------------------------------------------------------
+
+func TestTokenString(t *testing.T) {
+	tests := []struct {
+		name string
+		tok  token
+		want string
+	}{
+		{"word", token{kind: tokWord, val: "hello"}, "hello"},
+		{"colon", token{kind: tokColon, val: ":"}, ":"},
+		{"empty", token{kind: tokEOF, val: ""}, ""},
+		{"special", token{kind: tokGT, val: ">"}, ">"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, tc.tok.String())
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ToBleveQuery
+// ---------------------------------------------------------------------------
+
+func TestToBleveQuery_NilNode(t *testing.T) {
+	q := ToBleveQuery(nil)
+	require.NotNil(t, q)
+	_, ok := q.(*query.MatchAllQuery)
+	assert.True(t, ok, "nil node should produce MatchAllQuery")
+}
+
+func TestToBleveQuery_FullTextLeaf(t *testing.T) {
+	node := &QueryNode{
+		Op:    OpFullText,
+		Value: "error",
+	}
+	q := ToBleveQuery(node)
+	require.NotNil(t, q)
+	mq, ok := q.(*query.MatchQuery)
+	assert.True(t, ok, "fulltext should produce MatchQuery")
+	assert.Equal(t, "error", mq.Match)
+}
+
+func TestToBleveQuery_EqualsLeaf(t *testing.T) {
+	node := &QueryNode{
+		Op:    OpEquals,
+		Field: "type",
+		Value: "API",
+	}
+	q := ToBleveQuery(node)
+	require.NotNil(t, q)
+	tq, ok := q.(*query.TermQuery)
+	assert.True(t, ok, "equals should produce TermQuery")
+	assert.Equal(t, "API", tq.Term)
+	assert.Equal(t, "log_type", tq.FieldVal)
+}
+
+func TestToBleveQuery_NotEqualsLeaf(t *testing.T) {
+	node := &QueryNode{
+		Op:    OpNotEquals,
+		Field: "user",
+		Value: "Admin",
+	}
+	q := ToBleveQuery(node)
+	require.NotNil(t, q)
+	_, ok := q.(*query.BooleanQuery)
+	assert.True(t, ok, "not-equals should produce BooleanQuery")
+}
+
+func TestToBleveQuery_WildcardLeaf(t *testing.T) {
+	node := &QueryNode{
+		Op:    OpWildcard,
+		Field: "form",
+		Value: "HPD*",
+	}
+	q := ToBleveQuery(node)
+	require.NotNil(t, q)
+	wq, ok := q.(*query.WildcardQuery)
+	assert.True(t, ok, "wildcard should produce WildcardQuery")
+	assert.Equal(t, "HPD*", wq.Wildcard)
+}
+
+func TestToBleveQuery_NumericRange(t *testing.T) {
+	tests := []struct {
+		name string
+		op   FilterOp
+	}{
+		{"greater_than", OpGreaterThan},
+		{"greater_equal", OpGreaterEqual},
+		{"less_than", OpLessThan},
+		{"less_equal", OpLessEqual},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			node := &QueryNode{
+				Op:    tc.op,
+				Field: "duration",
+				Value: "1000",
+			}
+			q := ToBleveQuery(node)
+			require.NotNil(t, q)
+			_, ok := q.(*query.NumericRangeQuery)
+			assert.True(t, ok, "numeric range op should produce NumericRangeQuery")
+		})
+	}
+}
+
+func TestToBleveQuery_NumericRangeNonNumericValue(t *testing.T) {
+	node := &QueryNode{
+		Op:    OpGreaterThan,
+		Field: "duration",
+		Value: "not-a-number",
+	}
+	q := ToBleveQuery(node)
+	require.NotNil(t, q)
+	mq, ok := q.(*query.MatchQuery)
+	assert.True(t, ok, "non-numeric value should fallback to MatchQuery")
+	assert.Equal(t, "not-a-number", mq.Match)
+}
+
+func TestToBleveQuery_BoolAnd(t *testing.T) {
+	node := &QueryNode{
+		BoolOp: BoolAnd,
+		Children: []*QueryNode{
+			{Op: OpFullText, Value: "error"},
+			{Op: OpFullText, Value: "timeout"},
+		},
+	}
+	q := ToBleveQuery(node)
+	require.NotNil(t, q)
+	_, ok := q.(*query.ConjunctionQuery)
+	assert.True(t, ok, "AND should produce ConjunctionQuery")
+}
+
+func TestToBleveQuery_BoolOr(t *testing.T) {
+	node := &QueryNode{
+		BoolOp: BoolOr,
+		Children: []*QueryNode{
+			{Op: OpFullText, Value: "error"},
+			{Op: OpFullText, Value: "warning"},
+		},
+	}
+	q := ToBleveQuery(node)
+	require.NotNil(t, q)
+	_, ok := q.(*query.DisjunctionQuery)
+	assert.True(t, ok, "OR should produce DisjunctionQuery")
+}
+
+func TestToBleveQuery_BoolNot(t *testing.T) {
+	node := &QueryNode{
+		BoolOp: BoolNot,
+		Children: []*QueryNode{
+			{Op: OpFullText, Value: "debug"},
+		},
+	}
+	q := ToBleveQuery(node)
+	require.NotNil(t, q)
+	_, ok := q.(*query.BooleanQuery)
+	assert.True(t, ok, "NOT should produce BooleanQuery")
+}
+
+func TestToBleveQuery_DefaultFallback(t *testing.T) {
+	node := &QueryNode{
+		Op:    FilterOp("unknown_op"),
+		Value: "something",
+	}
+	q := ToBleveQuery(node)
+	require.NotNil(t, q)
+	mq, ok := q.(*query.MatchQuery)
+	assert.True(t, ok, "unknown op should fallback to MatchQuery")
+	assert.Equal(t, "something", mq.Match)
 }

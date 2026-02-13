@@ -14,24 +14,29 @@ import (
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/streaming"
 )
 
+// JARRunner abstracts the JAR execution so tests can substitute a mock.
+type JARRunner interface {
+	Run(ctx context.Context, filePath string, flags domain.JARFlags, heapMB int, lineCallback func(string)) (*jar.Result, error)
+}
+
 // Pipeline orchestrates the ingestion flow: download -> JAR -> parse -> store.
 type Pipeline struct {
-	pg      *storage.PostgresClient
-	ch      *storage.ClickHouseClient
-	s3      *storage.S3Client
-	redis   *storage.RedisClient
-	nats    *streaming.NATSClient
-	jar     *jar.Runner
+	pg      storage.PostgresStore
+	ch      storage.ClickHouseStore
+	s3      storage.S3Storage
+	redis   storage.RedisCache
+	nats    streaming.NATSStreamer
+	jar     JARRunner
 	anomaly *AnomalyDetector
 }
 
 func NewPipeline(
-	pg *storage.PostgresClient,
-	ch *storage.ClickHouseClient,
-	s3 *storage.S3Client,
-	redis *storage.RedisClient,
-	nats *streaming.NATSClient,
-	jarRunner *jar.Runner,
+	pg storage.PostgresStore,
+	ch storage.ClickHouseStore,
+	s3 storage.S3Storage,
+	redis storage.RedisCache,
+	nats streaming.NATSStreamer,
+	jarRunner JARRunner,
 	anomalyDetector *AnomalyDetector,
 ) *Pipeline {
 	return &Pipeline{pg: pg, ch: ch, s3: s3, redis: redis, nats: nats, jar: jarRunner, anomaly: anomalyDetector}

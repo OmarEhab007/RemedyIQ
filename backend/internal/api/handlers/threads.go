@@ -17,12 +17,12 @@ import (
 
 // ThreadsHandler serves GET /api/v1/analysis/{job_id}/dashboard/threads.
 type ThreadsHandler struct {
-	pg    *storage.PostgresClient
-	ch    *storage.ClickHouseClient
-	redis *storage.RedisClient
+	pg    storage.PostgresStore
+	ch    storage.ClickHouseStore
+	redis storage.RedisCache
 }
 
-func NewThreadsHandler(pg *storage.PostgresClient, ch *storage.ClickHouseClient, redis *storage.RedisClient) *ThreadsHandler {
+func NewThreadsHandler(pg storage.PostgresStore, ch storage.ClickHouseStore, redis storage.RedisCache) *ThreadsHandler {
 	return &ThreadsHandler{pg: pg, ch: ch, redis: redis}
 }
 

@@ -17,12 +17,12 @@ import (
 
 // AggregatesHandler serves GET /api/v1/analysis/{job_id}/dashboard/aggregates.
 type AggregatesHandler struct {
-	pg    *storage.PostgresClient
-	ch    *storage.ClickHouseClient
-	redis *storage.RedisClient
+	pg    storage.PostgresStore
+	ch    storage.ClickHouseStore
+	redis storage.RedisCache
 }
 
-func NewAggregatesHandler(pg *storage.PostgresClient, ch *storage.ClickHouseClient, redis *storage.RedisClient) *AggregatesHandler {
+func NewAggregatesHandler(pg storage.PostgresStore, ch storage.ClickHouseStore, redis storage.RedisCache) *AggregatesHandler {
 	return &AggregatesHandler{pg: pg, ch: ch, redis: redis}
 }
 
