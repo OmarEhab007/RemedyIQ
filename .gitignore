@@ -51,3 +51,6 @@ error_logs/
 # Local tool configs
 .opencode/
 .playwright-mcp/
+
+# Root-level screenshots (dev artifacts, committed ones are in docs/screenshots/)
+/*.png

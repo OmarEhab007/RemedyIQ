@@ -2,12 +2,19 @@
 
 > AI-Powered BMC Remedy AR Server Log Analysis Platform
 
-[![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://golang.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-16.1-black?style=flat&logo=next.js)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5+-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Go Version](https://img.shields.io/badge/Go-1.24-00ADD8?style=flat-square&logo=go)](https://golang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/github/license/OmarEhab007/RemedyIQ?style=flat-square)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/OmarEhab007/RemedyIQ?style=flat-square)](https://github.com/OmarEhab007/RemedyIQ/releases)
+[![ClickHouse](https://img.shields.io/badge/ClickHouse-24-FFCC01?style=flat-square&logo=clickhouse)](https://clickhouse.com/)
+[![Redis](https://img.shields.io/badge/Redis-7-DC382D?style=flat-square&logo=redis)](https://redis.io/)
 
 ---
+
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="RemedyIQ Dashboard" width="900" />
+</p>
 
 ## Overview
 
@@ -61,6 +68,7 @@ The latest release delivers a complete dashboard experience with **5 new backend
 
 - [Overview](#overview)
 - [What's New (Latest Release)](#whats-new-latest-release)
+- [Screenshots](#screenshots)
 - [Architecture](#architecture)
 - [Technology Stack](#technology-stack)
 - [Features](#features)
@@ -74,6 +82,52 @@ The latest release delivers a complete dashboard experience with **5 new backend
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
 - [Support](#support)
+
+---
+
+## Screenshots
+
+<details>
+<summary><strong>Upload Page</strong> - Drag-and-drop log file upload</summary>
+<br />
+<img src="docs/screenshots/upload.png" alt="Upload Page" width="800" />
+</details>
+
+<details>
+<summary><strong>Analyses List</strong> - All completed analyses at a glance</summary>
+<br />
+<img src="docs/screenshots/analyses.png" alt="Analyses Page" width="800" />
+</details>
+
+<details>
+<summary><strong>Analysis Dashboard</strong> - Comprehensive metrics and charts</summary>
+<br />
+<img src="docs/screenshots/dashboard.png" alt="Dashboard" width="800" />
+</details>
+
+<details>
+<summary><strong>Analysis Detail</strong> - Deep-dive into individual analyses</summary>
+<br />
+<img src="docs/screenshots/analysis-detail.png" alt="Analysis Detail" width="800" />
+</details>
+
+<details>
+<summary><strong>Log Explorer</strong> - Full-text search across log entries</summary>
+<br />
+<img src="docs/screenshots/explorer.png" alt="Log Explorer" width="800" />
+</details>
+
+<details>
+<summary><strong>Trace Viewer</strong> - End-to-end request tracing</summary>
+<br />
+<img src="docs/screenshots/trace.png" alt="Trace Viewer" width="800" />
+</details>
+
+<details>
+<summary><strong>AI Assistant</strong> - Natural language log analysis</summary>
+<br />
+<img src="docs/screenshots/ai-insights.png" alt="AI Insights" width="800" />
+</details>
 
 ---
 
@@ -136,8 +190,6 @@ RemedyIQ follows a clean, microservices-inspired architecture with clear separat
 - **Scalable Storage**: ClickHouse for time-series analytics, PostgreSQL for relational data
 - **Graceful Degradation**: AI features fail silently to keyword search when API is unavailable
 
-For detailed architecture diagrams, see [docs/diagrams/architecture.md](docs/diagrams/architecture.md).
-
 ---
 
 ## Technology Stack
@@ -161,7 +213,7 @@ For detailed architecture diagrams, see [docs/diagrams/architecture.md](docs/dia
 
 | Component | Technology | Purpose |
 |-----------|-----------|---------|
-| Framework | Next.js 16.1 + React 19 | SSR, API routes, routing |
+| Framework | Next.js 16 + React 19 | SSR, App Router, streaming |
 | Language | TypeScript 5+ | Type safety |
 | UI Library | shadcn/ui + Radix UI | Accessible components |
 | Styling | Tailwind CSS 4 | Utility-first CSS |
@@ -178,25 +230,6 @@ For detailed architecture diagrams, see [docs/diagrams/architecture.md](docs/dia
 | Build Tool | GNU Make | Build automation |
 | Testing | Go test + ESLint + TypeScript | Test coverage and linting |
 | CI/CD | GitHub Actions (planned) | Continuous integration |
-
-### Frontend
-
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| Framework | Next.js 15 + React 19 | SSR, API routes, routing |
-| Language | TypeScript 5+ | Type safety |
-| UI Library | shadcn/ui + Radix UI | Accessible components |
-| Styling | Tailwind CSS 4 | Utility-first CSS |
-| Charts | Recharts + D3.js | Data visualization |
-| Auth | Clerk Next.js SDK | Multi-tenant authentication |
-| State | React Context + Hooks | Local state management |
-
-### Infrastructure
-
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| Containerization | Docker + Docker Compose | Local development |
-| Build Tool | GNU Make | Build automation |
 
 ---
 
@@ -387,15 +420,11 @@ RemedyIQ/
 │   │   ├── hooks/          # Custom React hooks
 │   │   └── lib/            # API clients and utilities
 │   └── public/             # Static assets
-├── docs/                   # Documentation
-│   └── diagrams/           # Architecture diagrams
-├── legacy/                 # Legacy tools (archived)
-│   └── webTemplates/       # Original ARLogAnalyzer HTML templates
-├── specs/                  # Feature specifications
-│   ├── 001-remedyiq-mvp/   # MVP feature specs
-│   └── 002-local-dev-setup/# Local development setup
+├── ARLogAnalyzer/          # BMC ARLogAnalyzer JAR distributions
+├── docs/                   # Documentation and screenshots
+├── specs/                  # Feature specifications and design docs
+├── docker-compose.yml      # Local infrastructure services
 ├── AGENTS.md               # AI agent development guide
-├── Makefile                # Build automation
 └── README.md               # This file
 ```
 
