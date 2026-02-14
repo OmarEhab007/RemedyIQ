@@ -232,7 +232,7 @@
 
 ### User Story Dependencies
 
-```
+```text
 Setup (Phase 1)
   └── Foundational (Phase 2)
         ├── US1: Aggregates (Phase 3) ──┐

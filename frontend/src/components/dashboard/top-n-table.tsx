@@ -44,7 +44,15 @@ function parseDetails(details?: string): ParsedDetails {
 
 function parseLastLine(details?: string): number | null {
   if (!details) return null;
-  const match = details.match(/last_line=(\d+)/);
+  // Try JSON first (JAR-native format)
+  try {
+    const parsed = JSON.parse(details);
+    if (parsed.last_line != null) return Number(parsed.last_line);
+  } catch {
+    // not JSON, fall through to regex
+  }
+  // Regex fallback: last_line=123 or last_line:123
+  const match = details.match(/last_line[=:](\d+)/);
   return match ? parseInt(match[1], 10) : null;
 }
 
@@ -232,7 +240,7 @@ export function TopNTable({ apiCalls, sqlStatements, filters, escalations, jobId
                         {jobId && (
                           <a
                             href={`/explorer?line=${entry.line_number}&job=${jobId}`}
-                            className="inline-block mt-2 text-xs text-blue-500 hover:text-blue-400 hover:underline"
+                            className="inline-block mt-2 text-xs text-primary hover:text-primary/80 hover:underline"
                             onClick={(e) => e.stopPropagation()}
                           >
                             View in Explorer →

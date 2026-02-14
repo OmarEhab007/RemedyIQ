@@ -25,7 +25,8 @@ function isJARExceptions(data: any): data is JARExceptionsResponse {
 export function ExceptionsSection({ data, loading, error, refetch, headless }: ExceptionsSectionProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"api_errors" | "api_exceptions" | "sql_exceptions">("api_errors");
-  const [expandedMessages, setExpandedMessages] = useState<Set<number>>(new Set());
+  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
+  const [activeExcTab, setActiveExcTab] = useState("api_errors");
 
   const getErrorRateColor = (rate: number): string => {
     if (rate < 1) return "bg-green-100 text-green-800 border-green-300";
@@ -34,13 +35,18 @@ export function ExceptionsSection({ data, loading, error, refetch, headless }: E
   };
 
   const toggleMessageExpansion = (index: number) => {
+    const key = `${activeExcTab}:${index}`;
     const newExpanded = new Set(expandedMessages);
-    if (newExpanded.has(index)) {
-      newExpanded.delete(index);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
     } else {
-      newExpanded.add(index);
+      newExpanded.add(key);
     }
     setExpandedMessages(newExpanded);
+  };
+
+  const isExpanded = (index: number): boolean => {
+    return expandedMessages.has(`${activeExcTab}:${index}`);
   };
 
   const truncateText = (text: string, maxLength: number = 80): { text: string; isTruncated: boolean } => {
@@ -175,7 +181,7 @@ export function ExceptionsSection({ data, loading, error, refetch, headless }: E
               <tbody>
                 {safeApiErrors.map((err, idx) => {
                   const { text: errorText, isTruncated } = truncateText(err.error_message);
-                  const isExpanded = expandedMessages.has(idx);
+                  const expanded = isExpanded(idx);
                   return (
                     <tr key={idx} className="border-b hover:bg-gray-50">
                       <td className="px-3 py-2 font-mono text-xs">{err.end_line}</td>
@@ -186,7 +192,7 @@ export function ExceptionsSection({ data, loading, error, refetch, headless }: E
                       <td className="px-3 py-2">{err.user}</td>
                       <td className="px-3 py-2 text-xs">{err.start_time}</td>
                       <td className="px-3 py-2">
-                        {isTruncated && !isExpanded ? (
+                        {isTruncated && !expanded ? (
                           <>
                             {errorText}
                             <button
@@ -255,14 +261,14 @@ export function ExceptionsSection({ data, loading, error, refetch, headless }: E
               <tbody>
                 {safeSqlExceptions.map((exc, idx) => {
                   const { text: sqlText, isTruncated } = truncateText(exc.sql_statement, 120);
-                  const isExpanded = expandedMessages.has(idx);
+                  const expanded = isExpanded(idx);
                   return (
                     <tr key={idx} className="border-b hover:bg-gray-50">
                       <td className="px-3 py-2 font-mono text-xs">{exc.line_number}</td>
                       <td className="px-3 py-2 font-mono text-xs">{exc.trace_id}</td>
                       <td className="px-3 py-2">{exc.message}</td>
                       <td className="px-3 py-2 font-mono text-xs">
-                        {isTruncated && !isExpanded ? (
+                        {isTruncated && !expanded ? (
                           <>
                             {sqlText}
                             <button

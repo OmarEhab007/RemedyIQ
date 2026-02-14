@@ -136,10 +136,12 @@ components:
       properties:
         line_gaps:
           type: array
+          maxItems: 50
           items:
             $ref: '#/components/schemas/JARGapEntry'
         thread_gaps:
           type: array
+          maxItems: 50
           items:
             $ref: '#/components/schemas/JARGapEntry'
         queue_health:

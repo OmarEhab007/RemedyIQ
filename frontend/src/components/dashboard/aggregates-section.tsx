@@ -24,7 +24,7 @@ type SortField = "name" | "count" | "error_count" | "min_ms" | "max_ms" | "avg_m
 type SortDirection = "asc" | "desc";
 
 function isJARAggregates(data: any): data is JARAggregatesResponse {
-  return data && data.source === "jar_parsed";
+  return data && (data.source === "jar_parsed" || data.source === "computed");
 }
 
 export function AggregatesSection({ data, loading, error, refetch, headless }: AggregatesSectionProps) {
@@ -137,7 +137,7 @@ export function AggregatesSection({ data, loading, error, refetch, headless }: A
         {!headless && <h3 className="text-lg font-semibold mb-4">Aggregates</h3>}
 
         {showBanner && (
-          <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+          <div className="mb-4 bg-muted border border-border rounded-lg p-3 text-sm text-muted-foreground">
             <span className="font-medium">Info:</span> Showing computed data. Re-analyze for full JAR-native details.
           </div>
         )}

@@ -142,7 +142,7 @@ export function FiltersSection({ data, loading, error, refetch, headless }: Filt
         {!headless && (
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Filter Complexity</h3>
-            <div className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+            <div className="px-3 py-1 bg-muted text-muted-foreground rounded-full text-sm font-medium">
               JAR Parsed
             </div>
           </div>
@@ -417,14 +417,14 @@ export function FiltersSection({ data, loading, error, refetch, headless }: Filt
         {!headless && (
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Filter Complexity</h3>
-            <div className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+            <div className="px-3 py-1 bg-muted text-muted-foreground rounded-full text-sm font-medium">
               Total: {total_filter_time_ms.toFixed(2)} ms
             </div>
           </div>
         )}
 
         {/* Re-analyze banner for computed data */}
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+        <div className="mb-4 p-3 bg-muted border border-border rounded-lg text-sm text-muted-foreground">
           Re-analyze with JAR parser for detailed filter breakdown (pass/fail counts, levels, per-transaction details)
         </div>
 

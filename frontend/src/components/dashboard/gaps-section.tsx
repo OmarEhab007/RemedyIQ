@@ -18,7 +18,7 @@ function isJARGaps(data: any): data is JARGapsResponse {
 
 export function GapsSection({ data, loading, error, refetch, headless }: GapsSectionProps) {
   const [activeTab, setActiveTab] = useState<"line" | "thread">("line");
-  const [expandedDetails, setExpandedDetails] = useState<Set<number>>(new Set());
+  const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set());
 
   const formatDuration = (ms: number): string => {
     if (ms < 1000) return `${ms.toFixed(0)}ms`;
@@ -35,14 +35,21 @@ export function GapsSection({ data, loading, error, refetch, headless }: GapsSec
   const isCritical = (ms: number): boolean => ms > 60000;
   const isJARCritical = (seconds: number): boolean => seconds > 1;
 
+  const [activeGapTab, setActiveGapTab] = useState("line_gaps");
+
   const toggleDetails = (index: number) => {
+    const key = `${activeGapTab}:${index}`;
     const newExpanded = new Set(expandedDetails);
-    if (newExpanded.has(index)) {
-      newExpanded.delete(index);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
     } else {
-      newExpanded.add(index);
+      newExpanded.add(key);
     }
     setExpandedDetails(newExpanded);
+  };
+
+  const isDetailExpanded = (index: number): boolean => {
+    return expandedDetails.has(`${activeGapTab}:${index}`);
   };
 
   if (loading) {
@@ -216,7 +223,7 @@ export function GapsSection({ data, loading, error, refetch, headless }: GapsSec
             <tbody className="bg-white divide-y divide-gray-200">
               {(currentGaps as JARGapEntry[]).map((gap: JARGapEntry, idx: number) => {
                 const critical = isJARCritical(gap.gap_duration);
-                const isExpanded = expandedDetails.has(idx);
+                const isExpanded = isDetailExpanded(idx);
                 const shouldTruncate = gap.details.length > 100;
                 const displayDetails = isExpanded || !shouldTruncate
                   ? gap.details

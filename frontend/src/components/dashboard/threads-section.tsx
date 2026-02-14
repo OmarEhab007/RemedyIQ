@@ -136,14 +136,14 @@ export function ThreadsSection({ data, loading, error, refetch, headless }: Thre
         {!headless && (
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Thread Statistics</h3>
-            <div className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+            <div className="px-3 py-1 bg-muted text-muted-foreground rounded-full text-sm font-medium">
               {totalThreads} threads detected
             </div>
           </div>
         )}
 
         {source === "computed" && (
-          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          <div className="mb-4 p-3 bg-muted border border-border rounded-lg text-sm text-muted-foreground">
             Re-analyze for full data
           </div>
         )}
