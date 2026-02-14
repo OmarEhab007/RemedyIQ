@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestIntegration_JARToParser runs the actual JAR binary on a real log file
@@ -187,4 +190,58 @@ func TestIntegration_JARToParser(t *testing.T) {
 	if sectionsWithData < 2 {
 		t.Errorf("Expected at least 2 top-N sections with data, got %d", sectionsWithData)
 	}
+}
+
+// TestFullPipeline_ParseAndCache validates the full parse pipeline by loading
+// the real JAR output from testdata and verifying that all JAR-native data
+// structures are populated: Dashboard, JARAggregates, JARGaps, JARExceptions,
+// JARThreadStats, JARFilters, and APIAbbreviations. This is a comprehensive
+// integration test that does not require the JAR binary or Java runtime.
+func TestFullPipeline_ParseAndCache(t *testing.T) {
+	content, err := os.ReadFile("../../testdata/jar_output_log1.txt")
+	require.NoError(t, err)
+
+	result, err := ParseOutput(string(content))
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	// Dashboard populated with general statistics.
+	require.NotNil(t, result.Dashboard)
+	assert.Greater(t, result.Dashboard.GeneralStats.TotalLines, int64(0))
+	assert.Greater(t, result.Dashboard.GeneralStats.APICount, int64(0))
+	assert.Greater(t, result.Dashboard.GeneralStats.SQLCount, int64(0))
+
+	// JAR-native fields populated (non-nil).
+	assert.NotNil(t, result.JARAggregates, "JARAggregates should be populated")
+	assert.NotNil(t, result.JARGaps, "JARGaps should be populated")
+	assert.NotNil(t, result.JARExceptions, "JARExceptions should be populated")
+	assert.NotNil(t, result.JARThreadStats, "JARThreadStats should be populated")
+	assert.NotNil(t, result.JARFilters, "JARFilters should be populated")
+
+	// Check key counts in JARAggregates.
+	assert.Greater(t, len(result.JARAggregates.APIByForm.Groups), 0)
+
+	// JARGaps: 50 line gaps, 50 thread gaps in the testdata.
+	assert.Greater(t, len(result.JARGaps.LineGaps), 0)
+	assert.Greater(t, len(result.JARGaps.ThreadGaps), 0)
+
+	// JARThreadStats: API and SQL thread stats present.
+	assert.Greater(t, len(result.JARThreadStats.APIThreads), 0)
+	assert.Greater(t, len(result.JARThreadStats.SQLThreads), 0)
+
+	// JARExceptions: 1 API error, 3 API exceptions, 1 SQL exception.
+	assert.GreaterOrEqual(t, len(result.JARExceptions.APIErrors), 1)
+	assert.Greater(t, len(result.JARExceptions.APIExceptions), 0)
+	assert.Greater(t, len(result.JARExceptions.SQLExceptions), 0)
+
+	// JARFilters: all 5 sub-sections populated.
+	assert.Greater(t, len(result.JARFilters.LongestRunning), 0)
+	assert.Greater(t, len(result.JARFilters.MostExecuted), 0)
+	assert.Greater(t, len(result.JARFilters.PerTransaction), 0)
+	assert.Greater(t, len(result.JARFilters.ExecutedPerTxn), 0)
+	assert.Greater(t, len(result.JARFilters.FilterLevels), 0)
+
+	// API abbreviations (14 abbreviations in testdata).
+	assert.NotNil(t, result.APIAbbreviations)
+	assert.Greater(t, len(result.APIAbbreviations), 0)
 }

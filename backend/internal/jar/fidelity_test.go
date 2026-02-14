@@ -1,6 +1,7 @@
 package jar
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -679,4 +680,67 @@ Admin:  50
 	assert.Equal(t, 100, tabData.Distribution["users"]["Demo"])
 	assert.Equal(t, 50, colonData.Distribution["users"]["Admin"])
 	assert.Equal(t, 50, tabData.Distribution["users"]["Admin"])
+}
+
+// TestFidelity_Aggregates_FullOutput loads the full JAR output from testdata and
+// verifies that all 6 aggregate tables (API by Form, API by Client, API by
+// Client IP, SQL by Table, Esc by Form, Esc by Pool) are correctly populated.
+// This validates the complete aggregate parsing pipeline against real JAR v3.2.2
+// output per Constitution Article VII (Log Format Fidelity).
+func TestFidelity_Aggregates_FullOutput(t *testing.T) {
+	// Load real JAR output.
+	content, err := os.ReadFile("../../testdata/jar_output_log1.txt")
+	require.NoError(t, err)
+
+	result, err := ParseOutput(string(content))
+	require.NoError(t, err)
+	require.NotNil(t, result.JARAggregates)
+
+	agg := result.JARAggregates
+	assert.Equal(t, "jar_parsed", agg.Source)
+
+	// --- API by Form ---
+	// The testdata has 29+ form groups with a grand total of 124 API calls.
+	require.NotNil(t, agg.APIByForm, "API by Form table should be present")
+	assert.Greater(t, len(agg.APIByForm.Groups), 0, "API by Form should have groups")
+	require.NotNil(t, agg.APIByForm.GrandTotal, "API by Form should have a grand total")
+	assert.Equal(t, 124, agg.APIByForm.GrandTotal.Total, "Grand total: 124 API calls")
+	assert.Equal(t, 123, agg.APIByForm.GrandTotal.OK, "Grand total: 123 OK")
+	assert.Equal(t, 1, agg.APIByForm.GrandTotal.Fail, "Grand total: 1 Fail")
+
+	// --- API by Client ---
+	// 6 client groups (Mid-tier, Approval Server, Assignment Engine,
+	// Unidentified Client, Flashboards, Normalization Engine).
+	require.NotNil(t, agg.APIByClient, "API by Client table should be present")
+	assert.Greater(t, len(agg.APIByClient.Groups), 0, "API by Client should have groups")
+	require.NotNil(t, agg.APIByClient.GrandTotal, "API by Client should have a grand total")
+	assert.Equal(t, 124, agg.APIByClient.GrandTotal.Total, "API by Client grand total: 124")
+
+	// --- API by Client IP ---
+	// 3 client IP groups (10.11.19.2, 10.11.19.4, null).
+	require.NotNil(t, agg.APIByClientIP, "API by Client IP table should be present")
+	assert.Greater(t, len(agg.APIByClientIP.Groups), 0, "API by Client IP should have groups")
+	require.NotNil(t, agg.APIByClientIP.GrandTotal, "API by Client IP should have a grand total")
+	assert.Equal(t, 124, agg.APIByClientIP.GrandTotal.Total, "API by Client IP grand total: 124")
+
+	// --- SQL by Table ---
+	// 60 table groups with a grand total of 2184 SQL calls.
+	require.NotNil(t, agg.SQLByTable, "SQL by Table should be present")
+	assert.Greater(t, len(agg.SQLByTable.Groups), 0, "SQL by Table should have groups")
+	require.NotNil(t, agg.SQLByTable.GrandTotal, "SQL by Table should have a grand total")
+	assert.Equal(t, 2184, agg.SQLByTable.GrandTotal.Total, "SQL grand total: 2184 calls")
+
+	// --- Escalation by Form ---
+	// 1 form group (INTG:SMS-POOL-FORM) with grand total of 1 call.
+	require.NotNil(t, agg.EscByForm, "Esc by Form should be present")
+	assert.Greater(t, len(agg.EscByForm.Groups), 0, "Esc by Form should have groups")
+	require.NotNil(t, agg.EscByForm.GrandTotal, "Esc by Form should have a grand total")
+	assert.Equal(t, 1, agg.EscByForm.GrandTotal.Total, "Esc by Form grand total: 1 call")
+
+	// --- Escalation by Pool ---
+	// 1 pool group (pool 6) with grand total of 1 call.
+	require.NotNil(t, agg.EscByPool, "Esc by Pool should be present")
+	assert.Greater(t, len(agg.EscByPool.Groups), 0, "Esc by Pool should have groups")
+	require.NotNil(t, agg.EscByPool.GrandTotal, "Esc by Pool should have a grand total")
+	assert.Equal(t, 1, agg.EscByPool.GrandTotal.Total, "Esc by Pool grand total: 1 call")
 }

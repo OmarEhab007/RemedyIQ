@@ -1,0 +1,1173 @@
+AR System Log Analyzer, version 3.2.2 (for AR server logs versions 9.1.x+).
+Build: 221012.01
+(Copyright 2002-2020 BMC Software, Inc.)
+ARLogAnalyzer "error_logs/log1.log"
+No Locale specified, using EN
+
+Total Log size: 0.00 GB
+Max Heap Allocated: 4.1 GB
+
+Loading specified files
+Loading /Users/omar/Developer/ARLogAnalyzer-25/error_logs/log1.log
+Language Found: English
+Processing Transactions
+Starting processing of API stats
+Starting processing of SQL stats
+Starting processing of ESCL stats
+Starting processing of FLTR stats
+No Locale specified, using EN
+
+             Start Time: Mon Nov 24 2025 14:46:58.505
+               End Time: Mon Nov 24 2025 14:47:08.667
+           Elapsed Time: 10.162
+            Total Lines: 16880
+              API Count: 251
+              SQL Count: 7307
+              ESC Count: 6260
+             Form Count: 32
+            Table Count: 60
+             User Count: 8
+ AssignEng Thread Count: 1
+Escalation Thread Count: 2
+      Fast Thread Count: 4
+      Init Thread Count: 2
+      List Thread Count: 20
+Prv:390680 Thread Count: 2
+     Total Thread Count: 31
+    API Exception Count: 3
+    SQL Exception Count: 1
+    ESC Exception Count: 0
+
+###  SECTION: GAP ANALYSIS  #####################################################
+
+### 50 LONGEST LINE GAPS
+
+    Line Gap    Line#                           TrID                    Date/Time                        Details
+------------ -------- ------------------------------ ---------------------------- ------------------------------
+       0.265        0 oKNmA5MvSwOxCzBulz9-zQ:0003436 Mon Nov 24 2025 14:47:07.436              BEGIN TRANSACTION
+       0.191        0 oKNmA5MvSwOxCzBulz9-zQ:0002980 Mon Nov 24 2025 14:47:00.268              BEGIN TRANSACTION
+       0.085        0 oKNmA5MvSwOxCzBulz9-zQ:0003478 Mon Nov 24 2025 14:47:08.068                             OK
+       0.081        0 oKNmA5MvSwOxCzBulz9-zQ:0003478 Mon Nov 24 2025 14:47:08.170              BEGIN TRANSACTION
+       0.049        0 oKNmA5MvSwOxCzBulz9-zQ:0003226 Mon Nov 24 2025 14:47:04.350              BEGIN TRANSACTION
+       0.047        0 oKNmA5MvSwOxCzBulz9-zQ:0003109 Mon Nov 24 2025 14:47:02.291                             OK
+       0.045        0 oKNmA5MvSwOxCzBulz9-zQ:0003479 Mon Nov 24 2025 14:47:08.281                             OK
+       0.041        0 oKNmA5MvSwOxCzBulz9-zQ:0003226 Mon Nov 24 2025 14:47:04.280                             OK
+       0.041        0 oKNmA5MvSwOxCzBulz9-zQ:0003481 Mon Nov 24 2025 14:47:08.388                             OK
+       0.040        0 oKNmA5MvSwOxCzBulz9-zQ:0002971 Mon Nov 24 2025 14:46:59.855                             OK
+       0.039        0 oKNmA5MvSwOxCzBulz9-zQ:0002970 Mon Nov 24 2025 14:46:59.786              BEGIN TRANSACTION
+       0.039        0 oKNmA5MvSwOxCzBulz9-zQ:0003301 Mon Nov 24 2025 14:47:05.514                             OK
+       0.038        0 oKNmA5MvSwOxCzBulz9-zQ:0003108 Mon Nov 24 2025 14:47:02.214              BEGIN TRANSACTION
+       0.036        0 oKNmA5MvSwOxCzBulz9-zQ:0003479 Mon Nov 24 2025 14:47:08.214                             OK
+       0.035        0 oKNmA5MvSwOxCzBulz9-zQ:0003001 Mon Nov 24 2025 14:47:00.563                             OK
+       0.034        0 oKNmA5MvSwOxCzBulz9-zQ:0003109 Mon Nov 24 2025 14:47:02.357              BEGIN TRANSACTION
+       0.034    16425 uNFzUimrQvidJDExR4_0dQ:0000458 Mon Nov 24 2025 14:47:08.422 WITH AR_SQL_Alias$1 AS (SELECT T338.C1802, T338.C1801, T338.C1803, T338.C3204, T338.C3205, T338.C3200, T338.C3201, T338.C1, ROW_NUMBER() OVER (ORDER BY T338.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T338 WHERE (N'000000000000001' IS NOT NULL)) SELECT AR_SQL_Alias$1.C1802, AR_SQL_Alias$1.C1801, AR_SQL_Alias$1.C1803, AR_SQL_Alias$1.C3204, AR_SQL_Alias$1.C3205, AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 1001)
+       0.033        0 oKNmA5MvSwOxCzBulz9-zQ:0003107 Mon Nov 24 2025 14:47:02.095                             OK
+       0.032        0 oKNmA5MvSwOxCzBulz9-zQ:0003108 Mon Nov 24 2025 14:47:02.147                             OK
+       0.032        0 oKNmA5MvSwOxCzBulz9-zQ:0003231 Mon Nov 24 2025 14:47:04.493                             OK
+       0.032        0 oKNmA5MvSwOxCzBulz9-zQ:0003477 Mon Nov 24 2025 14:47:07.928                             OK
+       0.031    10497 oKNmA5MvSwOxCzBulz9-zQ:0003226 Mon Nov 24 2025 14:47:04.239 WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ21256')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.030     5308 oKNmA5MvSwOxCzBulz9-zQ:0003109 Mon Nov 24 2025 14:47:02.244 WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ20098')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.029     2266 oKNmA5MvSwOxCzBulz9-zQ:0002971 Mon Nov 24 2025 14:46:59.815 WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ19466')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.027        0 oKNmA5MvSwOxCzBulz9-zQ:0002923 Mon Nov 24 2025 14:46:59.180                             OK
+       0.027        0 oKNmA5MvSwOxCzBulz9-zQ:0003101 Mon Nov 24 2025 14:47:01.950                             OK
+       0.026        0 oKNmA5MvSwOxCzBulz9-zQ:0002971 Mon Nov 24 2025 14:46:59.912              BEGIN TRANSACTION
+       0.026        0 oKNmA5MvSwOxCzBulz9-zQ:0003225 Mon Nov 24 2025 14:47:04.208              BEGIN TRANSACTION
+       0.024        0 oKNmA5MvSwOxCzBulz9-zQ:0003477 Mon Nov 24 2025 14:47:07.962              BEGIN TRANSACTION
+       0.022        0 oKNmA5MvSwOxCzBulz9-zQ:0003479 Mon Nov 24 2025 14:47:08.236                             OK
+       0.020        0 oKNmA5MvSwOxCzBulz9-zQ:0002981 Mon Nov 24 2025 14:47:00.301              BEGIN TRANSACTION
+       0.020        0 oKNmA5MvSwOxCzBulz9-zQ:0003224 Mon Nov 24 2025 14:47:04.153              BEGIN TRANSACTION
+       0.020        0 oKNmA5MvSwOxCzBulz9-zQ:0003478 Mon Nov 24 2025 14:47:08.089                             OK
+       0.020        0 uNFzUimrQvidJDExR4_0dQ:0000458 Mon Nov 24 2025 14:47:08.465           -GLEWF            OK
+       0.020        0 SsjZsHC9R4a1jxb56Qmy0A:0000316 Mon Nov 24 2025 14:47:08.667 Mon Nov 24 2025 14:47:08.6490Filter Trace Log -- OFF (AR Server 9.1.10.002 202010021144) Mon Nov 24 14:47:08.652 2025 <ALRTMon Nov 24 2025 14:47:08.6520Alert Trace Log -- OFF (AR Server 9.1.10.002 202010021144) Mon Nov 24 14:47:08.663 2025 <ESCLMon Nov 24 2025 14:47:08.6630Escalation Trace Log -- OFF (AR Server 9.1.10.002 202010021144) Mon Nov 24 14:47:08.665 2025 <SQL Mon Nov 24 2025 14:47:08.6650SQL Trace Log -- OFF (AR Server 9.1.10.002 202010021144) Mon Nov 24 14:47:08.666 2025 <API Mon Nov 24 2025 14:47:08.6660Api Trace Log -- OFF (AR Server 9.1.10.002 202010021144) Mon Nov 24 14:47:08.667 2025 <USERMon Nov 24 2025 14:47:08.6670User Trace Log -- OFF (AR Server 9.1.10.002 202010021144) Mon Nov 24 14:47:08.667 2025 <THRDThread Trace Log -- OFF (AR Server 9.1.10.002 202010021144)
+       0.019        0 oKNmA5MvSwOxCzBulz9-zQ:0003213 Mon Nov 24 2025 14:47:03.958              BEGIN TRANSACTION
+       0.018        0 oKNmA5MvSwOxCzBulz9-zQ:0002901 Mon Nov 24 2025 14:46:58.899                             OK
+       0.018        0 oKNmA5MvSwOxCzBulz9-zQ:0003177 Mon Nov 24 2025 14:47:03.366              BEGIN TRANSACTION
+       0.018        0 oKNmA5MvSwOxCzBulz9-zQ:0003478 Mon Nov 24 2025 14:47:07.982                             OK
+       0.016        0 oKNmA5MvSwOxCzBulz9-zQ:0002972 Mon Nov 24 2025 14:46:59.943              BEGIN TRANSACTION
+       0.016        0 oKNmA5MvSwOxCzBulz9-zQ:0003109 Mon Nov 24 2025 14:47:02.323                             OK
+       0.016        0 oKNmA5MvSwOxCzBulz9-zQ:0003223 Mon Nov 24 2025 14:47:04.107              BEGIN TRANSACTION
+       0.016        0 oKNmA5MvSwOxCzBulz9-zQ:0003227 Mon Nov 24 2025 14:47:04.375                             OK
+       0.016        0 oKNmA5MvSwOxCzBulz9-zQ:0003227 Mon Nov 24 2025 14:47:04.393              BEGIN TRANSACTION
+       0.015        0 oKNmA5MvSwOxCzBulz9-zQ:0002971 Mon Nov 24 2025 14:46:59.871                             OK
+       0.015        0 oKNmA5MvSwOxCzBulz9-zQ:0002971 Mon Nov 24 2025 14:46:59.886                             OK
+       0.015        0 oKNmA5MvSwOxCzBulz9-zQ:0003107 Mon Nov 24 2025 14:47:02.114              BEGIN TRANSACTION
+       0.015        0 oKNmA5MvSwOxCzBulz9-zQ:0003108 Mon Nov 24 2025 14:47:02.176                             OK
+       0.015        0 oKNmA5MvSwOxCzBulz9-zQ:0003109 Mon Nov 24 2025 14:47:02.307                             OK
+       0.015     5330 oKNmA5MvSwOxCzBulz9-zQ:0003110 Mon Nov 24 2025 14:47:02.372 WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ20514')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+
+### 50 LONGEST THREAD GAPS
+
+  Thread Gap    Line#                           TrID                    Date/Time                        Details
+------------ -------- ------------------------------ ---------------------------- ------------------------------
+       0.075    16425 uNFzUimrQvidJDExR4_0dQ:0000458 Mon Nov 24 2025 14:47:08.422 WITH AR_SQL_Alias$1 AS (SELECT T338.C1802, T338.C1801, T338.C1803, T338.C3204, T338.C3205, T338.C3200, T338.C3201, T338.C1, ROW_NUMBER() OVER (ORDER BY T338.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T338 WHERE (N'000000000000001' IS NOT NULL)) SELECT AR_SQL_Alias$1.C1802, AR_SQL_Alias$1.C1801, AR_SQL_Alias$1.C1803, AR_SQL_Alias$1.C3204, AR_SQL_Alias$1.C3205, AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 1001)
+       0.024        0 uNFzUimrQvidJDExR4_0dQ:0000458 Mon Nov 24 2025 14:47:08.465           -GLEWF            OK
+       0.020        0 SsjZsHC9R4a1jxb56Qmy0A:0000316 Mon Nov 24 2025 14:47:08.667 Mon Nov 24 2025 14:47:08.6490Filter Trace Log -- OFF (AR Server 9.1.10.002 202010021144) Mon Nov 24 14:47:08.652 2025 <ALRTMon Nov 24 2025 14:47:08.6520Alert Trace Log -- OFF (AR Server 9.1.10.002 202010021144) Mon Nov 24 14:47:08.663 2025 <ESCLMon Nov 24 2025 14:47:08.6630Escalation Trace Log -- OFF (AR Server 9.1.10.002 202010021144) Mon Nov 24 14:47:08.665 2025 <SQL Mon Nov 24 2025 14:47:08.6650SQL Trace Log -- OFF (AR Server 9.1.10.002 202010021144) Mon Nov 24 14:47:08.666 2025 <API Mon Nov 24 2025 14:47:08.6660Api Trace Log -- OFF (AR Server 9.1.10.002 202010021144) Mon Nov 24 14:47:08.667 2025 <USERMon Nov 24 2025 14:47:08.6670User Trace Log -- OFF (AR Server 9.1.10.002 202010021144) Mon Nov 24 14:47:08.667 2025 <THRDThread Trace Log -- OFF (AR Server 9.1.10.002 202010021144)
+       0.016    16474 SsjZsHC9R4a1jxb56Qmy0A:0000316 Mon Nov 24 2025 14:47:08.501 SELECT COUNT(seqNum) FROM ft_pending WHERE ((operationType IN (5, -5, 7, -7)) AND (indexServerName = N'ITSMAPP1.citc.gov.sa'))
+       0.010        0 SsjZsHC9R4a1jxb56Qmy0A:0000316 Mon Nov 24 2025 14:47:08.534 Restart of filter processing (phase 2) -- Operation - SET on AR System Administration: Server Information - 000000000000001
+       0.008        0 6-B0zIqCT8e54ObHyLTnNA:0001393 Mon Nov 24 2025 14:47:05.416           -GLEWF            OK
+       0.008    16782 SsjZsHC9R4a1jxb56Qmy0A:0000316 Mon Nov 24 2025 14:47:08.622 WITH AR_SQL_Alias$1 AS (SELECT T8.C1, T8.C7, T8.C8, T8.C179, T8.C3200, T8.C3201, T8.C3202, T8.C3209, T8.C3210, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE ((T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C3201 = N'com.bmc.arsys.server'))) SELECT AR_SQL_Alias$1.C1, AR_SQL_Alias$1.C7, AR_SQL_Alias$1.C8, AR_SQL_Alias$1.C179, AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3202, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C3210 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.006    16539 SsjZsHC9R4a1jxb56Qmy0A:0000316 Mon Nov 24 2025 14:47:08.541 SELECT T320.C1 FROM T320 WHERE (T320.C1 IS NOT NULL) ORDER BY T320.C1 ASC
+       0.005    12266 4Ybhpv3iS4i9rYPvHnE6nQ:0001393 Mon Nov 24 2025 14:47:05.385 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.004    12302 oEO9dSg2Q1ebjayWH0Vfvg:0001393 Mon Nov 24 2025 14:47:05.425 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.004        0 oEO9dSg2Q1ebjayWH0Vfvg:0001393 Mon Nov 24 2025 14:47:05.433           -GLEWF            OK
+       0.004    12310 J00NGUmoQ2W3rgQEuXjunw:0001394 Mon Nov 24 2025 14:47:05.433 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.udm') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)) OR ((T8.C3201 = N'com.bmc.arsys.udm') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 > 1600025171)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.003    11610 ja2ttG_GRbqKvXQicxMe3g:0001392 Mon Nov 24 2025 14:47:05.109 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.003    16693 SsjZsHC9R4a1jxb56Qmy0A:0000316 Mon Nov 24 2025 14:47:08.579 INSERT INTO T18(C2,C7,C8,C112,C179,C3204,C60050,C3205,C452,C454,C456,C455,C450,C5002,C5,C3,C6,C1) VALUES(N'Remedy Application Service',0,N'Debug-mode',N';-100;-110;',N'CIGAA5V0HHD4CAQTX45LQSYN1GFF2Q',N'Debug-mode',N';13011;1051;21502;21500;-100;-110;',N'0',1763984828,N'2',N';Value;',N'Remedy Application Service',N'000000000011701',N'1',N'AR_AUDITOR',1763984828,1763984828,N'000000000029316')
+       0.003        0 SsjZsHC9R4a1jxb56Qmy0A:0000316 Mon Nov 24 2025 14:47:08.613 Audit record created - AR System Configuration Setting Audit:000000000029316
+       0.002    11619 NR37nzalS6uJ5MfMsJR4hg:0001393 Mon Nov 24 2025 14:47:05.110 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.002    12162 RLBsZ1LzS5aQJf0bmWjewQ:0001392 Mon Nov 24 2025 14:47:05.340 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.002    12183 t5LgjSKnQ46s3ulW3LpNbQ:0002760 Mon Nov 24 2025 14:47:05.342 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.server') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1763984689)) OR ((T8.C3201 = N'com.bmc.arsys.server') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 > 1600024740)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.002    12607 N2ezpVSiTD2Fj4XsEV07lw:0001393 Mon Nov 24 2025 14:47:05.668 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.001    11580 UYsgCBxiSeGPSYXRjGblsw:0059803 Mon Nov 24 2025 14:47:05.105 SELECT checkInterval, coordinator, name FROM servgrp_config
+       0.001    11603 FPY4jBLYS0yVoEZepevE_w:0001392 Mon Nov 24 2025 14:47:05.107 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.001        0 FPY4jBLYS0yVoEZepevE_w:0001392 Mon Nov 24 2025 14:47:05.108     No. of records retrieved=0
+       0.001        0 ja2ttG_GRbqKvXQicxMe3g:0001392 Mon Nov 24 2025 14:47:05.110           -GLEWF            OK
+       0.001    11668 wSjL_9DYTiOs1jTGHer-Kw:0001393 Mon Nov 24 2025 14:47:05.131 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.001    11669 bC1WKTl4ThijmvpsNtT9xw:0001393 Mon Nov 24 2025 14:47:05.131 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.001    11707 U7b4ZqqGQgaX77TWIdjsjg:0001393 Mon Nov 24 2025 14:47:05.148 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.001        0 U7b4ZqqGQgaX77TWIdjsjg:0001393 Mon Nov 24 2025 14:47:05.149           -GLEWF            OK
+       0.001    11715 _AHGBwDmTLiesn-ynThUjw:0001393 Mon Nov 24 2025 14:47:05.150 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.001    11720 4HVNCozBQ-ytgFMqMcuVTw:0001393 Mon Nov 24 2025 14:47:05.151 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.001        0 _AHGBwDmTLiesn-ynThUjw:0001393 Mon Nov 24 2025 14:47:05.151           -GLEWF            OK
+       0.001        0 4HVNCozBQ-ytgFMqMcuVTw:0001393 Mon Nov 24 2025 14:47:05.152           -GLEWF            OK
+       0.001    11750 fpWSZ1fpRKejlBvCL42eqw:0001392 Mon Nov 24 2025 14:47:05.160 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.001    11757 79T6NRvTTPedwhTMhLRfow:0001385 Mon Nov 24 2025 14:47:05.162 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE ((T8.C3201 = N'com.bmc.itsm.sbe') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 > 1610371581))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.001    11776 LptvI_jwRve43Pkk3Lhesg:0001393 Mon Nov 24 2025 14:47:05.165 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.001        0 LptvI_jwRve43Pkk3Lhesg:0001393 Mon Nov 24 2025 14:47:05.166           -GLEWF            OK
+       0.001        0 gTY8Ebs1QbC3mApzLNym4g:0001393 Mon Nov 24 2025 14:47:05.284              BEGIN TRANSACTION
+       0.001    12012 nJrQzoxVRSGp-8slTI_N9w:0001393 Mon Nov 24 2025 14:47:05.284 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.001    12017 rn72ffIfQAiWym9b5GhPXQ:0001393 Mon Nov 24 2025 14:47:05.285 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.001        0 rn72ffIfQAiWym9b5GhPXQ:0001393 Mon Nov 24 2025 14:47:05.286             COMMIT TRANSACTION
+       0.001        0 nJrQzoxVRSGp-8slTI_N9w:0001393 Mon Nov 24 2025 14:47:05.286           -GLEWF            OK
+       0.001        0 gTY8Ebs1QbC3mApzLNym4g:0001393 Mon Nov 24 2025 14:47:05.287           -GLEWF            OK
+       0.001    12034 Tj0Sk2kQSXKq1zQa3s0WEg:0001393 Mon Nov 24 2025 14:47:05.293 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.001        0 Tj0Sk2kQSXKq1zQa3s0WEg:0001393 Mon Nov 24 2025 14:47:05.294             COMMIT TRANSACTION
+       0.001    12063 B15zbdFeSRCHBTeezdlQcg:0001393 Mon Nov 24 2025 14:47:05.300 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.001        0 B15zbdFeSRCHBTeezdlQcg:0001393 Mon Nov 24 2025 14:47:05.301           -GLEWF            OK
+       0.001        0 XXKo0MEsRH2E2LkN_HsK0Q:0002774 Mon Nov 24 2025 14:47:05.320              BEGIN TRANSACTION
+       0.001        0 XXKo0MEsRH2E2LkN_HsK0Q:0002774 Mon Nov 24 2025 14:47:05.322           -GLEWF            OK
+       0.001        0 YYgC0fSZQge1IJd21fJxWg:0001393 Mon Nov 24 2025 14:47:05.339              BEGIN TRANSACTION
+       0.001    12161 YYgC0fSZQge1IJd21fJxWg:0001393 Mon Nov 24 2025 14:47:05.340 WITH AR_SQL_Alias$1 AS (SELECT T8.C3200, T8.C3201, T8.C3209, T8.C1, ROW_NUMBER() OVER (ORDER BY T8.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T8 WHERE (((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'ITSMAPP1.citc.gov.sa') AND (T8.C7 = 0) AND (T8.C3209 > 1639288823)) OR ((T8.C3201 = N'com.bmc.arsys.ldap.ardbc') AND (T8.C3200 = N'*') AND (T8.C7 = 0) AND (T8.C3209 IS NOT NULL)))) SELECT AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C3209, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.001        0 7DyPkyRgQdK3ttgs_t9_YA:0001393 Mon Nov 24 2025 14:47:05.340              BEGIN TRANSACTION
+
+###  SECTION: API  #####################################################
+
+### API Call Abbreviation Legend
+
+   CE = ARCreateEntry
+   DE = ARDeleteEntry
+ EXEC = ARExecuteProcess
+   GE = ARGetEntry
+  GLE = ARGetListEntry
+GLEWF = ARGetListEntryWithFields
+  GLS = ARGetListSchema
+   GS = ARGetSchema
+  GSF = ARGetField
+  GSI = ARGetServerInfo
+   ME = ARMergeEntry
+   SE = ARSetEntry
+  SGE = ARSetGetEntry
+  SSI = ARSetServerInfo
+
+### 50 LONGEST RUNNING INDIVIDUAL API CALLS
+
+    Run Time First Line# Last Line#                           TrID Queue      API        Form                                                                          Start Time    Q Time Success
+------------ ----------- ---------- ------------------------------ ---------- ---------- ----------------------------------------------------------- ---------------------------- --------- -------
+       0.122        8620      10031 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 SE         SRM:RequestApDetailSignature                                Mon Nov 24 2025 14:47:03.770     0.000 true   
+       0.118       16421      16434 uNFzUimrQvidJDExR4_0dQ:0000458 List       GLEWF      AR System Administration: Client Type Configuration Setting Mon Nov 24 2025 14:47:08.347     0.000 true   
+       0.061        7922       8344 ppvN52iaQZmnf3QKV41xnA:0009973 Prv:390680 CE         AP:Signature                                                Mon Nov 24 2025 14:47:03.615     0.000 true   
+       0.039       16469      16501 SsjZsHC9R4a1jxb56Qmy0A:0000316 Fast       GSI                                                                    Mon Nov 24 2025 14:47:08.485     0.000 true   
+       0.036        7277       7321 ppvN52iaQZmnf3QKV41xnA:0009933 Prv:390680 GLEWF      AP:Question-Comment-Info                                    Mon Nov 24 2025 14:47:03.430     0.000 true   
+       0.036        8393       8520 ppvN52iaQZmnf3QKV41xnA:0009977 Prv:390680 GLS                                                                    Mon Nov 24 2025 14:47:03.687     0.000 true   
+       0.023        8523       8568 ppvN52iaQZmnf3QKV41xnA:0009979 Prv:390680 GLS                                                                    Mon Nov 24 2025 14:47:03.726     0.000 true   
+       0.022       10219      10231 ppvN52iaQZmnf3QKV41xnA:0009997 Prv:390680 DE         Application Pending                                         Mon Nov 24 2025 14:47:03.937     0.000 true   
+       0.021       10116      10154 ppvN52iaQZmnf3QKV41xnA:0009994 Prv:390680 GLEWF      AP:Signature                                                Mon Nov 24 2025 14:47:03.907     0.000 true   
+       0.015        6014       6211 nZ0UaxoDR9eTQGaKLpHwgQ:0000001 AssignEng  SE         SRM:Request                                                 Mon Nov 24 2025 14:47:02.814     0.000 false  
+       0.012        7105       7148 ppvN52iaQZmnf3QKV41xnA:0009926 Prv:390680 CE         AP:Detail                                                   Mon Nov 24 2025 14:47:03.392     0.000 true   
+       0.012       12300      12309 oEO9dSg2Q1ebjayWH0Vfvg:0001393 List       GLEWF      AR System Configuration Component                           Mon Nov 24 2025 14:47:05.421     0.000 true   
+       0.011        7776       7796 ppvN52iaQZmnf3QKV41xnA:0009963 Prv:390680 GE         AP:Process Administrator                                    Mon Nov 24 2025 14:47:03.574     0.000 true   
+       0.010       12288      12299 6-B0zIqCT8e54ObHyLTnNA:0001393 List       GLEWF      AR System Configuration Component                           Mon Nov 24 2025 14:47:05.406     0.000 true   
+       0.009        7326       7361 ppvN52iaQZmnf3QKV41xnA:0009934 Prv:390680 CE         AP:Question-Comment-Info                                    Mon Nov 24 2025 14:47:03.467     0.000 true   
+       0.008        5971       5980 mTUoGeF_R_-6pyFHXK6zDg:0000001 AssignEng  GE         SRM:Request                                                 Mon Nov 24 2025 14:47:02.798     0.000 true   
+       0.008        7381       7397 ppvN52iaQZmnf3QKV41xnA:0009936 Prv:390680 GLEWF      SRM:Request                                                 Mon Nov 24 2025 14:47:03.479     0.000 true   
+       0.007        7573       7634 ppvN52iaQZmnf3QKV41xnA:0009951 Prv:390680 SE         AP:Detail                                                   Mon Nov 24 2025 14:47:03.528     0.000 true   
+       0.007        7740       7767 ppvN52iaQZmnf3QKV41xnA:0009961 Prv:390680 GLE        AP:Alternate                                                Mon Nov 24 2025 14:47:03.564     0.000 true   
+       0.007       10032      10093 ppvN52iaQZmnf3QKV41xnA:0009992 Prv:390680 SE         AP:Detail                                                   Mon Nov 24 2025 14:47:03.892     0.000 true   
+       0.007       12264      12282 4Ybhpv3iS4i9rYPvHnE6nQ:0001393 List       GLEWF      AR System Configuration Component                           Mon Nov 24 2025 14:47:05.380     0.000 true   
+       0.006        6212       6227 i3VDlWzSQsaoK36lF-McEg:0000001 AssignEng  DE         Application Pending                                         Mon Nov 24 2025 14:47:02.829     0.000 true   
+       0.006        7211       7267 ppvN52iaQZmnf3QKV41xnA:0009931 Prv:390680 SE         AP:Detail                                                   Mon Nov 24 2025 14:47:03.421     0.000 true   
+       0.006        7890       7908 ppvN52iaQZmnf3QKV41xnA:0009971 Prv:390680 GLEWF      User                                                        Mon Nov 24 2025 14:47:03.606     0.000 true   
+       0.006        8596       8618 ppvN52iaQZmnf3QKV41xnA:0009990 Prv:390680 GLE        AP:Alternate                                                Mon Nov 24 2025 14:47:03.763     0.000 true   
+       0.006       10094      10103 ppvN52iaQZmnf3QKV41xnA:0009993 Prv:390680 DE         Application Pending                                         Mon Nov 24 2025 14:47:03.900     0.000 true   
+       0.006       10162      10218 ppvN52iaQZmnf3QKV41xnA:0009996 Prv:390680 SE         AP:Detail                                                   Mon Nov 24 2025 14:47:03.931     0.000 true   
+       0.005        7162       7174 ppvN52iaQZmnf3QKV41xnA:0009928 Prv:390680 GE         SRM:RequestApDetail                                         Mon Nov 24 2025 14:47:03.408     0.000 true   
+       0.005        7398       7409 ppvN52iaQZmnf3QKV41xnA:0009937 Prv:390680 ME         AP:ToolTip_Information                                      Mon Nov 24 2025 14:47:03.488     0.000 true   
+       0.005        7460       7472 ppvN52iaQZmnf3QKV41xnA:0009942 Prv:390680 GE         SRS:RequestApproversLookup                                  Mon Nov 24 2025 14:47:03.501     0.000 true   
+       0.005        7673       7684 ppvN52iaQZmnf3QKV41xnA:0009955 Prv:390680 GLEWF      AP:Role                                                     Mon Nov 24 2025 14:47:03.543     0.000 true   
+       0.005       12304      12323 J00NGUmoQ2W3rgQEuXjunw:0001394 List       GLEWF      AR System Configuration Component                           Mon Nov 24 2025 14:47:05.429     0.000 true   
+       0.004        7067       7076 ppvN52iaQZmnf3QKV41xnA:0009922 Prv:390680 GE         Application Pending                                         Mon Nov 24 2025 14:47:03.376     0.000 true   
+       0.004        7077       7085 ppvN52iaQZmnf3QKV41xnA:0009923 Prv:390680 GE         SRM:Request                                                 Mon Nov 24 2025 14:47:03.380     0.000 true   
+       0.004        7199       7210 ppvN52iaQZmnf3QKV41xnA:0009930 Prv:390680 GLEWF      SRM:Request                                                 Mon Nov 24 2025 14:47:03.416     0.000 true   
+       0.004        7519       7537 ppvN52iaQZmnf3QKV41xnA:0009947 Prv:390680 GLEWF      SRS:RequestApproversLookup                                  Mon Nov 24 2025 14:47:03.515     0.000 true   
+       0.004        8346       8363 ppvN52iaQZmnf3QKV41xnA:0009974 Prv:390680 GE         AP:Detail                                                   Mon Nov 24 2025 14:47:03.676     0.000 true   
+       0.004       11596      11618 ja2ttG_GRbqKvXQicxMe3g:0001392 List       GLEWF      AR System Configuration Component                           Mon Nov 24 2025 14:47:05.106     0.000 true   
+       0.004       11607      11624 NR37nzalS6uJ5MfMsJR4hg:0001393 List       GLEWF      AR System Configuration Component                           Mon Nov 24 2025 14:47:05.108     0.000 true   
+       0.004       12007      12031 gTY8Ebs1QbC3mApzLNym4g:0001393 List       GLEWF      AR System Configuration Component                           Mon Nov 24 2025 14:47:05.283     0.000 true   
+       0.003        6005       6013 xdJZfjOVTM6Tm9iQQNn3Iw:0000001 AssignEng  GLEWF      CTM:Ppl Search-SupportGrpAssoc                              Mon Nov 24 2025 14:47:02.811     0.000 true   
+       0.003        7044       7062 ppvN52iaQZmnf3QKV41xnA:0009921 Prv:390680 GLEWF      Application Pending                                         Mon Nov 24 2025 14:47:03.373     0.000 true   
+       0.003        7086       7092 ppvN52iaQZmnf3QKV41xnA:0009924 Prv:390680 GLEWF      AP:Detail                                                   Mon Nov 24 2025 14:47:03.385     0.000 true   
+       0.003        7176       7198 ppvN52iaQZmnf3QKV41xnA:0009929 Prv:390680 GLEWF      AP:Form                                                     Mon Nov 24 2025 14:47:03.413     0.000 true   
+       0.003        7268       7276 ppvN52iaQZmnf3QKV41xnA:0009932 Prv:390680 GE         AP:Detail                                                   Mon Nov 24 2025 14:47:03.427     0.000 true   
+       0.003        7453       7459 ppvN52iaQZmnf3QKV41xnA:0009941 Prv:390680 GLEWF      SRS:RequestApproversLookup                                  Mon Nov 24 2025 14:47:03.498     0.000 true   
+       0.003        7496       7506 ppvN52iaQZmnf3QKV41xnA:0009944 Prv:390680 GSF        SRM:RequestApDetail                                         Mon Nov 24 2025 14:47:03.509     0.000 true   
+       0.003        7540       7555 ppvN52iaQZmnf3QKV41xnA:0009948 Prv:390680 GE         SRS:RequestApproversLookup                                  Mon Nov 24 2025 14:47:03.519     0.000 true   
+       0.003        7714       7725 ppvN52iaQZmnf3QKV41xnA:0009958 Prv:390680 GLEWF      AP:Signature                                                Mon Nov 24 2025 14:47:03.555     0.000 true   
+       0.003        7825       7833 ppvN52iaQZmnf3QKV41xnA:0009966 Prv:390680 GE         AP:Process Administrator                                    Mon Nov 24 2025 14:47:03.591     0.000 true   
+
+### 50 LONGEST QUEUED INDIVIDUAL API CALLS
+
+No Queued API's
+
+### API CALL AGGREGATES grouped by Form sorted by descending AVG execution time
+
+Form                                                        API            OK   Fail  Total     MIN Time MIN Line     MAX Time MAX Line     AVG Time     SUM Time
+----------------------------------------------------------- ---------- ------ ------ ------ ------------ -------- ------------ -------- ------------ ------------
+SRM:RequestApDetailSignature                                SE              1             1        0.122     8620        0.122     8620        0.122        0.122
+                                                            GS              1             1        0.000     8594        0.000     8594        0.000        0.000
+                                                                       ------ ------ ------                                                          ------------
+                                                                            2             2                                                                 0.122
+
+AR System Administration: Client Type Configuration Setting GLEWF           1             1        0.118    16421        0.118    16421        0.118        0.118
+                                                                       ------ ------ ------                                                          ------------
+                                                                            1             1                                                                 0.118
+
+AP:Signature                                                CE              1             1        0.061     7922        0.061     7922        0.061        0.061
+                                                            GLEWF           2             2        0.003     7714        0.021    10116        0.012        0.024
+                                                            GE              1             1        0.003     8367        0.003     8367        0.003        0.003
+                                                            GLE             1             1        0.002     7733        0.002     7733        0.002        0.002
+                                                            GSF             4             4        0.002     7644        0.002     7644        0.002        0.008
+                                                                       ------ ------ ------                                                          ------------
+                                                                            9             9                                                                 0.098
+
+AP:Question-Comment-Info                                    GLEWF           1             1        0.036     7277        0.036     7277        0.036        0.036
+                                                            CE              1             1        0.009     7326        0.009     7326        0.009        0.009
+                                                                       ------ ------ ------                                                          ------------
+                                                                            2             2                                                                 0.045
+
+                                                            GLS             2             2        0.023     8523        0.036     8393        0.030        0.059
+                                                            GSI             4             4        0.002    11577        0.039    16469        0.011        0.045
+                                                            EXEC            4             4        0.000     7436        0.000     7436        0.000        0.000
+                                                                       ------ ------ ------                                                          ------------
+                                                                           10            10                                                                 0.104
+
+SRM:Request                                                 SE              0      1      1        0.015     6014        0.015     6014        0.015        0.015
+                                                            GE              2             2        0.004     7077        0.008     5971        0.006        0.012
+                                                            GLEWF           2             2        0.004     7199        0.008     7381        0.006        0.012
+                                                            GS              1             1        0.002     5981        0.002     5981        0.002        0.002
+                                                                       ------ ------ ------                                                          ------------
+                                                                            5      1      6                                                                 0.041
+
+AP:Detail                                                   CE              1             1        0.012     7105        0.012     7105        0.012        0.012
+                                                            SE              4             4        0.006     7211        0.007     7573        0.007        0.026
+                                                            GLEWF           2             2        0.003     7086        0.003     7086        0.003        0.006
+                                                            GE              5             5        0.002     7152        0.004     8346        0.003        0.013
+                                                                       ------ ------ ------                                                          ------------
+                                                                           12            12                                                                 0.057
+
+Application Pending                                         DE              3             3        0.006     6212        0.022    10219        0.011        0.034
+                                                            GE              2             2        0.003     8370        0.004     7067        0.004        0.007
+                                                            GLEWF           2             2        0.002     8349        0.003     7044        0.003        0.005
+                                                                       ------ ------ ------                                                          ------------
+                                                                            7             7                                                                 0.046
+
+AP:Alternate                                                GLE             2             2        0.006     8596        0.007     7740        0.007        0.013
+                                                                       ------ ------ ------                                                          ------------
+                                                                            2             2                                                                 0.013
+
+SRM:RequestApDetail                                         GE              1             1        0.005     7162        0.005     7162        0.005        0.005
+                                                            GSF             4             4        0.002     7483        0.003     7496        0.002        0.009
+                                                                       ------ ------ ------                                                          ------------
+                                                                            5             5                                                                 0.014
+
+AP:ToolTip_Information                                      ME              1             1        0.005     7398        0.005     7398        0.005        0.005
+                                                                       ------ ------ ------                                                          ------------
+                                                                            1             1                                                                 0.005
+
+SRS:RequestApproversLookup                                  GE              2             2        0.003     7540        0.005     7460        0.004        0.008
+                                                            GLEWF           2             2        0.003     7453        0.004     7519        0.004        0.007
+                                                                       ------ ------ ------                                                          ------------
+                                                                            4             4                                                                 0.015
+
+AP:Process Administrator                                    GE              7             7        0.002     7800        0.011     7776        0.004        0.025
+                                                            GLEWF           1             1        0.001     7769        0.001     7769        0.001        0.001
+                                                                       ------ ------ ------                                                          ------------
+                                                                            8             8                                                                 0.026
+
+User                                                        GLEWF           3             3        0.002     7883        0.006     7890        0.003        0.010
+                                                                       ------ ------ ------                                                          ------------
+                                                                            3             3                                                                 0.010
+
+AR System Configuration Component                           GLEWF          35            35        0.002    11594        0.012    12300        0.003        0.113
+                                                                       ------ ------ ------                                                          ------------
+                                                                           35            35                                                                 0.113
+
+AP:Role                                                     GLEWF           2             2        0.001     7691        0.005     7673        0.003        0.006
+                                                                       ------ ------ ------                                                          ------------
+                                                                            2             2                                                                 0.006
+
+CTM:Ppl Search-SupportGrpAssoc                              GLEWF           1             1        0.003     6005        0.003     6005        0.003        0.003
+                                                                       ------ ------ ------                                                          ------------
+                                                                            1             1                                                                 0.003
+
+AP:Form                                                     GLEWF           2             2        0.002     7362        0.003     7176        0.003        0.005
+                                                                       ------ ------ ------                                                          ------------
+                                                                            2             2                                                                 0.005
+
+Group                                                       GLEWF           1             1        0.002     7093        0.002     7093        0.002        0.002
+                                                                       ------ ------ ------                                                          ------------
+                                                                            1             1                                                                 0.002
+
+AP:Notification                                             GLEWF           1             1        0.002     8380        0.002     8380        0.002        0.002
+                                                                       ------ ------ ------                                                          ------------
+                                                                            1             1                                                                 0.002
+
+CHG:ChangeAPDetailSignature                                 GS              1             1        0.002     8575        0.002     8575        0.002        0.002
+                                                                       ------ ------ ------                                                          ------------
+                                                                            1             1                                                                 0.002
+
+AP:Detail-Signature                                         GS              1             1        0.001     8521        0.001     8521        0.001        0.001
+                                                                       ------ ------ ------                                                          ------------
+                                                                            1             1                                                                 0.001
+
+AP-Sample2:Issue Detail Signat                              GS              1             1        0.001     8571        0.001     8571        0.001        0.001
+                                                                       ------ ------ ------                                                          ------------
+                                                                            1             1                                                                 0.001
+
+AST:PurchaseRequisition-Detail-Signature                    GS              1             1        0.001     8573        0.001     8573        0.001        0.001
+                                                                       ------ ------ ------                                                          ------------
+                                                                            1             1                                                                 0.001
+
+RKM:KAM_Detail_Sign_Join                                    GS              1             1        0.001     8580        0.001     8580        0.001        0.001
+                                                                       ------ ------ ------                                                          ------------
+                                                                            1             1                                                                 0.001
+
+AP-Sample:Lunch-Detail-Signatu                              GS              1             1        0.000     8569        0.000     8569        0.000        0.000
+                                                                       ------ ------ ------                                                          ------------
+                                                                            1             1                                                                 0.000
+
+IAM:RequestApDetailSignature                                GS              1             1        0.000     8578        0.000     8578        0.000        0.000
+                                                                       ------ ------ ------                                                          ------------
+                                                                            1             1                                                                 0.000
+
+RMS:ReleaseAPDetailSignature                                GS              1             1        0.000     8582        0.000     8582        0.000        0.000
+                                                                       ------ ------ ------                                                          ------------
+                                                                            1             1                                                                 0.000
+
+SB:ServiceRequest-Detail-Signature                          GS              1             1        0.000     8585        0.000     8585        0.000        0.000
+                                                                       ------ ------ ------                                                          ------------
+                                                                            1             1                                                                 0.000
+
+SRD:ServiceRequestDefinitionAPDetailSignature               GS              1             1        0.000     8592        0.000     8592        0.000        0.000
+                                                                       ------ ------ ------                                                          ------------
+                                                                            1             1                                                                 0.000
+
+                                                                       ====== ====== ======                                                          ============
+                                                                          123      1    124                                                                 0.851
+
+### API CALL AGGREGATES grouped by Client sorted by descending AVG execution time
+
+Client               API            OK   Fail  Total     MIN Time MIN Line     MAX Time MAX Line     AVG Time     SUM Time
+-------------------- ---------- ------ ------ ------ ------------ -------- ------------ -------- ------------ ------------
+Mid-tier             GLEWF           1             1        0.118    16421        0.118    16421        0.118        0.118
+                     GSI             1             1        0.039    16469        0.039    16469        0.039        0.039
+                                ------ ------ ------                                                          ------------
+                                     2             2                                                                 0.157
+
+Approval Server      SE              5             5        0.006     7211        0.122     8620        0.030        0.148
+                     GLS             2             2        0.023     8523        0.036     8393        0.030        0.059
+                     CE              3             3        0.009     7326        0.061     7922        0.027        0.082
+                     DE              2             2        0.006    10094        0.022    10219        0.014        0.028
+                     GLEWF          21            21        0.001     7691        0.036     7277        0.006        0.116
+                     GLE             3             3        0.002     7733        0.007     7740        0.005        0.015
+                     ME              1             1        0.005     7398        0.005     7398        0.005        0.005
+                     GE             19            19        0.002     7152        0.011     7776        0.003        0.065
+                     GSF             8             8        0.002     7483        0.003     7496        0.002        0.017
+                     GS             11            11        0.000     8569        0.002     8575        0.001        0.006
+                     EXEC            4             4        0.000     7436        0.000     7436        0.000        0.000
+                                ------ ------ ------                                                          ------------
+                                    79            79                                                                 0.541
+
+Assignment Engine    SE              0      1      1        0.015     6014        0.015     6014        0.015        0.015
+                     GE              1             1        0.008     5971        0.008     5971        0.008        0.008
+                     DE              1             1        0.006     6212        0.006     6212        0.006        0.006
+                     GLEWF           1             1        0.003     6005        0.003     6005        0.003        0.003
+                     GS              1             1        0.002     5981        0.002     5981        0.002        0.002
+                                ------ ------ ------                                                          ------------
+                                     4      1      5                                                                 0.034
+
+Unidentified Client  GLEWF          34            34        0.002    11594        0.012    12300        0.003        0.110
+                     GSI             2             2        0.002    14631        0.002    14631        0.002        0.004
+                                ------ ------ ------                                                          ------------
+                                    36            36                                                                 0.114
+
+Flashboards          GLEWF           1             1        0.003    12178        0.003    12178        0.003        0.003
+                                ------ ------ ------                                                          ------------
+                                     1             1                                                                 0.003
+
+Normalization Engine GSI             1             1        0.002    11577        0.002    11577        0.002        0.002
+                                ------ ------ ------                                                          ------------
+                                     1             1                                                                 0.002
+
+                                ====== ====== ======                                                          ============
+                                   123      1    124                                                                 0.851
+
+### API CALL AGGREGATES grouped by Client IP sorted by descending AVG execution time
+
+Client IP  API            OK   Fail  Total     MIN Time MIN Line     MAX Time MAX Line     AVG Time     SUM Time
+---------- ---------- ------ ------ ------ ------------ -------- ------------ -------- ------------ ------------
+10.11.19.2 GLEWF           1             1        0.118    16421        0.118    16421        0.118        0.118
+           GSI             3             3        0.002    14631        0.039    16469        0.014        0.043
+                      ------ ------ ------                                                          ------------
+                           4             4                                                                 0.161
+
+10.11.19.4 SE              5             5        0.006     7211        0.122     8620        0.030        0.148
+           GLS             2             2        0.023     8523        0.036     8393        0.030        0.059
+           CE              3             3        0.009     7326        0.061     7922        0.027        0.082
+           DE              2             2        0.006    10094        0.022    10219        0.014        0.028
+           GLE             3             3        0.002     7733        0.007     7740        0.005        0.015
+           ME              1             1        0.005     7398        0.005     7398        0.005        0.005
+           GLEWF          56            56        0.001     7691        0.036     7277        0.004        0.229
+           GE             19            19        0.002     7152        0.011     7776        0.003        0.065
+           GSF             8             8        0.002     7483        0.003     7496        0.002        0.017
+           GSI             1             1        0.002    11577        0.002    11577        0.002        0.002
+           GS             11            11        0.000     8569        0.002     8575        0.001        0.006
+           EXEC            4             4        0.000     7436        0.000     7436        0.000        0.000
+                      ------ ------ ------                                                          ------------
+                         115           115                                                                 0.656
+
+null       SE              0      1      1        0.015     6014        0.015     6014        0.015        0.015
+           GE              1             1        0.008     5971        0.008     5971        0.008        0.008
+           DE              1             1        0.006     6212        0.006     6212        0.006        0.006
+           GLEWF           1             1        0.003     6005        0.003     6005        0.003        0.003
+           GS              1             1        0.002     5981        0.002     5981        0.002        0.002
+                      ------ ------ ------                                                          ------------
+                           4      1      5                                                                 0.034
+
+                      ====== ====== ======                                                          ============
+                         123      1    124                                                                 0.851
+
+### API THREAD STATISTICS BY QUEUE
+
+Queue          Thread            First Thread Time             Last Thread Time  Count Q Count    Q Time   Total Time   Busy%
+---------- ---------- ---------------------------- ---------------------------- ------ ------- --------- ------------ -------
+AssignEng  0000000365 Mon Nov 24 2025 14:47:02.798 Mon Nov 24 2025 14:47:02.835      5                          0.034   0.33%
+Fast       0000000314 Mon Nov 24 2025 14:47:07.005 Mon Nov 24 2025 14:47:07.007      1                          0.002   0.02%
+           0000000316 Mon Nov 24 2025 14:47:06.695 Mon Nov 24 2025 14:47:06.697      1                          0.002   0.02%
+           0000000319 Mon Nov 24 2025 14:47:05.104 Mon Nov 24 2025 14:47:05.106      1                          0.002   0.02%
+List       0000000340 Mon Nov 24 2025 14:47:05.164 Mon Nov 24 2025 14:47:05.759      2                          0.005   0.05%
+           0000000341 Mon Nov 24 2025 14:47:05.130 Mon Nov 24 2025 14:47:05.433      2                          0.014   0.14%
+           0000000342 Mon Nov 24 2025 14:47:05.106 Mon Nov 24 2025 14:47:05.343      2                          0.005   0.05%
+           0000000343 Mon Nov 24 2025 14:47:05.149 Mon Nov 24 2025 14:47:05.669      2                          0.005   0.05%
+           0000000344 Mon Nov 24 2025 14:47:05.284 Mon Nov 24 2025 14:47:05.760      2                          0.004   0.04%
+           0000000345 Mon Nov 24 2025 14:47:05.283 Mon Nov 24 2025 14:47:05.759      2                          0.005   0.05%
+           0000000346 Mon Nov 24 2025 14:47:05.292 Mon Nov 24 2025 14:47:05.875      2                          0.004   0.04%
+           0000000347 Mon Nov 24 2025 14:47:05.338 Mon Nov 24 2025 14:47:05.341      1                          0.003   0.03%
+           0000000348 Mon Nov 24 2025 14:47:05.106 Mon Nov 24 2025 14:47:05.344      2                          0.007   0.07%
+           0000000349 Mon Nov 24 2025 14:47:05.338 Mon Nov 24 2025 14:47:05.341      1                          0.003   0.03%
+           0000000350 Mon Nov 24 2025 14:47:05.108 Mon Nov 24 2025 14:47:05.387      2                          0.011   0.11%
+           0000000351 Mon Nov 24 2025 14:47:05.150 Mon Nov 24 2025 14:47:05.672      2                          0.004   0.04%
+           0000000352 Mon Nov 24 2025 14:47:05.319 Mon Nov 24 2025 14:47:05.322      1                          0.003   0.03%
+           0000000353 Mon Nov 24 2025 14:47:05.147 Mon Nov 24 2025 14:47:05.434      2                          0.007   0.07%
+           0000000354 Mon Nov 24 2025 14:47:05.299 Mon Nov 24 2025 14:47:08.465      2                          0.120   1.18%
+           0000000355 Mon Nov 24 2025 14:47:05.161 Mon Nov 24 2025 14:47:05.691      2                          0.004   0.04%
+           0000000417 Mon Nov 24 2025 14:47:05.283 Mon Nov 24 2025 14:47:05.867      2                          0.007   0.07%
+           0000000418 Mon Nov 24 2025 14:47:05.159 Mon Nov 24 2025 14:47:05.688      2                          0.005   0.05%
+           0000000419 Mon Nov 24 2025 14:47:05.339 Mon Nov 24 2025 14:47:05.342      1                          0.003   0.03%
+           0000000420 Mon Nov 24 2025 14:47:05.130 Mon Nov 24 2025 14:47:05.416      2                          0.012   0.12%
+Prv:390680 0000000356 Mon Nov 24 2025 14:47:03.376 Mon Nov 24 2025 14:47:03.937     39                          0.137   1.35%
+           0000000357 Mon Nov 24 2025 14:47:03.373 Mon Nov 24 2025 14:47:03.959     40                          0.404   3.98%
+
+### API CALLS THAT ERRORED OUT
+
+End Line#                           TrID Queue      API        Form        User                                         Start Time Error Message
+--------- ------------------------------ ---------- ---------- ----------- -------------------------- ---------------------------- -------------
+     6211 nZ0UaxoDR9eTQGaKLpHwgQ:0000001 AssignEng  SE         SRM:Request Remedy Application Service Mon Nov 24 2025 14:47:02.814 -SE      FAIL -- AR Error(45386) null : Required field (without a default) not specified :  Category 1*
+
+### API EXCEPTION REPORT
+
+   Line#                           TrID Type                                             Message
+-------- ------------------------------ ---- ---------------------------------------------------
+   16447 SsjZsHC9R4a1jxb56Qmy0A:0000315  SGE WARNING: Start of API call has no corresponding end
+   16448 SsjZsHC9R4a1jxb56Qmy0A:0000316   SE WARNING: Start of API call has no corresponding end
+   16589 SsjZsHC9R4a1jxb56Qmy0A:0000316  SSI WARNING: Start of API call has no corresponding end
+
+
+###  SECTION: SQL  #####################################################
+
+### 50 LONGEST RUNNING INDIVIDUAL SQL CALLS
+
+    Run Time    Line#                           TrID Queue      Table                                            Start Time Success SQL Statement
+------------ -------- ------------------------------ ---------- ------------------------------ ---------------------------- ------- -------------
+       0.085    16351 oKNmA5MvSwOxCzBulz9-zQ:0003478 Escalation T4381                          Mon Nov 24 2025 14:47:07.983 true    SELECT T4381.C1 FROM T4381 WHERE (T4381.C1 = N'000000000004209')
+       0.053    16420 oKNmA5MvSwOxCzBulz9-zQ:0003481 Escalation T4381                          Mon Nov 24 2025 14:47:08.335 true    UPDATE T4381 SET T4381.C536870913 = N'50836', T4381.C536870914 = N'REQ22853', T4381.C536870915 = 1649148321, T4381.C536870916 = 5, T4381.C536870918 = 1649149383, T4381.C536870919 = N'ahothifi.c', T4381.C536870922 = N'27594', T4381.C5 = N'AR_ESCALATOR', T4381.C6 = 1763984828 WHERE (T4381.C1 = N'000000000003744')
+       0.047     5308 oKNmA5MvSwOxCzBulz9-zQ:0003109 Escalation T4381                          Mon Nov 24 2025 14:47:02.244 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ20098')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.045    16376 oKNmA5MvSwOxCzBulz9-zQ:0003479 Escalation T4381                          Mon Nov 24 2025 14:47:08.236 true    UPDATE T4381 SET T4381.C536870913 = N'51062', T4381.C536870914 = N'REQ23001', T4381.C536870915 = 1649144232, T4381.C536870916 = 5, T4381.C536870918 = 1649247408, T4381.C536870919 = N'mzeid.c', T4381.C536870922 = N'27580', T4381.C5 = N'AR_ESCALATOR', T4381.C6 = 1763984828 WHERE (T4381.C1 = N'000000000003770')
+       0.041    10497 oKNmA5MvSwOxCzBulz9-zQ:0003226 Escalation T4381                          Mon Nov 24 2025 14:47:04.239 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ21256')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.040     2266 oKNmA5MvSwOxCzBulz9-zQ:0002971 Escalation T4381                          Mon Nov 24 2025 14:46:59.815 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ19466')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.039    12363 oKNmA5MvSwOxCzBulz9-zQ:0003301 Escalation T4382                          Mon Nov 24 2025 14:47:05.475 true    SELECT T4382.C1, T4382.C536870913, T4382.C536870914, T4382.C536870915, T4382.C536870916, T4382.C536870917, T4382.C536870918, T4382.C536870919, T4382.C536870920, T4382.C536870921, T4382.C536870922, T4382.C536870923, T4382.C536870924, T4382.C536870925, T4382.C536870926, T4382.C536870927, T4382.C536870928, T4382.C536870929, T4382.C536870930, T4382.C536870931, T4382.C536870932, T4382.C536870933, T4382.C536870934, T4382.C536870935, T4382.C536870936, T4382.C536870937, T4382.C536870938, T4382.C536870939 FROM T4382 WHERE (T4382.C1 IN (N'26356', N'26364', N'26365', N'26375', N'26377', N'26378', N'26379', N'26384', N'26386', N'26388', N'26397', N'26399', N'26400', N'26405', N'26411', N'26419', N'26420', N'26430', N'26431', N'26445', N'26463', N'26474', N'26480', N'26482', N'26483', N'26515', N'26529', N'26532', N'26536', N'26540', N'26554', N'26561', N'26563', N'26571', N'26572', N'26586', N'26587', N'26590', N'26595', N'26612', N'26648', N'26655', N'26657', N'26662', N'26663', N'26666', N'26676', N'26682', N'26684', N'26696', N'26720', N'26730', N'26736', N'26740', N'26742', N'26752', N'26762', N'26775', N'26777', N'26784', N'26785', N'26791', N'26793', N'26799', N'26800', N'26803', N'26808', N'26809', N'26812', N'26814', N'26816', N'26817', N'26819', N'26821', N'26825', N'26840', N'26842', N'26843', N'26853', N'26860', N'26864', N'26867', N'26870', N'26871', N'26873', N'26883', N'26884', N'26894', N'26898', N'26937', N'26948', N'26957', N'26966', N'26971', N'26972', N'26979', N'26999', N'27031', N'27037', N'27044')) ORDER BY T4382.C1 ASC
+       0.037     8507 oKNmA5MvSwOxCzBulz9-zQ:0003201 Escalation T4382                          Mon Nov 24 2025 14:47:03.717 true    SELECT T4382.C1, T4382.C536870913, T4382.C536870914, T4382.C536870915, T4382.C536870916, T4382.C536870917, T4382.C536870918, T4382.C536870919, T4382.C536870920, T4382.C536870921, T4382.C536870922, T4382.C536870923, T4382.C536870924, T4382.C536870925, T4382.C536870926, T4382.C536870927, T4382.C536870928, T4382.C536870929, T4382.C536870930, T4382.C536870931, T4382.C536870932, T4382.C536870933, T4382.C536870934, T4382.C536870935, T4382.C536870936, T4382.C536870937, T4382.C536870938, T4382.C536870939 FROM T4382 WHERE (T4382.C1 IN (N'25839', N'25854', N'25855', N'25856', N'25857', N'25858', N'25862', N'25864', N'25867', N'25868', N'25869', N'25871', N'25875', N'25882', N'25883', N'25889', N'25890', N'25892', N'25893', N'25894', N'25895', N'25899', N'25904', N'25910', N'25923', N'25924', N'25925', N'25930', N'25931', N'25934', N'25939', N'25942', N'25945', N'25948', N'25961', N'25963', N'25966', N'25967', N'25970', N'25975', N'25978', N'25979', N'25981', N'25989', N'26040', N'26057', N'26061', N'26064', N'26073', N'26078', N'26080', N'26083', N'26096', N'26098', N'26109', N'26116', N'26123', N'26124', N'26131', N'26134', N'26135', N'26136', N'26138', N'26144', N'26155', N'26157', N'26165', N'26167', N'26168', N'26196', N'26202', N'26205', N'26207', N'26213', N'26218', N'26229', N'26231', N'26232', N'26234', N'26240', N'26246', N'26248', N'26249', N'26253', N'26255', N'26256', N'26258', N'26259', N'26265', N'26273', N'26281', N'26300', N'26313', N'26315', N'26343', N'26346', N'26347', N'26349', N'26351', N'26355')) ORDER BY T4382.C1 ASC
+       0.036    16361 oKNmA5MvSwOxCzBulz9-zQ:0003479 Escalation T4381                          Mon Nov 24 2025 14:47:08.178 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ23001')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.035     2944 oKNmA5MvSwOxCzBulz9-zQ:0003001 Escalation T4382                          Mon Nov 24 2025 14:47:00.528 true    SELECT T4382.C1, T4382.C536870913, T4382.C536870914, T4382.C536870915, T4382.C536870916, T4382.C536870917, T4382.C536870918, T4382.C536870919, T4382.C536870920, T4382.C536870921, T4382.C536870922, T4382.C536870923, T4382.C536870924, T4382.C536870925, T4382.C536870926, T4382.C536870927, T4382.C536870928, T4382.C536870929, T4382.C536870930, T4382.C536870931, T4382.C536870932, T4382.C536870933, T4382.C536870934, T4382.C536870935, T4382.C536870936, T4382.C536870937, T4382.C536870938, T4382.C536870939 FROM T4382 WHERE (T4382.C1 IN (N'24597', N'24598', N'24608', N'24609', N'24611', N'24616', N'24618', N'24620', N'24641', N'24642', N'24646', N'24655', N'24658', N'24668', N'24671', N'24672', N'24681', N'24682', N'24683', N'24691', N'24702', N'24707', N'24712', N'24719', N'24722', N'24729', N'24731', N'24732', N'24734', N'24737', N'24738', N'24739', N'24740', N'24745', N'24749', N'24754', N'24757', N'24758', N'24759', N'24762', N'24772', N'24776', N'24778', N'24779', N'24788', N'24802', N'24803', N'24805', N'24822', N'24832', N'24834', N'24838', N'24840', N'24843', N'24854', N'24862', N'24865', N'24868', N'24874', N'24888', N'24900', N'24903', N'24915', N'24924', N'24928', N'24929', N'24930', N'24934', N'24937', N'24953', N'24954', N'24958', N'24962', N'24970', N'24990', N'24995', N'25019', N'25020', N'25031', N'25036', N'25038', N'25039', N'25064', N'25065', N'25066', N'25067', N'25074', N'25080', N'25089', N'25090', N'25098', N'25116', N'25120', N'25128', N'25130', N'25135', N'25137', N'25170', N'25184', N'25191')) ORDER BY T4382.C1 ASC
+       0.033     5264 oKNmA5MvSwOxCzBulz9-zQ:0003107 Escalation T4381                          Mon Nov 24 2025 14:47:02.062 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ19520')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.033     7279 ppvN52iaQZmnf3QKV41xnA:0009933 Prv:390680 T384                           Mon Nov 24 2025 14:47:03.432 true    WITH AR_SQL_Alias$1 AS (SELECT T384.C8, T384.C1, ROW_NUMBER() OVER (ORDER BY T384.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T384 WHERE ((T384.C11004 = N'REQ149379') AND (T384.C11001 = N'SRM:Request') AND (T384.C11013 = 1))) SELECT AR_SQL_Alias$1.C8, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.032     5286 oKNmA5MvSwOxCzBulz9-zQ:0003108 Escalation T4381                          Mon Nov 24 2025 14:47:02.115 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ20487')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.032    10607 oKNmA5MvSwOxCzBulz9-zQ:0003231 Escalation T4381                          Mon Nov 24 2025 14:47:04.461 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ21260')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.032    16317 oKNmA5MvSwOxCzBulz9-zQ:0003477 Escalation T4381                          Mon Nov 24 2025 14:47:07.896 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ23050')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.031    16693 SsjZsHC9R4a1jxb56Qmy0A:0000316 Fast       T18                            Mon Nov 24 2025 14:47:08.579 true    INSERT INTO T18(C2,C7,C8,C112,C179,C3204,C60050,C3205,C452,C454,C456,C455,C450,C5002,C5,C3,C6,C1) VALUES(N'Remedy Application Service',0,N'Debug-mode',N';-100;-110;',N'CIGAA5V0HHD4CAQTX45LQSYN1GFF2Q',N'Debug-mode',N';13011;1051;21502;21500;-100;-110;',N'0',1763984828,N'2',N';Value;',N'Remedy Application Service',N'000000000011701',N'1',N'AR_AUDITOR',1763984828,1763984828,N'000000000029316')
+       0.027     1210 oKNmA5MvSwOxCzBulz9-zQ:0002923 Escalation T4381                          Mon Nov 24 2025 14:46:59.153 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ19172')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.027     5147 oKNmA5MvSwOxCzBulz9-zQ:0003101 Escalation T4382                          Mon Nov 24 2025 14:47:01.923 true    SELECT T4382.C1, T4382.C536870913, T4382.C536870914, T4382.C536870915, T4382.C536870916, T4382.C536870917, T4382.C536870918, T4382.C536870919, T4382.C536870920, T4382.C536870921, T4382.C536870922, T4382.C536870923, T4382.C536870924, T4382.C536870925, T4382.C536870926, T4382.C536870927, T4382.C536870928, T4382.C536870929, T4382.C536870930, T4382.C536870931, T4382.C536870932, T4382.C536870933, T4382.C536870934, T4382.C536870935, T4382.C536870936, T4382.C536870937, T4382.C536870938, T4382.C536870939 FROM T4382 WHERE (T4382.C1 IN (N'25193', N'25195', N'25198', N'25200', N'25201', N'25209', N'25214', N'25227', N'25259', N'25284', N'25294', N'25300', N'25303', N'25305', N'25306', N'25313', N'25314', N'25320', N'25321', N'25323', N'25327', N'25347', N'25352', N'25353', N'25366', N'25379', N'25383', N'25386', N'25387', N'25388', N'25389', N'25404', N'25406', N'25424', N'25438', N'25439', N'25443', N'25446', N'25452', N'25458', N'25465', N'25471', N'25500', N'25510', N'25517', N'25531', N'25532', N'25535', N'25538', N'25539', N'25542', N'25544', N'25548', N'25550', N'25551', N'25552', N'25560', N'25563', N'25564', N'25572', N'25578', N'25581', N'25596', N'25599', N'25601', N'25604', N'25611', N'25612', N'25619', N'25620', N'25621', N'25632', N'25636', N'25644', N'25654', N'25665', N'25706', N'25710', N'25712', N'25717', N'25718', N'25724', N'25733', N'25742', N'25751', N'25763', N'25768', N'25770', N'25773', N'25774', N'25781', N'25784', N'25790', N'25796', N'25798', N'25799', N'25801', N'25822', N'25830', N'25831')) ORDER BY T4382.C1 ASC
+       0.027    16433 oKNmA5MvSwOxCzBulz9-zQ:0003482 Escalation T4381                          Mon Nov 24 2025 14:47:08.445 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ23071')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.022    14630 oKNmA5MvSwOxCzBulz9-zQ:0003401 Escalation T4382                          Mon Nov 24 2025 14:47:06.685 true    SELECT T4382.C1, T4382.C536870913, T4382.C536870914, T4382.C536870915, T4382.C536870916, T4382.C536870917, T4382.C536870918, T4382.C536870919, T4382.C536870920, T4382.C536870921, T4382.C536870922, T4382.C536870923, T4382.C536870924, T4382.C536870925, T4382.C536870926, T4382.C536870927, T4382.C536870928, T4382.C536870929, T4382.C536870930, T4382.C536870931, T4382.C536870932, T4382.C536870933, T4382.C536870934, T4382.C536870935, T4382.C536870936, T4382.C536870937, T4382.C536870938, T4382.C536870939 FROM T4382 WHERE (T4382.C1 IN (N'27045', N'27062', N'27063', N'27072', N'27073', N'27074', N'27079', N'27092', N'27105', N'27116', N'27125', N'27136', N'27139', N'27145', N'27148', N'27149', N'27152', N'27160', N'27161', N'27200', N'27205', N'27210', N'27222', N'27224', N'27240', N'27250', N'27260', N'27261', N'27262', N'27264', N'27265', N'27271', N'27274', N'27275', N'27280', N'27284', N'27285', N'27288', N'27302', N'27303', N'27307', N'27316', N'27317', N'27323', N'27340', N'27343', N'27346', N'27347', N'27355', N'27357', N'27358', N'27398', N'27421', N'27425', N'27457', N'27466', N'27469', N'27473', N'27474', N'27475', N'27476', N'27479', N'27480', N'27481', N'27500', N'27507', N'27508', N'27517', N'27526', N'27538', N'27544', N'27546', N'27547', N'27559', N'27570', N'27573', N'27578', N'27580', N'27583', N'27594', N'27597', N'27598', N'27599', N'27621', N'27628', N'27632', N'27635', N'27641', N'27647', N'27648', N'27650', N'27660', N'27668', N'27677', N'27683', N'27686', N'27691', N'27693', N'27694', N'27695')) ORDER BY T4382.C1 ASC
+       0.022    16373 oKNmA5MvSwOxCzBulz9-zQ:0003479 Escalation T4381                          Mon Nov 24 2025 14:47:08.214 true    SELECT T4381.C1 FROM T4381 WHERE (T4381.C1 = N'000000000003770')
+       0.020    12298 oKNmA5MvSwOxCzBulz9-zQ:0003300 Escalation T4381                          Mon Nov 24 2025 14:47:05.414 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ21735')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.020    16354 oKNmA5MvSwOxCzBulz9-zQ:0003478 Escalation T4381                          Mon Nov 24 2025 14:47:08.069 true    UPDATE T4381 SET T4381.C536870913 = N'51181', T4381.C536870914 = N'REQ23057', T4381.C536870915 = 1649143860, T4381.C536870916 = 5, T4381.C536870918 = 1655185536, T4381.C536870919 = N'hhammad', T4381.C536870922 = N'27578', T4381.C5 = N'AR_ESCALATOR', T4381.C6 = 1763984827 WHERE (T4381.C1 = N'000000000004209')
+       0.019    10123 ppvN52iaQZmnf3QKV41xnA:0009994 Prv:390680 T373                           Mon Nov 24 2025 14:47:03.908 true    WITH AR_SQL_Alias$1 AS (SELECT T373.C1, T373.C8, T373.C112, ROW_NUMBER() OVER (ORDER BY T373.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T373 WHERE (T373.C13501 = N'000000000149179')) SELECT AR_SQL_Alias$1.C1, AR_SQL_Alias$1.C8, AR_SQL_Alias$1.C112 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 20001)
+       0.019    16425 uNFzUimrQvidJDExR4_0dQ:0000458 List       T338                           Mon Nov 24 2025 14:47:08.422 true    WITH AR_SQL_Alias$1 AS (SELECT T338.C1802, T338.C1801, T338.C1803, T338.C3204, T338.C3205, T338.C3200, T338.C3201, T338.C1, ROW_NUMBER() OVER (ORDER BY T338.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T338 WHERE (N'000000000000001' IS NOT NULL)) SELECT AR_SQL_Alias$1.C1802, AR_SQL_Alias$1.C1801, AR_SQL_Alias$1.C1803, AR_SQL_Alias$1.C3204, AR_SQL_Alias$1.C3205, AR_SQL_Alias$1.C3200, AR_SQL_Alias$1.C3201, AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 1001)
+       0.018      741 oKNmA5MvSwOxCzBulz9-zQ:0002901 Escalation T4382                          Mon Nov 24 2025 14:46:58.881 true    SELECT T4382.C1, T4382.C536870913, T4382.C536870914, T4382.C536870915, T4382.C536870916, T4382.C536870917, T4382.C536870918, T4382.C536870919, T4382.C536870920, T4382.C536870921, T4382.C536870922, T4382.C536870923, T4382.C536870924, T4382.C536870925, T4382.C536870926, T4382.C536870927, T4382.C536870928, T4382.C536870929, T4382.C536870930, T4382.C536870931, T4382.C536870932, T4382.C536870933, T4382.C536870934, T4382.C536870935, T4382.C536870936, T4382.C536870937, T4382.C536870938, T4382.C536870939 FROM T4382 WHERE (T4382.C1 IN (N'24106', N'24113', N'24115', N'24119', N'24125', N'24130', N'24131', N'24160', N'24161', N'24162', N'24170', N'24171', N'24174', N'24176', N'24178', N'24181', N'24197', N'24199', N'24200', N'24201', N'24202', N'24203', N'24212', N'24213', N'24224', N'24228', N'24238', N'24240', N'24241', N'24244', N'24246', N'24251', N'24254', N'24262', N'24268', N'24272', N'24275', N'24277', N'24278', N'24285', N'24286', N'24290', N'24299', N'24300', N'24302', N'24303', N'24313', N'24324', N'24327', N'24330', N'24331', N'24332', N'24346', N'24363', N'24364', N'24365', N'24387', N'24392', N'24393', N'24395', N'24399', N'24400', N'24401', N'24410', N'24411', N'24414', N'24415', N'24424', N'24425', N'24426', N'24427', N'24437', N'24442', N'24444', N'24445', N'24447', N'24448', N'24451', N'24452', N'24453', N'24456', N'24457', N'24458', N'24459', N'24460', N'24465', N'24476', N'24484', N'24518', N'24520', N'24523', N'24525', N'24554', N'24567', N'24568', N'24571', N'24575', N'24578', N'24580', N'24583')) ORDER BY T4382.C1 ASC
+       0.018    16339 oKNmA5MvSwOxCzBulz9-zQ:0003478 Escalation T4381                          Mon Nov 24 2025 14:47:07.964 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ23057')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.016     5323 oKNmA5MvSwOxCzBulz9-zQ:0003109 Escalation T4381                          Mon Nov 24 2025 14:47:02.307 true    UPDATE T4381 SET T4381.C536870913 = N'45839', T4381.C536870914 = N'REQ20098', T4381.C536870915 = 1645443751, T4381.C536870916 = 5, T4381.C536870918 = 1645705256, T4381.C536870919 = N'mzeid.c', T4381.C536870922 = N'25227', T4381.C5 = N'AR_ESCALATOR', T4381.C6 = 1763984822 WHERE (T4381.C1 = N'000000000003266')
+       0.016    10519 oKNmA5MvSwOxCzBulz9-zQ:0003227 Escalation T4381                          Mon Nov 24 2025 14:47:04.359 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ21259')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.015     2278 oKNmA5MvSwOxCzBulz9-zQ:0002971 Escalation T4381                          Mon Nov 24 2025 14:46:59.856 true    SELECT T4381.C1 FROM T4381 WHERE (T4381.C1 = N'000000000003113')
+       0.015     2281 oKNmA5MvSwOxCzBulz9-zQ:0002971 Escalation T4381                          Mon Nov 24 2025 14:46:59.871 true    UPDATE T4381 SET T4381.C536870913 = N'44684', T4381.C536870914 = N'REQ19466', T4381.C536870915 = 1644302928, T4381.C536870916 = 5, T4381.C536870918 = 1644303253, T4381.C536870919 = N'ihobayb', T4381.C536870922 = N'24426', T4381.C5 = N'AR_ESCALATOR', T4381.C6 = 1763984819 WHERE (T4381.C1 = N'000000000003113')
+       0.015     5301 oKNmA5MvSwOxCzBulz9-zQ:0003108 Escalation T4381                          Mon Nov 24 2025 14:47:02.161 true    UPDATE T4381 SET T4381.C536870913 = N'46538', T4381.C536870914 = N'REQ20487', T4381.C536870915 = 1645441035, T4381.C536870916 = 5, T4381.C536870918 = 1646044466, T4381.C536870919 = N'rzahrani.c', T4381.C536870922 = N'25214', T4381.C5 = N'AR_ESCALATOR', T4381.C6 = 1763984822 WHERE (T4381.C1 = N'000000000003293')
+       0.015     5320 oKNmA5MvSwOxCzBulz9-zQ:0003109 Escalation T4381                          Mon Nov 24 2025 14:47:02.292 true    SELECT T4381.C1 FROM T4381 WHERE (T4381.C1 = N'000000000003266')
+       0.015    16475 oKNmA5MvSwOxCzBulz9-zQ:0003483 Escalation T4381                          Mon Nov 24 2025 14:47:08.507 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ23073')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.014     2237 oKNmA5MvSwOxCzBulz9-zQ:0002969 Escalation T4381                          Mon Nov 24 2025 14:46:59.708 true    UPDATE T4381 SET T4381.C536870913 = N'44667', T4381.C536870914 = N'REQ19455', T4381.C536870915 = 1644300120, T4381.C536870916 = 5, T4381.C536870918 = 1644300303, T4381.C536870919 = N'sghamisi', T4381.C536870922 = N'24424', T4381.C5 = N'AR_ESCALATOR', T4381.C6 = 1763984819 WHERE (T4381.C1 = N'000000000003112')
+       0.013    10509 oKNmA5MvSwOxCzBulz9-zQ:0003226 Escalation T4381                          Mon Nov 24 2025 14:47:04.281 true    SELECT T4381.C1 FROM T4381 WHERE (T4381.C1 = N'000000000003404')
+       0.013    12345 oKNmA5MvSwOxCzBulz9-zQ:0003301 Escalation T4381                          Mon Nov 24 2025 14:47:05.454 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ21754')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.012     5298 oKNmA5MvSwOxCzBulz9-zQ:0003108 Escalation T4381                          Mon Nov 24 2025 14:47:02.148 true    SELECT T4381.C1 FROM T4381 WHERE (T4381.C1 = N'000000000003293')
+       0.012     5858 oKNmA5MvSwOxCzBulz9-zQ:0003134 Escalation T4381                          Mon Nov 24 2025 14:47:02.723 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ20386')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.012    10475 oKNmA5MvSwOxCzBulz9-zQ:0003225 Escalation T4381                          Mon Nov 24 2025 14:47:04.168 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ21187')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.012    10894 oKNmA5MvSwOxCzBulz9-zQ:0003244 Escalation T4381                          Mon Nov 24 2025 14:47:04.677 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ21133')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.011     1892 oKNmA5MvSwOxCzBulz9-zQ:0002954 Escalation T4381                          Mon Nov 24 2025 14:46:59.504 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ19335')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.011     2222 oKNmA5MvSwOxCzBulz9-zQ:0002969 Escalation T4381                          Mon Nov 24 2025 14:46:59.689 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ19455')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.011     3567 oKNmA5MvSwOxCzBulz9-zQ:0003030 Escalation T4381                          Mon Nov 24 2025 14:47:00.946 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ19684')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.011     3589 oKNmA5MvSwOxCzBulz9-zQ:0003031 Escalation T4381                          Mon Nov 24 2025 14:47:00.962 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ19889')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.011     3743 oKNmA5MvSwOxCzBulz9-zQ:0003038 Escalation T4381                          Mon Nov 24 2025 14:47:01.064 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ19886')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.011     3831 oKNmA5MvSwOxCzBulz9-zQ:0003042 Escalation T4381                          Mon Nov 24 2025 14:47:01.124 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ19920')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.011     4469 oKNmA5MvSwOxCzBulz9-zQ:0003071 Escalation T4381                          Mon Nov 24 2025 14:47:01.511 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ20169')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.011     5242 oKNmA5MvSwOxCzBulz9-zQ:0003106 Escalation T4381                          Mon Nov 24 2025 14:47:02.025 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ20373')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+       0.011     5726 oKNmA5MvSwOxCzBulz9-zQ:0003128 Escalation T4381                          Mon Nov 24 2025 14:47:02.636 true    WITH AR_SQL_Alias$1 AS (SELECT T4381.C1, ROW_NUMBER() OVER (ORDER BY T4381.C1 ASC) AS 'AR_RowNumber_Alias$1' FROM T4381 WHERE (T4381.C536870914 = N'REQ20650')) SELECT AR_SQL_Alias$1.C1 FROM AR_SQL_Alias$1 WHERE (AR_SQL_Alias$1.AR_RowNumber_Alias$1 BETWEEN 0 AND 2)
+
+### SQL CALL AGGREGATES grouped by Table sorted by descending AVG execution time
+
+Table                 SQL        OK   Fail  Total     MIN Time MIN Line     MAX Time MAX Line     AVG Time     SUM Time
+--------------------- ------ ------ ------ ------ ------------ -------- ------------ -------- ------------ ------------
+T18                   INSERT      1             1        0.031    16693        0.031    16693        0.031        0.031
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.031
+
+T4382                 SELECT      6             6        0.018      741        0.039    12363        0.030        0.178
+                             ------ ------ ------                                                          ------------
+                                  6             6                                                                 0.178
+
+T338                  SELECT      1             1        0.019    16425        0.019    16425        0.019        0.019
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.019
+
+T384                  SELECT      2             2        0.000     7340        0.033     7279        0.017        0.033
+                      INSERT      1             1        0.001     7352        0.001     7352        0.001        0.001
+                             ------ ------ ------                                                          ------------
+                                  3             3                                                                 0.034
+
+T4414                 INSERT      1             1        0.010     8280        0.010     8280        0.010        0.010
+                      SELECT      1             1        0.000     8130        0.000     8130        0.000        0.000
+                             ------ ------ ------                                                          ------------
+                                  2             2                                                                 0.010
+
+ft_pending            SELECT      1             1        0.007    16474        0.007    16474        0.007        0.007
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.007
+
+control               SELECT      2             2        0.007    16478        0.007    16478        0.007        0.014
+                             ------ ------ ------                                                          ------------
+                                  2             2                                                                 0.014
+
+T371                  INSERT      1             1        0.006     7122        0.006     7122        0.006        0.006
+                      UPDATE      5             5        0.000    10085        0.001     7247        0.001        0.004
+                      SELECT     11            11        0.000     7244        0.001     7421        0.000        0.005
+                             ------ ------ ------                                                          ------------
+                                 17            17                                                                 0.015
+
+T4381                 SELECT   1250          1250        0.000        9        0.085    16351        0.004        5.524
+                      UPDATE    625           625        0.000       34        0.053    16420        0.001        0.467
+                             ------ ------ ------                                                          ------------
+                               1875          1875                                                                 5.991
+
+T373                  SELECT      5             5        0.000     7717        0.019    10123        0.004        0.020
+                      INSERT      1             1        0.002     8121        0.002     8121        0.002        0.002
+                      UPDATE      1             1        0.000    10026        0.000    10026        0.000        0.000
+                             ------ ------ ------                                                          ------------
+                                  7             7                                                                 0.022
+
+T1463                 SELECT      3             3        0.000     9527        0.008     9331        0.003        0.009
+                             ------ ------ ------                                                          ------------
+                                  3             3                                                                 0.009
+
+T357                  SELECT      3             3        0.000     8253        0.005     7742        0.003        0.009
+                             ------ ------ ------                                                          ------------
+                                  3             3                                                                 0.009
+
+T3696                 SELECT      1             1        0.003     8244        0.003     8244        0.003        0.003
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.003
+
+T25                   SELECT      4             4        0.001    16639        0.005    16591        0.003        0.011
+                             ------ ------ ------                                                          ------------
+                                  4             4                                                                 0.011
+
+T365                  SELECT      2             2        0.000     7693        0.004     7675        0.002        0.004
+                             ------ ------ ------                                                          ------------
+                                  2             2                                                                 0.004
+
+T4387                 SELECT      1             1        0.002    12328        0.002    12328        0.002        0.002
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.002
+
+T320                  SELECT      4             4        0.000    16576        0.004    16539        0.002        0.007
+                             ------ ------ ------                                                          ------------
+                                  4             4                                                                 0.007
+
+T33                   SELECT      3             3        0.000     7885        0.004     7892        0.002        0.005
+                             ------ ------ ------                                                          ------------
+                                  3             3                                                                 0.005
+
+                      SELECT      2             2        0.001     9095        0.002     5974        0.002        0.003
+                             ------ ------ ------                                                          ------------
+                                  2             2                                                                 0.003
+
+T370                  SELECT      2             2        0.001     8997        0.002     8087        0.002        0.003
+                             ------ ------ ------                                                          ------------
+                                  2             2                                                                 0.003
+
+T2279                 SELECT      8             8        0.000     7079        0.006     7388        0.001        0.010
+                      UPDATE      1             1        0.000    10028        0.000    10028        0.000        0.000
+                             ------ ------ ------                                                          ------------
+                                  9             9                                                                 0.010
+
+T41                   SELECT      4             4        0.001     7046        0.002     7070        0.001        0.005
+                      INSERT      1             1        0.001     8320        0.001     8320        0.001        0.001
+                      DELETE      3             3        0.000    10099        0.001     6222        0.001        0.002
+                             ------ ------ ------                                                          ------------
+                                  8             8                                                                 0.008
+
+T1184                 SELECT      4             4        0.000     9110        0.002     6080        0.001        0.004
+                             ------ ------ ------                                                          ------------
+                                  4             4                                                                 0.004
+
+T356                  SELECT      2             2        0.001     7191        0.001     7191        0.001        0.002
+                             ------ ------ ------                                                          ------------
+                                  2             2                                                                 0.002
+
+B384                  INSERT      1             1        0.001     7355        0.001     7355        0.001        0.001
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.001
+
+H401                  INSERT      1             1        0.001     7405        0.001     7405        0.001        0.001
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.001
+
+T3672                 SELECT      2             2        0.001     7455        0.001     7455        0.001        0.002
+                             ------ ------ ------                                                          ------------
+                                  2             2                                                                 0.002
+
+T364                  SELECT      1             1        0.001     7771        0.001     7771        0.001        0.001
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.001
+
+H373, T373            SELECT      1             1        0.001     8371        0.001     8371        0.001        0.001
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.001
+
+B375, T375            SELECT      1             1        0.001     8649        0.001     8649        0.001        0.001
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.001
+
+T22                   UPDATE      1             1        0.001    16763        0.001    16763        0.001        0.001
+                      SELECT      8             8        0.000    16602        0.001    16599        0.000        0.003
+                             ------ ------ ------                                                          ------------
+                                  9             9                                                                 0.004
+
+T341                  SELECT      1             1        0.001    16659        0.001    16659        0.001        0.001
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.001
+
+arschema, schema_join SELECT     27            27        0.000     8529        0.002     8425        0.001        0.026
+                             ------ ------ ------                                                          ------------
+                                 27            27                                                                 0.026
+
+T1623                 SELECT      5             5        0.000     9201        0.001     9267        0.001        0.004
+                             ------ ------ ------                                                          ------------
+                                  5             5                                                                 0.004
+
+B371, H371, T371      SELECT      3             3        0.000     8350        0.001     7155        0.001        0.002
+                             ------ ------ ------                                                          ------------
+                                  3             3                                                                 0.002
+
+servgrp_config        SELECT      3             3        0.000    15128        0.001    11580        0.001        0.002
+                             ------ ------ ------                                                          ------------
+                                  3             3                                                                 0.002
+
+JoinFormEntity        SELECT     27            27        0.000     8424        0.002     8394        0.001        0.017
+                             ------ ------ ------                                                          ------------
+                                 27            27                                                                 0.017
+
+FieldDisppropEntity   SELECT      8             8        0.000     7562        0.001     7486        0.001        0.005
+                             ------ ------ ------                                                          ------------
+                                  8             8                                                                 0.005
+
+T363                  SELECT      9             9        0.000     7948        0.001     7956        0.001        0.005
+                             ------ ------ ------                                                          ------------
+                                  9             9                                                                 0.005
+
+T8                    UPDATE      8             8        0.000    16808        0.001    16854        0.001        0.004
+                      SELECT     59            59        0.000    11603        0.004    12302        0.000        0.026
+                             ------ ------ ------                                                          ------------
+                                 67            67                                                                 0.030
+
+field_dispprop        SELECT      8             8        0.000     7492        0.001     7503        0.001        0.004
+                             ------ ------ ------                                                          ------------
+                                  8             8                                                                 0.004
+
+H3672, T3672          SELECT      2             2        0.000     7462        0.001     7543        0.001        0.001
+                             ------ ------ ------                                                          ------------
+                                  2             2                                                                 0.001
+
+T4417                 SELECT      2             2        0.000     8145        0.001     8180        0.001        0.001
+                             ------ ------ ------                                                          ------------
+                                  2             2                                                                 0.001
+
+T1204                 SELECT      2             2        0.000     6052        0.001     9086        0.001        0.001
+                             ------ ------ ------                                                          ------------
+                                  2             2                                                                 0.001
+
+T45                   SELECT     12            12        0.000     6034        0.001     6031        0.000        0.005
+                             ------ ------ ------                                                          ------------
+                                 12            12                                                                 0.005
+
+B371, T371            SELECT      6             6        0.000     7088        0.001     7229        0.000        0.002
+                             ------ ------ ------                                                          ------------
+                                  6             6                                                                 0.002
+
+T1476                 INSERT      3             3        0.000     9638        0.001     9463        0.000        0.001
+                             ------ ------ ------                                                          ------------
+                                  3             3                                                                 0.001
+
+H364, T364            SELECT      7             7        0.000     7778        0.001     7817        0.000        0.002
+                             ------ ------ ------                                                          ------------
+                                  7             7                                                                 0.002
+
+T1665                 SELECT      1             1        0.000     6009        0.000     6009        0.000        0.000
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.000
+
+T37                   SELECT      1             1        0.000     7100        0.000     7100        0.000        0.000
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.000
+
+B371                  INSERT      1             1        0.000     7141        0.000     7141        0.000        0.000
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.000
+
+H371                  INSERT      1             1        0.000     7143        0.000     7143        0.000        0.000
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.000
+
+H3433, T3433          SELECT      1             1        0.000     7164        0.000     7164        0.000        0.000
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.000
+
+H384                  INSERT      1             1        0.000     7357        0.000     7357        0.000        0.000
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.000
+
+T401                  INSERT      1             1        0.000     7403        0.000     7403        0.000        0.000
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.000
+
+H373                  INSERT      1             1        0.000     8123        0.000     8123        0.000        0.000
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.000
+
+H4414                 INSERT      1             1        0.000     8304        0.000     8304        0.000        0.000
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.000
+
+T369                  SELECT      1             1        0.000     8388        0.000     8388        0.000        0.000
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.000
+
+T3434                 SELECT      1             1        0.000     9030        0.000     9030        0.000        0.000
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.000
+
+T270                  SELECT      1             1        0.000    16512        0.000    16512        0.000        0.000
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.000
+
+T6                    SELECT      1             1        0.000    16665        0.000    16665        0.000        0.000
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.000
+
+                             ====== ====== ======                                                          ============
+                               2184          2184                                                                 6.521
+
+### SQL THREAD STATISTICS BY QUEUE
+
+Queue          Thread            First Thread Time             Last Thread Time  Count   Total Time   Busy%
+---------- ---------- ---------------------------- ---------------------------- ------ ------------ -------
+AssignEng  0000000365 Mon Nov 24 2025 14:47:02.801 Mon Nov 24 2025 14:47:02.832      8        0.007   0.07%
+Escalation 0000000532 Mon Nov 24 2025 14:46:58.509 Mon Nov 24 2025 14:47:08.645   1881        6.169  60.71%
+           0000003876 Mon Nov 24 2025 14:47:05.440 Mon Nov 24 2025 14:47:05.442      1        0.002   0.02%
+Fast       0000000314 Mon Nov 24 2025 14:47:07.006 Mon Nov 24 2025 14:47:07.006      1        0.000   0.00%
+           0000000316 Mon Nov 24 2025 14:47:06.696 Mon Nov 24 2025 14:47:06.697      1        0.001   0.01%
+           0000000319 Mon Nov 24 2025 14:47:05.105 Mon Nov 24 2025 14:47:05.106      1        0.001   0.01%
+           0000000321 Mon Nov 24 2025 14:47:08.501 Mon Nov 24 2025 14:47:08.647     56        0.084   0.83%
+List       0000000340 Mon Nov 24 2025 14:47:05.165 Mon Nov 24 2025 14:47:05.758      2        0.001   0.01%
+           0000000341 Mon Nov 24 2025 14:47:05.131 Mon Nov 24 2025 14:47:05.429      2        0.005   0.05%
+           0000000342 Mon Nov 24 2025 14:47:05.107 Mon Nov 24 2025 14:47:05.342      2        0.000   0.00%
+           0000000343 Mon Nov 24 2025 14:47:05.150 Mon Nov 24 2025 14:47:05.668      2        0.000   0.00%
+           0000000344 Mon Nov 24 2025 14:47:05.285 Mon Nov 24 2025 14:47:05.759      2        0.000   0.00%
+           0000000345 Mon Nov 24 2025 14:47:05.284 Mon Nov 24 2025 14:47:05.758      2        0.001   0.01%
+           0000000346 Mon Nov 24 2025 14:47:05.293 Mon Nov 24 2025 14:47:05.874      2        0.000   0.00%
+           0000000347 Mon Nov 24 2025 14:47:05.340 Mon Nov 24 2025 14:47:05.340      1        0.000   0.00%
+           0000000348 Mon Nov 24 2025 14:47:05.109 Mon Nov 24 2025 14:47:05.343      2        0.000   0.00%
+           0000000349 Mon Nov 24 2025 14:47:05.340 Mon Nov 24 2025 14:47:05.340      1        0.000   0.00%
+           0000000350 Mon Nov 24 2025 14:47:05.110 Mon Nov 24 2025 14:47:05.386      2        0.003   0.03%
+           0000000351 Mon Nov 24 2025 14:47:05.151 Mon Nov 24 2025 14:47:05.671      2        0.000   0.00%
+           0000000352 Mon Nov 24 2025 14:47:05.320 Mon Nov 24 2025 14:47:05.321      1        0.001   0.01%
+           0000000353 Mon Nov 24 2025 14:47:05.148 Mon Nov 24 2025 14:47:05.434      2        0.001   0.01%
+           0000000354 Mon Nov 24 2025 14:47:05.300 Mon Nov 24 2025 14:47:08.441      2        0.019   0.19%
+           0000000355 Mon Nov 24 2025 14:47:05.162 Mon Nov 24 2025 14:47:05.690      2        0.001   0.01%
+           0000000417 Mon Nov 24 2025 14:47:05.284 Mon Nov 24 2025 14:47:05.866      2        0.003   0.03%
+           0000000418 Mon Nov 24 2025 14:47:05.160 Mon Nov 24 2025 14:47:05.688      2        0.003   0.03%
+           0000000419 Mon Nov 24 2025 14:47:05.341 Mon Nov 24 2025 14:47:05.341      1        0.000   0.00%
+           0000000420 Mon Nov 24 2025 14:47:05.131 Mon Nov 24 2025 14:47:05.408      2        0.002   0.02%
+Prv:390680 0000000356 Mon Nov 24 2025 14:47:03.377 Mon Nov 24 2025 14:47:03.935     44        0.051   0.50%
+           0000000357 Mon Nov 24 2025 14:47:03.374 Mon Nov 24 2025 14:47:03.939    155        0.166   1.63%
+
+### SQL EXCEPTION REPORT
+
+   Line#                           TrID                 Message                                                    SQL Statement
+-------- ------------------------------ ----------------------- ----------------------------------------------------------------
+   16992 oKNmA5MvSwOxCzBulz9-zQ:0003493 WARNING: Start of SQL call has no corresponding end SELECT T4381.C1 FROM T4381 WHERE (T4381.C1 = N'000000000003768')
+
+
+###  SECTION: ESCALATIONS  #############################################
+
+### 50 LONGEST RUNNING INDIVIDUAL ESCALATION CALLS
+
+    Run Time    Line#                           TrID Pool Escalation            Form                                 Start Time Error
+------------ -------- ------------------------------ ---- --------------------- ------------------ ---------------------------- -----
+       0.003    12327 lKwk4WR9TzK6T3UlOBvuBg:0000001    6 INTG:SMS-POOL_CALLAPI INTG:SMS-POOL-FORM Mon Nov 24 2025 14:47:05.440      
+
+### Escalation CALL AGGREGATES grouped by Form sorted by descending AVG execution time
+
+Form               Escalation             Count     MIN Time MIN Line     MAX Time MAX Line     AVG Time     SUM Time
+------------------ --------------------- ------ ------------ -------- ------------ -------- ------------ ------------
+INTG:SMS-POOL-FORM INTG:SMS-POOL_CALLAPI      1        0.003    12327        0.003    12327        0.003        0.003
+                                         ------                                                          ------------
+                                              1                                                                 0.003
+
+                                         ======                                                          ============
+                                              1                                                                 0.003
+
+### Escalation CALL AGGREGATES grouped by Pool sorted by descending AVG execution time
+
+Pool Escalation             Count     MIN Time MIN Line     MAX Time MAX Line     AVG Time     SUM Time
+---- --------------------- ------ ------------ -------- ------------ -------- ------------ ------------
+   6 INTG:SMS-POOL_CALLAPI      1        0.003    12327        0.003    12327        0.003        0.003
+                           ------                                                          ------------
+                                1                                                                 0.003
+
+                           ======                                                          ============
+                                1                                                                 0.003
+
+### 50 LONGEST RUNNING INDIVIDUAL FLTR
+
+    Run Time First Line# Last Line#                           TrID Queue      Filter                                                                    Start Time
+------------ ----------- ---------- ------------------------------ ---------- ------------------------------------------------------- ----------------------------
+       0.062        9261       9995 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 SRM:REQ:Notify_Approver                                 Mon Nov 24 2025 14:47:03.809
+       0.010       16526      16545 SsjZsHC9R4a1jxb56Qmy0A:0000316 Fast       AR System Administration: Call Home Push Null Data      Mon Nov 24 2025 14:47:08.535
+       0.009        9324       9345 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 SRM:REQ:NotifyApprover_CheckPreferenceGrp               Mon Nov 24 2025 14:47:03.813
+       0.006        9027       9046 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 SRM:SDS:Notify_Approvers                                Mon Nov 24 2025 14:47:03.789
+       0.004        6028       6045 nZ0UaxoDR9eTQGaKLpHwgQ:0000001 AssignEng  SRS:WLG:Social_SkipSmartitInstalled                     Mon Nov 24 2025 14:47:02.817
+       0.004        8029       8080 ppvN52iaQZmnf3QKV41xnA:0009973 Prv:390680 AP:Sig-GetNxtPendingEscTime1                            Mon Nov 24 2025 14:47:03.625
+       0.004        8237       8250 ppvN52iaQZmnf3QKV41xnA:0009973 Prv:390680 CST:UP:Approval:Approval:getSRDname`!                   Mon Nov 24 2025 14:47:03.646
+       0.003        6070       6084 nZ0UaxoDR9eTQGaKLpHwgQ:0000001 AssignEng  INT:SLMSRM:SRM:SLMSetFields                             Mon Nov 24 2025 14:47:02.822
+       0.003        7945       7979 ppvN52iaQZmnf3QKV41xnA:0009973 Prv:390680 AP:Sig-GetNxtActionEscTime1                             Mon Nov 24 2025 14:47:03.618
+       0.003        7981       8015 ppvN52iaQZmnf3QKV41xnA:0009973 Prv:390680 AP:Sig-GetNxtGlobalEscTime1                             Mon Nov 24 2025 14:47:03.621
+       0.003        8654       8664 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 SMT:WLG:Social_SkipSmartitInstalled                     Mon Nov 24 2025 14:47:03.773
+       0.003        9094       9103 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 SRM:REQ:OBO_InitiateOBOValidation                       Mon Nov 24 2025 14:47:03.799
+       0.003        9347       9415 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 SRM:REQ:NotifyApprover_899_ParseApprovers-SendNotific`! Mon Nov 24 2025 14:47:03.822
+       0.002        7337       7344 ppvN52iaQZmnf3QKV41xnA:0009934 Prv:390680 AP:SetQuestionCommentPermission                         Mon Nov 24 2025 14:47:03.468
+       0.002        7590       7609 ppvN52iaQZmnf3QKV41xnA:0009951 Prv:390680 AP:Dtl-Done                                             Mon Nov 24 2025 14:47:03.529
+       0.002        7937       7945 ppvN52iaQZmnf3QKV41xnA:0009973 Prv:390680 AP:Sig-GetInfoFromDetail                                Mon Nov 24 2025 14:47:03.616
+       0.002        8084       8093 ppvN52iaQZmnf3QKV41xnA:0009973 Prv:390680 AP:Sig-SetDueSoonUnits                                  Mon Nov 24 2025 14:47:03.629
+       0.002        8127       8142 ppvN52iaQZmnf3QKV41xnA:0009973 Prv:390680 CST:UP:Approval:GetSignatureDetails                     Mon Nov 24 2025 14:47:03.638
+       0.002        8142       8158 ppvN52iaQZmnf3QKV41xnA:0009973 Prv:390680 CST:UP:Approval_Portal_SetConf                          Mon Nov 24 2025 14:47:03.640
+       0.002        8204       8237 ppvN52iaQZmnf3QKV41xnA:0009973 Prv:390680 CST:UP:Approval:GetSRRequestID`!                        Mon Nov 24 2025 14:47:03.644
+       0.002        8250       8257 ppvN52iaQZmnf3QKV41xnA:0009973 Prv:390680 CST:UP:Approval:GetSignaturAlternate                    Mon Nov 24 2025 14:47:03.650
+       0.002        8644       8654 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 AP:Dtl-Sig:PopulatePassword                             Mon Nov 24 2025 14:47:03.771
+       0.002        9056       9078 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 SRS:WLG:Social_SkipSmartitInstalled                     Mon Nov 24 2025 14:47:03.795
+       0.002        9078       9090 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 WOI:SHR:SetPermissionModel                              Mon Nov 24 2025 14:47:03.797
+       0.002        9107       9119 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 INT:SLMSRM:SRM:SLMSetFields                             Mon Nov 24 2025 14:47:03.802
+       0.002        9198       9215 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 SRM:REQ:SetRequestedByLoginWhenNullA                    Mon Nov 24 2025 14:47:03.806
+       0.002        9537       9605 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 SRM:REQ:NotifyApprover_899_ParseApprovers-SendNotific`! Mon Nov 24 2025 14:47:03.847
+       0.002        9679       9694 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 SRM:REQ:NotifyApprover_899_ParseApprovers-SetPplInfo    Mon Nov 24 2025 14:47:03.856
+       0.002        9705       9773 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 SRM:REQ:NotifyApprover_899_ParseApprovers-SendNotific`! Mon Nov 24 2025 14:47:03.859
+       0.002       10061      10071 ppvN52iaQZmnf3QKV41xnA:0009992 Prv:390680 AP:Dtl-Done                                             Mon Nov 24 2025 14:47:03.894
+       0.001        6045       6059 nZ0UaxoDR9eTQGaKLpHwgQ:0000001 AssignEng  WOI:SHR:SetPermissionModel                              Mon Nov 24 2025 14:47:02.821
+       0.001        6118       6120 nZ0UaxoDR9eTQGaKLpHwgQ:0000001 AssignEng  SRM:REQ:MapSRFields_SetSummaryIfNullB_014               Mon Nov 24 2025 14:47:02.825
+       0.001        6162       6164 nZ0UaxoDR9eTQGaKLpHwgQ:0000001 AssignEng  SHR:SHR:RequesterInfo_081_CheckIndividual               Mon Nov 24 2025 14:47:02.826
+       0.001        6202       6209 nZ0UaxoDR9eTQGaKLpHwgQ:0000001 AssignEng  SRM:REQ:Catergory_Required                              Mon Nov 24 2025 14:47:02.827
+       0.001        7114       7118 ppvN52iaQZmnf3QKV41xnA:0009926 Prv:390680 AP:Detail - SetFlagStatus                               Mon Nov 24 2025 14:47:03.392
+       0.001        7222       7224 ppvN52iaQZmnf3QKV41xnA:0009931 Prv:390680 AP:Dtl-IdentifyAsOverride                               Mon Nov 24 2025 14:47:03.421
+       0.001        7228       7233 ppvN52iaQZmnf3QKV41xnA:0009931 Prv:390680 AP:Dtl-Done                                             Mon Nov 24 2025 14:47:03.422
+       0.001        8019       8021 ppvN52iaQZmnf3QKV41xnA:0009973 Prv:390680 AP:Sig-GetNxtErrorEscTime2                              Mon Nov 24 2025 14:47:03.624
+       0.001        8104       8115 ppvN52iaQZmnf3QKV41xnA:0009973 Prv:390680 AP:Sig-UpdateQuestionCommentPermission                  Mon Nov 24 2025 14:47:03.631
+       0.001        8158       8190 ppvN52iaQZmnf3QKV41xnA:0009973 Prv:390680 CST:UP:Approval:SetURL_Process                          Mon Nov 24 2025 14:47:03.642
+       0.001        8190       8204 ppvN52iaQZmnf3QKV41xnA:0009973 Prv:390680 CST:UP:Approval:GetApplicationDetail`!                  Mon Nov 24 2025 14:47:03.643
+       0.001        8625       8637 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 SRM:SDS:Notify_Approvers                                Mon Nov 24 2025 14:47:03.770
+       0.001        8690       8692 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 AP:Dtl-Sig:VerifyUser15                                 Mon Nov 24 2025 14:47:03.776
+       0.001        8736       8738 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 AP:Det-Sig:VerifyUserMessage13                          Mon Nov 24 2025 14:47:03.777
+       0.001        8778       8782 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 AP:Dtl-Sig:VerifyUser61                                 Mon Nov 24 2025 14:47:03.778
+       0.001        8828       8830 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 AP:Dtl-Sig:AuditTrail04                                 Mon Nov 24 2025 14:47:03.779
+       0.001        8869       8889 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 INT:SOCAPR:ParseApproverInfo_SendToSocial_CG            Mon Nov 24 2025 14:47:03.780
+       0.001        8907       8910 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 AP:Dtl-ChkIfUserLegal                                   Mon Nov 24 2025 14:47:03.781
+       0.001        8916       8925 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 AP:Dtl-Done                                             Mon Nov 24 2025 14:47:03.782
+       0.001        8947       8954 ppvN52iaQZmnf3QKV41xnA:0009991 Prv:390680 AP:Sig-Error                                            Mon Nov 24 2025 14:47:03.784
+
+### 50 MOST EXECUTED FLTR
+
+Filter                                                  Pass Count Fail Count
+------------------------------------------------------- ---------- ----------
+AP:Detail - SetFlagStatus                                        0          6
+SRM:REQ:NotifyApprover_899_ParseApprovers-NEW-GT1                3          0
+SHR:SHR:Social_SkipSmartitInstalled                              3          0
+SRM:REQ:NotifyApprover_899_ParseApprovers-ResetFlds              3          0
+SRM:REQ:NotifyApprover_899_ParseApprovers-SetPplInfo             3          0
+SRM:REQ:NotifyApprover_899_ParseApprovers-SendNotific`!          3          0
+SRM:REQ:NotifyApprover_899_ParseApprovers-SetTmpFlds             3          0
+SRM:REQ:NotifyApprover_CheckPreferenceGrp                        3          0
+SRM:REQ:USM_ClearTransactionalSOPrice                            2          0
+WOI:SHR:SetPermissionModel                                       2          0
+AP:Sig-SetDueSoonUnits                                           2          0
+INT:SLMSRM:SRM:SLMSetFields                                      2          0
+SRS:WLG:Social_SkipSmartitInstalled                              2          0
+AP:Sig-Error                                                     2          0
+SRM:REQ:NotifyApprover_899_ParseApprovers-NextLogin              2          0
+SRM:REQ:NotifyApprover_899_ParseApprovers-ClrFields              1          0
+CST:UP:Approval:GetSignaturAlternate                             1          0
+SRM:REQ:NotifyApprover_899_Init                                  1          0
+SRM:REQ:SetRequestedByLoginWhenNullA                             1          0
+SRM:REQ:NTSetNotificationType                                    1          0
+AP:Sig-UpdateQuestionCommentPermission                           1          0
+INT:SOCAPR:SendApproverInfoToSocial                              1          0
+AP:Dtl-Sig:MarkToAllowSigMod                                     1          0
+CST:UP:Approval:Approval:getSRDname`!                            1          0
+INT:SOCAPR:ParseApproverInfo_Init                                0          1
+AP:QuestionComment-SetAttachmentValue                            0          1
+SRM:REQ:NTSetNotificationType_People_Staff                       0          1
+INT:SOCAPR:ParseApproverInfo_SendToSocial_CG                     1          0
+AR System Administration: Call Home Push Null Data               1          0
+SRM:SHR:SetInstanceID                                            1          0
+AP:Sig-GetNxtPendingEscTime1                                     1          0
+AP:Dtl-Sig:VerifyUser52                                          0          1
+AP:Dtl-Sig:VerifyUser51                                          0          1
+AP:Dtl-Sig:ValidateRSSOPassword02                                1          0
+AP:Dtl-Sig:VerifyUser62                                          0          1
+AP:Dtl-Sig:VerifyUser61                                          0          1
+CST:UP:Approval:SetURL_Process                                   1          0
+CST:UP:Approval:GetSignatureDetails                              1          0
+SRM:REQ:Notify_Approver                                          1          0
+AP:Dtl-Sig:VerifyUser01                                          1          0
+SMT:WLG:Social_SkipSmartitInstalled                              1          0
+AP:Sig-GetNxtActionEscTime1                                      1          0
+CST:UP:Approval:GetApplicationDetail`!                           1          0
+AP:Sig-GetNxtGlobalEscTime1                                      1          0
+CST:UP:Approval_Portal_SetConf                                   1          0
+SRM:SDS:Notify_Approvers                                         1          0
+AP:Sig-GetInfoFromDetail                                         1          0
+INT:SOCAPR:ParseApproverInfo_FormatLoginIds                      1          0
+CST:UP:Approval:GetSRRequestID`!                                 1          0
+CST:UP:Approval_approvers                                        1          0
+
+### 50 MOST FILTERS PER TRANSACTION 
+
+   Line#                           TrID Filter Count Operation Form                                         Request ID                                      Filters/sec
+-------- ------------------------------ ------------ --------- -------------------------------------------- ----------------------------------------------- -----------
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991          251 SET       SRM:RequestApDetailSignature                 000000000149179|000000000081466|000000000083473        0.45
+    6017 nZ0UaxoDR9eTQGaKLpHwgQ:0000001           64 SET       SRM:Request                                  <NULL                                                  0.16
+    7927 ppvN52iaQZmnf3QKV41xnA:0009973           31 CREATE    AP:Signature                                 <NULL                                                  1.71
+    7213 ppvN52iaQZmnf3QKV41xnA:0009931           11 SET       AP:Detail                                    000000000081466                                        0.18
+    7575 ppvN52iaQZmnf3QKV41xnA:0009951           11 SET       AP:Detail                                    000000000081466                                        0.18
+   10164 ppvN52iaQZmnf3QKV41xnA:0009996           11 SET       AP:Detail                                    000000000081466                                        0.09
+   10034 ppvN52iaQZmnf3QKV41xnA:0009992           11 SET       AP:Detail                                    000000000081466                                        0.27
+   16450 SsjZsHC9R4a1jxb56Qmy0A:0000316            9 SET       AR System Administration: Server Information 000000000000001                                       18.89
+    7107 ppvN52iaQZmnf3QKV41xnA:0009926            4 CREATE    AP:Detail                                    <NULL                                                  0.25
+    7330 ppvN52iaQZmnf3QKV41xnA:0009934            3 CREATE    AP:Question-Comment-Info                     <NULL                                                  0.67
+   14600 oKNmA5MvSwOxCzBulz9-zQ:0003400            0 SET       CITC:DWPC-Survey                             000000000006355                                         NaN
+   14740 oKNmA5MvSwOxCzBulz9-zQ:0003406            0 SET       CITC:DWPC-Survey                             000000000003920                                         NaN
+    6215 i3VDlWzSQsaoK36lF-McEg:0000001            0 DELETE    Application Pending                          000000004577327                                         NaN
+   14718 oKNmA5MvSwOxCzBulz9-zQ:0003405            0 SET       CITC:DWPC-Survey                             000000000003919                                         NaN
+   14784 oKNmA5MvSwOxCzBulz9-zQ:0003408            0 SET       CITC:DWPC-Survey                             000000000003661                                         NaN
+   14762 oKNmA5MvSwOxCzBulz9-zQ:0003407            0 SET       CITC:DWPC-Survey                             000000000003660                                         NaN
+   14652 oKNmA5MvSwOxCzBulz9-zQ:0003402            0 SET       CITC:DWPC-Survey                             000000000003653                                         NaN
+   14622 oKNmA5MvSwOxCzBulz9-zQ:0003401            0 SET       CITC:DWPC-Survey                             000000000003662                                         NaN
+   14696 oKNmA5MvSwOxCzBulz9-zQ:0003404            0 SET       CITC:DWPC-Survey                             000000000003654                                         NaN
+   14674 oKNmA5MvSwOxCzBulz9-zQ:0003403            0 SET       CITC:DWPC-Survey                             000000000003784                                         NaN
+   14806 oKNmA5MvSwOxCzBulz9-zQ:0003409            0 SET       CITC:DWPC-Survey                             000000000003667                                         NaN
+   14850 oKNmA5MvSwOxCzBulz9-zQ:0003411            0 SET       CITC:DWPC-Survey                             000000000003710                                         NaN
+   14828 oKNmA5MvSwOxCzBulz9-zQ:0003410            0 SET       CITC:DWPC-Survey                             000000000003669                                         NaN
+   14982 oKNmA5MvSwOxCzBulz9-zQ:0003417            0 SET       CITC:DWPC-Survey                             000000000010205                                         NaN
+   14960 oKNmA5MvSwOxCzBulz9-zQ:0003416            0 SET       CITC:DWPC-Survey                             000000000010204                                         NaN
+   15026 oKNmA5MvSwOxCzBulz9-zQ:0003419            0 SET       CITC:DWPC-Survey                             000000000003701                                         NaN
+   15004 oKNmA5MvSwOxCzBulz9-zQ:0003418            0 SET       CITC:DWPC-Survey                             000000000003704                                         NaN
+   14894 oKNmA5MvSwOxCzBulz9-zQ:0003413            0 SET       CITC:DWPC-Survey                             000000000003678                                         NaN
+   14872 oKNmA5MvSwOxCzBulz9-zQ:0003412            0 SET       CITC:DWPC-Survey                             000000000003677                                         NaN
+   14938 oKNmA5MvSwOxCzBulz9-zQ:0003415            0 SET       CITC:DWPC-Survey                             000000000003671                                         NaN
+   14916 oKNmA5MvSwOxCzBulz9-zQ:0003414            0 SET       CITC:DWPC-Survey                             000000000003666                                         NaN
+   15048 oKNmA5MvSwOxCzBulz9-zQ:0003420            0 SET       CITC:DWPC-Survey                             000000000003668                                         NaN
+   12355 oKNmA5MvSwOxCzBulz9-zQ:0003301            0 SET       CITC:DWPC-Survey                             000000000003458                                         NaN
+   15092 oKNmA5MvSwOxCzBulz9-zQ:0003422            0 SET       CITC:DWPC-Survey                             000000000003674                                         NaN
+   12324 oKNmA5MvSwOxCzBulz9-zQ:0003300            0 SET       CITC:DWPC-Survey                             000000000003494                                         NaN
+   15070 oKNmA5MvSwOxCzBulz9-zQ:0003421            0 SET       CITC:DWPC-Survey                             000000000003672                                         NaN
+   12491 oKNmA5MvSwOxCzBulz9-zQ:0003307            0 SET       CITC:DWPC-Survey                             000000000003474                                         NaN
+   15229 oKNmA5MvSwOxCzBulz9-zQ:0003428            0 SET       CITC:DWPC-Survey                             000000000003681                                         NaN
+   12469 oKNmA5MvSwOxCzBulz9-zQ:0003306            0 SET       CITC:DWPC-Survey                             000000000003689                                         NaN
+   15207 oKNmA5MvSwOxCzBulz9-zQ:0003427            0 SET       CITC:DWPC-Survey                             000000000003679                                         NaN
+   12535 oKNmA5MvSwOxCzBulz9-zQ:0003309            0 SET       CITC:DWPC-Survey                             000000000003524                                         NaN
+   12513 oKNmA5MvSwOxCzBulz9-zQ:0003308            0 SET       CITC:DWPC-Survey                             000000000003790                                         NaN
+   15251 oKNmA5MvSwOxCzBulz9-zQ:0003429            0 SET       CITC:DWPC-Survey                             000000000003915                                         NaN
+   12403 oKNmA5MvSwOxCzBulz9-zQ:0003303            0 SET       CITC:DWPC-Survey                             000000000003462                                         NaN
+   15140 oKNmA5MvSwOxCzBulz9-zQ:0003424            0 SET       CITC:DWPC-Survey                             000000000003676                                         NaN
+   12381 oKNmA5MvSwOxCzBulz9-zQ:0003302            0 SET       CITC:DWPC-Survey                             000000000003495                                         NaN
+   15114 oKNmA5MvSwOxCzBulz9-zQ:0003423            0 SET       CITC:DWPC-Survey                             000000000003675                                         NaN
+   12447 oKNmA5MvSwOxCzBulz9-zQ:0003305            0 SET       CITC:DWPC-Survey                             000000000003496                                         NaN
+   15185 oKNmA5MvSwOxCzBulz9-zQ:0003426            0 SET       CITC:DWPC-Survey                             000000000003717                                         NaN
+   12425 oKNmA5MvSwOxCzBulz9-zQ:0003304            0 SET       CITC:DWPC-Survey                             000000000003463                                         NaN
+
+### 50 MOST EXECUTED FLTR PER TRANSACTION
+
+   Line#                           TrID Filter                                                  Pass Count Fail Count
+-------- ------------------------------ ------------------------------------------------------- ---------- ----------
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SRM:REQ:NotifyApprover_899_ParseApprovers-NEW-GT1                3          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SHR:SHR:Social_SkipSmartitInstalled                              3          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SRM:REQ:NotifyApprover_899_ParseApprovers-ResetFlds              3          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SRM:REQ:NotifyApprover_899_ParseApprovers-SetPplInfo             3          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SRM:REQ:NotifyApprover_899_ParseApprovers-SendNotific`!          3          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SRM:REQ:NotifyApprover_899_ParseApprovers-SetTmpFlds             3          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SRM:REQ:NotifyApprover_CheckPreferenceGrp                        3          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SRM:REQ:NotifyApprover_899_ParseApprovers-NextLogin              2          0
+    7575 ppvN52iaQZmnf3QKV41xnA:0009951 AP:Detail - SetFlagStatus                                        0          1
+   10164 ppvN52iaQZmnf3QKV41xnA:0009996 AP:Detail - SetFlagStatus                                        0          1
+    7213 ppvN52iaQZmnf3QKV41xnA:0009931 AP:Detail - SetFlagStatus                                        0          1
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 AP:Detail - SetFlagStatus                                        0          1
+   10034 ppvN52iaQZmnf3QKV41xnA:0009992 AP:Detail - SetFlagStatus                                        0          1
+    7107 ppvN52iaQZmnf3QKV41xnA:0009926 AP:Detail - SetFlagStatus                                        0          1
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SRM:REQ:USM_ClearTransactionalSOPrice                            1          0
+    6017 nZ0UaxoDR9eTQGaKLpHwgQ:0000001 SRM:REQ:USM_ClearTransactionalSOPrice                            1          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 WOI:SHR:SetPermissionModel                                       1          0
+    6017 nZ0UaxoDR9eTQGaKLpHwgQ:0000001 WOI:SHR:SetPermissionModel                                       1          0
+    7927 ppvN52iaQZmnf3QKV41xnA:0009973 AP:Sig-SetDueSoonUnits                                           1          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 AP:Sig-SetDueSoonUnits                                           1          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 INT:SLMSRM:SRM:SLMSetFields                                      1          0
+    6017 nZ0UaxoDR9eTQGaKLpHwgQ:0000001 INT:SLMSRM:SRM:SLMSetFields                                      1          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SRS:WLG:Social_SkipSmartitInstalled                              1          0
+    6017 nZ0UaxoDR9eTQGaKLpHwgQ:0000001 SRS:WLG:Social_SkipSmartitInstalled                              1          0
+    7927 ppvN52iaQZmnf3QKV41xnA:0009973 AP:Sig-Error                                                     1          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 AP:Sig-Error                                                     1          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SRM:REQ:NotifyApprover_899_ParseApprovers-ClrFields              1          0
+    7927 ppvN52iaQZmnf3QKV41xnA:0009973 CST:UP:Approval:GetSignaturAlternate                             1          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SRM:REQ:NotifyApprover_899_Init                                  1          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SRM:REQ:SetRequestedByLoginWhenNullA                             1          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SRM:REQ:NTSetNotificationType                                    1          0
+    7927 ppvN52iaQZmnf3QKV41xnA:0009973 AP:Sig-UpdateQuestionCommentPermission                           1          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 INT:SOCAPR:SendApproverInfoToSocial                              1          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 AP:Dtl-Sig:MarkToAllowSigMod                                     1          0
+    7927 ppvN52iaQZmnf3QKV41xnA:0009973 CST:UP:Approval:Approval:getSRDname`!                            1          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 INT:SOCAPR:ParseApproverInfo_Init                                0          1
+    7330 ppvN52iaQZmnf3QKV41xnA:0009934 AP:QuestionComment-SetAttachmentValue                            0          1
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SRM:REQ:NTSetNotificationType_People_Staff                       0          1
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 INT:SOCAPR:ParseApproverInfo_SendToSocial_CG                     1          0
+   16450 SsjZsHC9R4a1jxb56Qmy0A:0000316 AR System Administration: Call Home Push Null Data               1          0
+    6017 nZ0UaxoDR9eTQGaKLpHwgQ:0000001 SRM:SHR:SetInstanceID                                            1          0
+    7927 ppvN52iaQZmnf3QKV41xnA:0009973 AP:Sig-GetNxtPendingEscTime1                                     1          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 AP:Dtl-Sig:VerifyUser52                                          0          1
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 AP:Dtl-Sig:VerifyUser51                                          0          1
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 AP:Dtl-Sig:ValidateRSSOPassword02                                1          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 AP:Dtl-Sig:VerifyUser62                                          0          1
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 AP:Dtl-Sig:VerifyUser61                                          0          1
+    7927 ppvN52iaQZmnf3QKV41xnA:0009973 CST:UP:Approval:SetURL_Process                                   1          0
+    7927 ppvN52iaQZmnf3QKV41xnA:0009973 CST:UP:Approval:GetSignatureDetails                              1          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SRM:REQ:Notify_Approver                                          1          0
+
+### 50 MOST FILTER LEVELS IN TRANSACTIONS 
+
+   Line#                           TrID Filter Level Operation Form                                         Request ID                                     
+-------- ------------------------------ ------------ --------- -------------------------------------------- -----------------------------------------------
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991            2 SET       SRM:RequestApDetailSignature                 000000000149179|000000000081466|000000000083473
+    7927 ppvN52iaQZmnf3QKV41xnA:0009973            1 CREATE    AP:Signature                                 <NULL                                          
+   16450 SsjZsHC9R4a1jxb56Qmy0A:0000316            1 SET       AR System Administration: Server Information 000000000000001                                
+    6017 nZ0UaxoDR9eTQGaKLpHwgQ:0000001            0 SET       SRM:Request                                  <NULL                                          
+    7213 ppvN52iaQZmnf3QKV41xnA:0009931            0 SET       AP:Detail                                    000000000081466                                
+    7575 ppvN52iaQZmnf3QKV41xnA:0009951            0 SET       AP:Detail                                    000000000081466                                
+   10164 ppvN52iaQZmnf3QKV41xnA:0009996            0 SET       AP:Detail                                    000000000081466                                
+   10034 ppvN52iaQZmnf3QKV41xnA:0009992            0 SET       AP:Detail                                    000000000081466                                
+    7107 ppvN52iaQZmnf3QKV41xnA:0009926            0 CREATE    AP:Detail                                    <NULL                                          
+    7330 ppvN52iaQZmnf3QKV41xnA:0009934            0 CREATE    AP:Question-Comment-Info                     <NULL                                          
+   14600 oKNmA5MvSwOxCzBulz9-zQ:0003400            0 SET       CITC:DWPC-Survey                             000000000006355                                
+   14740 oKNmA5MvSwOxCzBulz9-zQ:0003406            0 SET       CITC:DWPC-Survey                             000000000003920                                
+    6215 i3VDlWzSQsaoK36lF-McEg:0000001            0 DELETE    Application Pending                          000000004577327                                
+   14718 oKNmA5MvSwOxCzBulz9-zQ:0003405            0 SET       CITC:DWPC-Survey                             000000000003919                                
+   14784 oKNmA5MvSwOxCzBulz9-zQ:0003408            0 SET       CITC:DWPC-Survey                             000000000003661                                
+   14762 oKNmA5MvSwOxCzBulz9-zQ:0003407            0 SET       CITC:DWPC-Survey                             000000000003660                                
+   14652 oKNmA5MvSwOxCzBulz9-zQ:0003402            0 SET       CITC:DWPC-Survey                             000000000003653                                
+   14622 oKNmA5MvSwOxCzBulz9-zQ:0003401            0 SET       CITC:DWPC-Survey                             000000000003662                                
+   14696 oKNmA5MvSwOxCzBulz9-zQ:0003404            0 SET       CITC:DWPC-Survey                             000000000003654                                
+   14674 oKNmA5MvSwOxCzBulz9-zQ:0003403            0 SET       CITC:DWPC-Survey                             000000000003784                                
+   14806 oKNmA5MvSwOxCzBulz9-zQ:0003409            0 SET       CITC:DWPC-Survey                             000000000003667                                
+   14850 oKNmA5MvSwOxCzBulz9-zQ:0003411            0 SET       CITC:DWPC-Survey                             000000000003710                                
+   14828 oKNmA5MvSwOxCzBulz9-zQ:0003410            0 SET       CITC:DWPC-Survey                             000000000003669                                
+   14982 oKNmA5MvSwOxCzBulz9-zQ:0003417            0 SET       CITC:DWPC-Survey                             000000000010205                                
+   14960 oKNmA5MvSwOxCzBulz9-zQ:0003416            0 SET       CITC:DWPC-Survey                             000000000010204                                
+   15026 oKNmA5MvSwOxCzBulz9-zQ:0003419            0 SET       CITC:DWPC-Survey                             000000000003701                                
+   15004 oKNmA5MvSwOxCzBulz9-zQ:0003418            0 SET       CITC:DWPC-Survey                             000000000003704                                
+   14894 oKNmA5MvSwOxCzBulz9-zQ:0003413            0 SET       CITC:DWPC-Survey                             000000000003678                                
+   14872 oKNmA5MvSwOxCzBulz9-zQ:0003412            0 SET       CITC:DWPC-Survey                             000000000003677                                
+   14938 oKNmA5MvSwOxCzBulz9-zQ:0003415            0 SET       CITC:DWPC-Survey                             000000000003671                                
+   14916 oKNmA5MvSwOxCzBulz9-zQ:0003414            0 SET       CITC:DWPC-Survey                             000000000003666                                
+   15048 oKNmA5MvSwOxCzBulz9-zQ:0003420            0 SET       CITC:DWPC-Survey                             000000000003668                                
+   12355 oKNmA5MvSwOxCzBulz9-zQ:0003301            0 SET       CITC:DWPC-Survey                             000000000003458                                
+   15092 oKNmA5MvSwOxCzBulz9-zQ:0003422            0 SET       CITC:DWPC-Survey                             000000000003674                                
+   12324 oKNmA5MvSwOxCzBulz9-zQ:0003300            0 SET       CITC:DWPC-Survey                             000000000003494                                
+   15070 oKNmA5MvSwOxCzBulz9-zQ:0003421            0 SET       CITC:DWPC-Survey                             000000000003672                                
+   12491 oKNmA5MvSwOxCzBulz9-zQ:0003307            0 SET       CITC:DWPC-Survey                             000000000003474                                
+   15229 oKNmA5MvSwOxCzBulz9-zQ:0003428            0 SET       CITC:DWPC-Survey                             000000000003681                                
+   12469 oKNmA5MvSwOxCzBulz9-zQ:0003306            0 SET       CITC:DWPC-Survey                             000000000003689                                
+   15207 oKNmA5MvSwOxCzBulz9-zQ:0003427            0 SET       CITC:DWPC-Survey                             000000000003679                                
+   12535 oKNmA5MvSwOxCzBulz9-zQ:0003309            0 SET       CITC:DWPC-Survey                             000000000003524                                
+   12513 oKNmA5MvSwOxCzBulz9-zQ:0003308            0 SET       CITC:DWPC-Survey                             000000000003790                                
+   15251 oKNmA5MvSwOxCzBulz9-zQ:0003429            0 SET       CITC:DWPC-Survey                             000000000003915                                
+   12403 oKNmA5MvSwOxCzBulz9-zQ:0003303            0 SET       CITC:DWPC-Survey                             000000000003462                                
+   15140 oKNmA5MvSwOxCzBulz9-zQ:0003424            0 SET       CITC:DWPC-Survey                             000000000003676                                
+   12381 oKNmA5MvSwOxCzBulz9-zQ:0003302            0 SET       CITC:DWPC-Survey                             000000000003495                                
+   15114 oKNmA5MvSwOxCzBulz9-zQ:0003423            0 SET       CITC:DWPC-Survey                             000000000003675                                
+   12447 oKNmA5MvSwOxCzBulz9-zQ:0003305            0 SET       CITC:DWPC-Survey                             000000000003496                                
+   15185 oKNmA5MvSwOxCzBulz9-zQ:0003426            0 SET       CITC:DWPC-Survey                             000000000003717                                
+   12425 oKNmA5MvSwOxCzBulz9-zQ:0003304            0 SET       CITC:DWPC-Survey                             000000000003463                                
+
+Finished Processing
+Duration: 1.198
+

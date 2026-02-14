@@ -208,6 +208,152 @@ export interface FilterComplexityResponse {
   total_filter_time_ms: number;
 }
 
+// --- JAR-Native Types (source: "jar_parsed") ---
+
+export interface JARGapEntry {
+  gap_duration: number;
+  line_number: number;
+  trace_id: string;
+  timestamp: string;
+  details: string;
+}
+
+export interface JARGapsResponse {
+  line_gaps: JARGapEntry[];
+  thread_gaps: JARGapEntry[];
+  queue_health: QueueHealthSummary[];
+  source: "jar_parsed" | "computed";
+}
+
+export interface JARAggregateRow {
+  operation_type: string;
+  ok: number;
+  fail: number;
+  total: number;
+  min_time: number;
+  max_time: number;
+  avg_time: number;
+  sum_time: number;
+  min_line: number;
+  max_line: number;
+}
+
+export interface JARAggregateGroup {
+  entity_name: string;
+  rows: JARAggregateRow[];
+  subtotal?: JARAggregateRow;
+}
+
+export interface JARAggregateTable {
+  grouped_by: string;
+  sorted_by: string;
+  groups: JARAggregateGroup[];
+  grand_total?: JARAggregateRow;
+}
+
+export interface JARAggregatesResponse {
+  api_by_form?: JARAggregateTable;
+  api_by_client?: JARAggregateTable;
+  api_by_client_ip?: JARAggregateTable;
+  sql_by_table?: JARAggregateTable;
+  esc_by_form?: JARAggregateTable;
+  esc_by_pool?: JARAggregateTable;
+  source: "jar_parsed" | "computed";
+}
+
+export interface JARThreadStat {
+  queue: string;
+  thread_id: string;
+  first_time: string;
+  last_time: string;
+  count: number;
+  q_count: number;
+  q_time: number;
+  total_time: number;
+  busy_pct: number;
+}
+
+export interface JARThreadStatsResponse {
+  api_threads: JARThreadStat[];
+  sql_threads: JARThreadStat[];
+  source: "jar_parsed" | "computed";
+}
+
+export interface JARAPIError {
+  end_line: number;
+  trace_id: string;
+  queue: string;
+  api_type: string;
+  form: string;
+  user: string;
+  start_time: string;
+  error_message: string;
+}
+
+export interface JARExceptionEntry {
+  line_number: number;
+  trace_id: string;
+  exception_type: string;
+  message: string;
+  sql_statement: string;
+}
+
+export interface JARExceptionsResponse {
+  api_errors: JARAPIError[];
+  api_exceptions: JARExceptionEntry[];
+  sql_exceptions: JARExceptionEntry[];
+  source: "jar_parsed" | "computed";
+}
+
+export interface JARFilterMostExecuted {
+  filter_name: string;
+  pass_count: number;
+  fail_count: number;
+}
+
+export interface JARFilterPerTransaction {
+  line_number: number;
+  trace_id: string;
+  filter_count: number;
+  operation: string;
+  form: string;
+  request_id: string;
+  filters_per_sec: number;
+}
+
+export interface JARFilterExecutedPerTxn {
+  line_number: number;
+  trace_id: string;
+  filter_name: string;
+  pass_count: number;
+  fail_count: number;
+}
+
+export interface JARFilterLevel {
+  line_number: number;
+  trace_id: string;
+  filter_level: number;
+  operation: string;
+  form: string;
+  request_id: string;
+}
+
+export interface JARFilterComplexityResponse {
+  longest_running: TopNEntry[];
+  most_executed: JARFilterMostExecuted[];
+  per_transaction: JARFilterPerTransaction[];
+  executed_per_txn: JARFilterExecutedPerTxn[];
+  filter_levels: JARFilterLevel[];
+  source: "jar_parsed" | "computed";
+}
+
+export interface JARAPIAbbreviation {
+  abbreviation: string;
+  full_name: string;
+}
+
+// --- Health Score ---
+
 export interface HealthScoreFactor {
   name: string;
   score: number;
@@ -407,42 +553,42 @@ export async function getDashboardAggregates(
   jobId: string,
   type?: string,
   token?: string,
-): Promise<AggregatesResponse> {
+): Promise<AggregatesResponse | JARAggregatesResponse> {
   const params = type ? `?${new URLSearchParams({ type }).toString()}` : "";
   const id = encodeURIComponent(jobId);
-  return apiFetch<AggregatesResponse>(`/analysis/${id}/dashboard/aggregates${params}`, {}, token);
+  return apiFetch<AggregatesResponse | JARAggregatesResponse>(`/analysis/${id}/dashboard/aggregates${params}`, {}, token);
 }
 
 export async function getDashboardExceptions(
   jobId: string,
   token?: string,
-): Promise<ExceptionsResponse> {
+): Promise<ExceptionsResponse | JARExceptionsResponse> {
   const id = encodeURIComponent(jobId);
-  return apiFetch<ExceptionsResponse>(`/analysis/${id}/dashboard/exceptions`, {}, token);
+  return apiFetch<ExceptionsResponse | JARExceptionsResponse>(`/analysis/${id}/dashboard/exceptions`, {}, token);
 }
 
 export async function getDashboardGaps(
   jobId: string,
   token?: string,
-): Promise<GapsResponse> {
+): Promise<GapsResponse | JARGapsResponse> {
   const id = encodeURIComponent(jobId);
-  return apiFetch<GapsResponse>(`/analysis/${id}/dashboard/gaps`, {}, token);
+  return apiFetch<GapsResponse | JARGapsResponse>(`/analysis/${id}/dashboard/gaps`, {}, token);
 }
 
 export async function getDashboardThreads(
   jobId: string,
   token?: string,
-): Promise<ThreadStatsResponse> {
+): Promise<ThreadStatsResponse | JARThreadStatsResponse> {
   const id = encodeURIComponent(jobId);
-  return apiFetch<ThreadStatsResponse>(`/analysis/${id}/dashboard/threads`, {}, token);
+  return apiFetch<ThreadStatsResponse | JARThreadStatsResponse>(`/analysis/${id}/dashboard/threads`, {}, token);
 }
 
 export async function getDashboardFilters(
   jobId: string,
   token?: string,
-): Promise<FilterComplexityResponse> {
+): Promise<FilterComplexityResponse | JARFilterComplexityResponse> {
   const id = encodeURIComponent(jobId);
-  return apiFetch<FilterComplexityResponse>(`/analysis/${id}/dashboard/filters`, {}, token);
+  return apiFetch<FilterComplexityResponse | JARFilterComplexityResponse>(`/analysis/${id}/dashboard/filters`, {}, token);
 }
 
 export interface ReportResponse {

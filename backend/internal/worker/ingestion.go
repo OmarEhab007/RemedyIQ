@@ -115,8 +115,29 @@ func (p *Pipeline) ProcessJob(ctx context.Context, job domain.AnalysisJob) error
 	}
 	dashboard := parseResult.Dashboard
 
-	// 5b. Compute enhanced sections from dashboard data.
-	parseResult = ComputeEnhancedSections(dashboard)
+	// 5b. Enhance parse result: fill in computed sections where JAR-native data is absent.
+	EnhanceParseResult(parseResult)
+
+	// 5b1. Backfill filter_count if JAR General Statistics didn't include it.
+	if dashboard.GeneralStats.FilterCount == 0 && parseResult.JARFilters != nil {
+		var total int64
+		for _, f := range parseResult.JARFilters.MostExecuted {
+			total += int64(f.PassCount + f.FailCount)
+		}
+		if total > 0 {
+			dashboard.GeneralStats.FilterCount = total
+		}
+	}
+
+	// 5b2. Generate time series from TopN entry timestamps if not already populated.
+	if len(dashboard.TimeSeries) == 0 {
+		if ts := generateTimeSeries(dashboard); ts != nil {
+			dashboard.TimeSeries = ts
+		}
+	}
+
+	// 5b3. Generate distribution maps from aggregates and TopN data.
+	dashboard.Distribution = generateDistribution(dashboard, parseResult)
 
 	// 5c. Run anomaly detection on parsed dashboard data.
 	var anomalies []Anomaly
@@ -140,27 +161,58 @@ func (p *Pipeline) ProcessJob(ctx context.Context, job domain.AnalysisJob) error
 		}
 
 		// Cache individual sections for lazy-loaded dashboard endpoints.
-		if parseResult.Aggregates != nil {
+		// Prefer JAR-native data over computed data when available.
+
+		// Aggregates: JAR-native (6 grouping dimensions) or computed fallback.
+		if parseResult.JARAggregates != nil {
+			if err := p.redis.Set(ctx, cachePrefix+":agg", parseResult.JARAggregates, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "agg", "error", err)
+			}
+		} else if parseResult.Aggregates != nil {
 			if err := p.redis.Set(ctx, cachePrefix+":agg", parseResult.Aggregates, sectionTTL); err != nil {
 				logger.Warn("redis cache set failed", "section", "agg", "error", err)
 			}
 		}
-		if parseResult.Exceptions != nil {
+
+		// Exceptions: JAR-native (API errors + exceptions) or computed fallback.
+		if parseResult.JARExceptions != nil {
+			if err := p.redis.Set(ctx, cachePrefix+":exc", parseResult.JARExceptions, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "exc", "error", err)
+			}
+		} else if parseResult.Exceptions != nil {
 			if err := p.redis.Set(ctx, cachePrefix+":exc", parseResult.Exceptions, sectionTTL); err != nil {
 				logger.Warn("redis cache set failed", "section", "exc", "error", err)
 			}
 		}
-		if parseResult.Gaps != nil {
+
+		// Gaps: JAR-native (line + thread gaps) or computed fallback.
+		if parseResult.JARGaps != nil {
+			if err := p.redis.Set(ctx, cachePrefix+":gaps", parseResult.JARGaps, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "gaps", "error", err)
+			}
+		} else if parseResult.Gaps != nil {
 			if err := p.redis.Set(ctx, cachePrefix+":gaps", parseResult.Gaps, sectionTTL); err != nil {
 				logger.Warn("redis cache set failed", "section", "gaps", "error", err)
 			}
 		}
-		if parseResult.ThreadStats != nil {
+
+		// Thread stats: JAR-native (per-queue, with busy%) or computed fallback.
+		if parseResult.JARThreadStats != nil {
+			if err := p.redis.Set(ctx, cachePrefix+":threads", parseResult.JARThreadStats, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "threads", "error", err)
+			}
+		} else if parseResult.ThreadStats != nil {
 			if err := p.redis.Set(ctx, cachePrefix+":threads", parseResult.ThreadStats, sectionTTL); err != nil {
 				logger.Warn("redis cache set failed", "section", "threads", "error", err)
 			}
 		}
-		if parseResult.Filters != nil {
+
+		// Filters: JAR-native (5 sub-sections) or computed fallback.
+		if parseResult.JARFilters != nil {
+			if err := p.redis.Set(ctx, cachePrefix+":filters", parseResult.JARFilters, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "filters", "error", err)
+			}
+		} else if parseResult.Filters != nil {
 			if err := p.redis.Set(ctx, cachePrefix+":filters", parseResult.Filters, sectionTTL); err != nil {
 				logger.Warn("redis cache set failed", "section", "filters", "error", err)
 			}

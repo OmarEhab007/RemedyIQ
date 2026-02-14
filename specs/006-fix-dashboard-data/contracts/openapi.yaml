@@ -1,0 +1,447 @@
+openapi: 3.1.0
+info:
+  title: RemedyIQ Dashboard API - Enhanced Sections
+  description: Updated API response schemas for JAR-parsed dashboard sections
+  version: 1.1.0
+
+paths:
+  /api/v1/analysis/{job_id}/dashboard/aggregates:
+    get:
+      summary: Get analysis aggregates
+      description: Returns JAR-parsed aggregate tables grouped by form, client, table, and pool.
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Aggregates data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JARAggregatesResponse'
+
+  /api/v1/analysis/{job_id}/dashboard/exceptions:
+    get:
+      summary: Get analysis errors and exceptions
+      description: Returns API errors, API exceptions, and SQL exceptions from JAR output.
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Exceptions data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JARExceptionsResponse'
+
+  /api/v1/analysis/{job_id}/dashboard/gaps:
+    get:
+      summary: Get gap analysis
+      description: Returns 50 longest line gaps and 50 longest thread gaps from JAR output.
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Gaps data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JARGapsResponse'
+
+  /api/v1/analysis/{job_id}/dashboard/threads:
+    get:
+      summary: Get thread statistics
+      description: Returns per-queue, per-thread statistics for both API and SQL operations.
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Thread stats data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JARThreadStatsResponse'
+
+  /api/v1/analysis/{job_id}/dashboard/filters:
+    get:
+      summary: Get filter complexity analysis
+      description: Returns all 5 filter sub-sections from JAR output.
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Filter complexity data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JARFilterComplexityResponse'
+
+components:
+  schemas:
+    # --- Gap Analysis ---
+    JARGapEntry:
+      type: object
+      properties:
+        gap_duration:
+          type: number
+          format: double
+          description: Gap duration in seconds
+        line_number:
+          type: integer
+        trace_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        details:
+          type: string
+          description: Context text (may contain SQL or status messages)
+
+    JARGapsResponse:
+      type: object
+      properties:
+        line_gaps:
+          type: array
+          items:
+            $ref: '#/components/schemas/JARGapEntry'
+        thread_gaps:
+          type: array
+          items:
+            $ref: '#/components/schemas/JARGapEntry'
+        queue_health:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueHealthSummary'
+        source:
+          type: string
+          enum: [jar_parsed, computed]
+
+    QueueHealthSummary:
+      type: object
+      properties:
+        queue:
+          type: string
+        total_calls:
+          type: integer
+        avg_ms:
+          type: number
+        error_rate:
+          type: number
+        p95_ms:
+          type: integer
+
+    # --- Aggregates ---
+    JARAggregateRow:
+      type: object
+      properties:
+        operation_type:
+          type: string
+          description: API abbreviation (SE, GE) or SQL type (SELECT, INSERT) or escalation name
+        ok:
+          type: integer
+        fail:
+          type: integer
+        total:
+          type: integer
+        min_time:
+          type: number
+          format: double
+        min_line:
+          type: integer
+        max_time:
+          type: number
+          format: double
+        max_line:
+          type: integer
+        avg_time:
+          type: number
+          format: double
+        sum_time:
+          type: number
+          format: double
+
+    JARAggregateGroup:
+      type: object
+      properties:
+        entity_name:
+          type: string
+          description: Form name, client name, table name, or pool number
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/JARAggregateRow'
+        subtotal:
+          $ref: '#/components/schemas/JARAggregateRow'
+
+    JARAggregateTable:
+      type: object
+      properties:
+        grouped_by:
+          type: string
+          enum: [Form, Client, Client IP, Table, Pool]
+        sorted_by:
+          type: string
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/JARAggregateGroup'
+        grand_total:
+          $ref: '#/components/schemas/JARAggregateRow'
+
+    JARAggregatesResponse:
+      type: object
+      properties:
+        api_by_form:
+          $ref: '#/components/schemas/JARAggregateTable'
+        api_by_client:
+          $ref: '#/components/schemas/JARAggregateTable'
+        api_by_client_ip:
+          $ref: '#/components/schemas/JARAggregateTable'
+        sql_by_table:
+          $ref: '#/components/schemas/JARAggregateTable'
+        esc_by_form:
+          $ref: '#/components/schemas/JARAggregateTable'
+        esc_by_pool:
+          $ref: '#/components/schemas/JARAggregateTable'
+        source:
+          type: string
+          enum: [jar_parsed, computed]
+
+    # --- Thread Statistics ---
+    JARThreadStat:
+      type: object
+      properties:
+        queue:
+          type: string
+        thread_id:
+          type: string
+        first_time:
+          type: string
+          format: date-time
+        last_time:
+          type: string
+          format: date-time
+        count:
+          type: integer
+        q_count:
+          type: integer
+        q_time:
+          type: number
+          format: double
+        total_time:
+          type: number
+          format: double
+        busy_pct:
+          type: number
+          format: double
+
+    JARThreadStatsResponse:
+      type: object
+      properties:
+        api_threads:
+          type: array
+          items:
+            $ref: '#/components/schemas/JARThreadStat'
+        sql_threads:
+          type: array
+          items:
+            $ref: '#/components/schemas/JARThreadStat'
+        source:
+          type: string
+          enum: [jar_parsed, computed]
+
+    # --- Errors & Exceptions ---
+    JARAPIError:
+      type: object
+      properties:
+        end_line:
+          type: integer
+        trace_id:
+          type: string
+        queue:
+          type: string
+        api:
+          type: string
+        form:
+          type: string
+        user:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        error_message:
+          type: string
+
+    JARExceptionEntry:
+      type: object
+      properties:
+        line_number:
+          type: integer
+        trace_id:
+          type: string
+        type:
+          type: string
+          description: API abbreviation (API exceptions only)
+        message:
+          type: string
+        sql_statement:
+          type: string
+          description: SQL text (SQL exceptions only)
+
+    JARExceptionsResponse:
+      type: object
+      properties:
+        api_errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/JARAPIError'
+        api_exceptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/JARExceptionEntry'
+        sql_exceptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/JARExceptionEntry'
+        source:
+          type: string
+          enum: [jar_parsed, computed]
+
+    # --- Filter Complexity ---
+    JARFilterMostExecuted:
+      type: object
+      properties:
+        filter_name:
+          type: string
+        pass_count:
+          type: integer
+        fail_count:
+          type: integer
+
+    JARFilterPerTransaction:
+      type: object
+      properties:
+        line_number:
+          type: integer
+        trace_id:
+          type: string
+        filter_count:
+          type: integer
+        operation:
+          type: string
+          enum: [SET, CREATE, DELETE]
+        form:
+          type: string
+        request_id:
+          type: string
+        filters_per_sec:
+          type: number
+          format: double
+
+    JARFilterExecutedPerTxn:
+      type: object
+      properties:
+        line_number:
+          type: integer
+        trace_id:
+          type: string
+        filter_name:
+          type: string
+        pass_count:
+          type: integer
+        fail_count:
+          type: integer
+
+    JARFilterLevel:
+      type: object
+      properties:
+        line_number:
+          type: integer
+        trace_id:
+          type: string
+        filter_level:
+          type: integer
+        operation:
+          type: string
+        form:
+          type: string
+        request_id:
+          type: string
+
+    JARFilterComplexityResponse:
+      type: object
+      properties:
+        longest_running:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopNEntry'
+        most_executed:
+          type: array
+          items:
+            $ref: '#/components/schemas/JARFilterMostExecuted'
+        per_transaction:
+          type: array
+          items:
+            $ref: '#/components/schemas/JARFilterPerTransaction'
+        executed_per_txn:
+          type: array
+          items:
+            $ref: '#/components/schemas/JARFilterExecutedPerTxn'
+        filter_levels:
+          type: array
+          items:
+            $ref: '#/components/schemas/JARFilterLevel'
+        source:
+          type: string
+          enum: [jar_parsed, computed]
+
+    # --- Existing type reference ---
+    TopNEntry:
+      type: object
+      description: Existing TopN entry type (unchanged)
+      properties:
+        rank:
+          type: integer
+        line_number:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        trace_id:
+          type: string
+        queue:
+          type: string
+        identifier:
+          type: string
+        form:
+          type: string
+        user:
+          type: string
+        duration_ms:
+          type: integer
+        success:
+          type: boolean

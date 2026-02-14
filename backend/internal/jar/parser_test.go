@@ -1,6 +1,7 @@
 package jar
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -522,4 +523,472 @@ T002:  15000
 	assert.Equal(t, 5000, data.TopAPICalls[0].DurationMS)
 
 	assert.Equal(t, 25000, data.Distribution["threads"]["T001"])
+}
+
+// ---------------------------------------------------------------------------
+// Filter parser tests (T042-T045)
+// ---------------------------------------------------------------------------
+
+// TestParseMostExecutedFilters verifies parsing of the "MOST EXECUTED FILTERS" table
+// including truncated filter names with backtick-exclamation markers.
+func TestParseMostExecutedFilters(t *testing.T) {
+	input := `Filter                                                  Pass Count Fail Count
+------------------------------------------------------- ---------- ----------
+AP:Detail - SetFlagStatus                                        0          6
+SRM:REQ:NotifyApprover_899_ParseApprovers-NEW-GT1                3          0
+SHR:SHR:Social_SkipSmartitInstalled                              3          0
+SRM:REQ:NotifyApprover_899_ParseApprovers-SendNotific` + "`" + `!          3          0
+INT:SOCAPR:ParseApproverInfo_Init                                0          1
+CST:UP:Approval:Approval:getSRDname` + "`" + `!                            1          0`
+
+	lines := strings.Split(input, "\n")
+	entries := parseMostExecutedFilters(lines)
+
+	require.Len(t, entries, 6, "should parse 6 filter entries")
+
+	// First entry.
+	assert.Equal(t, "AP:Detail - SetFlagStatus", entries[0].FilterName)
+	assert.Equal(t, 0, entries[0].PassCount)
+	assert.Equal(t, 6, entries[0].FailCount)
+
+	// Fourth entry: truncated name with backtick-exclamation.
+	assert.Contains(t, entries[3].FilterName, "SendNotific`!")
+
+	// Fifth entry.
+	assert.Equal(t, 0, entries[4].PassCount)
+	assert.Equal(t, 1, entries[4].FailCount)
+
+	// Sixth entry.
+	assert.Equal(t, "CST:UP:Approval:Approval:getSRDname`!", entries[5].FilterName)
+	assert.Equal(t, 1, entries[5].PassCount)
+}
+
+// TestParseFilterPerTransaction verifies parsing of "50 MOST FILTERS PER TRANSACTION"
+// including NaN filters/sec being converted to 0.
+func TestParseFilterPerTransaction(t *testing.T) {
+	input := `   Line#                           TrID Filter Count Operation Form                                         Request ID                                      Filters/sec
+-------- ------------------------------ ------------ --------- -------------------------------------------- ----------------------------------------------- -----------
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991          251 SET       SRM:RequestApDetailSignature                 000000000149179|000000000081466|000000000083473        0.45
+    6017 nZ0UaxoDR9eTQGaKLpHwgQ:0000001           64 SET       SRM:Request                                  <NULL                                                  0.16
+   14600 oKNmA5MvSwOxCzBulz9-zQ:0003400            0 SET       CITC:DWPC-Survey                             000000000006355                                         NaN`
+
+	lines := strings.Split(input, "\n")
+	entries := parseFilterPerTransaction(lines)
+
+	require.Len(t, entries, 3, "should parse 3 entries")
+
+	// First entry.
+	assert.Equal(t, 8622, entries[0].LineNumber)
+	assert.Equal(t, 251, entries[0].FilterCount)
+	assert.Equal(t, "SET", entries[0].Operation)
+	assert.Equal(t, "SRM:RequestApDetailSignature", entries[0].Form)
+	assert.Equal(t, 0.45, entries[0].FiltersPerSec)
+
+	// Second entry.
+	assert.Equal(t, 64, entries[1].FilterCount)
+	assert.Equal(t, "<NULL", entries[1].RequestID)
+
+	// Third entry: NaN becomes 0.
+	assert.Equal(t, 0, entries[2].FilterCount)
+	assert.Equal(t, float64(0), entries[2].FiltersPerSec, "NaN should be converted to 0")
+}
+
+// TestParseFilterExecutedPerTxn verifies parsing of "50 MOST EXECUTED FLTR PER TRANSACTION"
+// section with line numbers, filter names, and pass/fail counts.
+func TestParseFilterExecutedPerTxn(t *testing.T) {
+	input := `   Line#                           TrID Filter                                                  Pass Count Fail Count
+-------- ------------------------------ ------------------------------------------------------- ---------- ----------
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SRM:REQ:NotifyApprover_899_ParseApprovers-NEW-GT1                3          0
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991 SHR:SHR:Social_SkipSmartitInstalled                              3          0
+    7575 ppvN52iaQZmnf3QKV41xnA:0009951 AP:Detail - SetFlagStatus                                        0          1`
+
+	lines := strings.Split(input, "\n")
+	entries := parseFilterExecutedPerTxn(lines)
+
+	require.Len(t, entries, 3, "should parse 3 entries")
+
+	// First entry.
+	assert.Equal(t, 8622, entries[0].LineNumber)
+	assert.Equal(t, "SRM:REQ:NotifyApprover_899_ParseApprovers-NEW-GT1", entries[0].FilterName)
+	assert.Equal(t, 3, entries[0].PassCount)
+	assert.Equal(t, 0, entries[0].FailCount)
+
+	// Third entry.
+	assert.Equal(t, "AP:Detail - SetFlagStatus", entries[2].FilterName)
+	assert.Equal(t, 0, entries[2].PassCount)
+	assert.Equal(t, 1, entries[2].FailCount)
+}
+
+// TestParseFilterLevels verifies parsing of "50 MOST FILTER LEVELS IN TRANSACTIONS"
+// section with filter levels, operations, and forms.
+func TestParseFilterLevels(t *testing.T) {
+	input := `   Line#                           TrID Filter Level Operation Form                                         Request ID
+-------- ------------------------------ ------------ --------- -------------------------------------------- -----------------------------------------------
+    8622 ppvN52iaQZmnf3QKV41xnA:0009991            2 SET       SRM:RequestApDetailSignature                 000000000149179|000000000081466|000000000083473
+    7927 ppvN52iaQZmnf3QKV41xnA:0009973            1 CREATE    AP:Signature                                 <NULL
+    6017 nZ0UaxoDR9eTQGaKLpHwgQ:0000001            0 SET       SRM:Request                                  <NULL                                          `
+
+	lines := strings.Split(input, "\n")
+	entries := parseFilterLevels(lines)
+
+	require.Len(t, entries, 3, "should parse 3 entries")
+
+	// First entry.
+	assert.Equal(t, 8622, entries[0].LineNumber)
+	assert.Equal(t, 2, entries[0].FilterLevel)
+	assert.Equal(t, "SET", entries[0].Operation)
+	assert.Equal(t, "SRM:RequestApDetailSignature", entries[0].Form)
+
+	// Second entry.
+	assert.Equal(t, 1, entries[1].FilterLevel)
+	assert.Equal(t, "CREATE", entries[1].Operation)
+
+	// Third entry.
+	assert.Equal(t, 0, entries[2].FilterLevel)
+}
+
+// ---------------------------------------------------------------------------
+// T023: parseGroupedAggregateTable — API by Form
+// ---------------------------------------------------------------------------
+
+func TestParseAggregateTable_APIByForm(t *testing.T) {
+	input := `
+Form                                                        API            OK   Fail  Total     MIN Time MIN Line     MAX Time MAX Line     AVG Time     SUM Time
+----------------------------------------------------------- ---------- ------ ------ ------ ------------ -------- ------------ -------- ------------ ------------
+SRM:RequestApDetailSignature                                SE              1             1        0.122     8620        0.122     8620        0.122        0.122
+                                                            GS              1             1        0.000     8594        0.000     8594        0.000        0.000
+                                                                       ------ ------ ------                                                          ------------
+                                                                            2             2                                                                 0.122
+
+AP:Signature                                                CE              1             1        0.061     7922        0.061     7922        0.061        0.061
+                                                            GLEWF           2             2        0.003     7714        0.021    10116        0.012        0.024
+                                                            GE              1             1        0.003     8367        0.003     8367        0.003        0.003
+                                                            GLE             1             1        0.002     7733        0.002     7733        0.002        0.002
+                                                            GSF             4             4        0.002     7644        0.002     7644        0.002        0.008
+                                                                       ------ ------ ------                                                          ------------
+                                                                            9             9                                                                 0.098
+
+                                                                       ====== ====== ======                                                          ============
+                                                                           11            11                                                                 0.220
+`
+	lines := strings.Split(input, "\n")
+	table := parseGroupedAggregateTable(lines)
+	require.NotNil(t, table, "parseGroupedAggregateTable should return a non-nil table")
+
+	// GroupedBy should reflect the first header column.
+	assert.Contains(t, table.GroupedBy, "Form")
+
+	// 2 groups: SRM:RequestApDetailSignature, AP:Signature
+	require.Len(t, table.Groups, 2, "should have 2 groups")
+
+	// --- Group 0: SRM:RequestApDetailSignature ---
+	g0 := table.Groups[0]
+	assert.Equal(t, "SRM:RequestApDetailSignature", g0.EntityName)
+	require.Len(t, g0.Rows, 2, "SRM:RequestApDetailSignature should have 2 rows")
+	assert.Equal(t, "SE", g0.Rows[0].OperationType)
+	assert.Equal(t, "GS", g0.Rows[1].OperationType)
+	require.NotNil(t, g0.Subtotal)
+	assert.Equal(t, 2, g0.Subtotal.Total)
+	assert.InDelta(t, 0.122, g0.Subtotal.SumTime, 0.001)
+
+	// --- Group 1: AP:Signature ---
+	g1 := table.Groups[1]
+	assert.Equal(t, "AP:Signature", g1.EntityName)
+	require.Len(t, g1.Rows, 5, "AP:Signature should have 5 rows")
+	assert.Equal(t, "CE", g1.Rows[0].OperationType)
+	assert.Equal(t, "GLEWF", g1.Rows[1].OperationType)
+	assert.Equal(t, "GE", g1.Rows[2].OperationType)
+	assert.Equal(t, "GLE", g1.Rows[3].OperationType)
+	assert.Equal(t, "GSF", g1.Rows[4].OperationType)
+	require.NotNil(t, g1.Subtotal)
+	assert.Equal(t, 9, g1.Subtotal.Total)
+	assert.InDelta(t, 0.098, g1.Subtotal.SumTime, 0.001)
+
+	// --- Grand total ---
+	require.NotNil(t, table.GrandTotal, "grand total should be present")
+	assert.Equal(t, 11, table.GrandTotal.Total)
+	assert.InDelta(t, 0.220, table.GrandTotal.SumTime, 0.001)
+}
+
+// ---------------------------------------------------------------------------
+// T024: parseGroupedAggregateTable — SQL by Table
+// ---------------------------------------------------------------------------
+
+func TestParseAggregateTable_SQLByTable(t *testing.T) {
+	input := `
+Table                 SQL        OK   Fail  Total     MIN Time MIN Line     MAX Time MAX Line     AVG Time     SUM Time
+--------------------- ------ ------ ------ ------ ------------ -------- ------------ -------- ------------ ------------
+T18                   INSERT      1             1        0.031    16693        0.031    16693        0.031        0.031
+                             ------ ------ ------                                                          ------------
+                                  1             1                                                                 0.031
+
+T4382                 SELECT      6             6        0.018      741        0.039    12363        0.030        0.178
+                             ------ ------ ------                                                          ------------
+                                  6             6                                                                 0.178
+
+T384                  SELECT      2             2        0.000     7340        0.033     7279        0.017        0.033
+                      INSERT      1             1        0.001     7352        0.001     7352        0.001        0.001
+                             ------ ------ ------                                                          ------------
+                                  3             3                                                                 0.034
+
+                             ====== ====== ======                                                          ============
+                               10            10                                                                 0.243
+`
+	lines := strings.Split(input, "\n")
+	table := parseGroupedAggregateTable(lines)
+	require.NotNil(t, table)
+
+	// 3 groups: T18, T4382, T384
+	require.Len(t, table.Groups, 3, "should have 3 groups")
+
+	assert.Equal(t, "T18", table.Groups[0].EntityName)
+	require.Len(t, table.Groups[0].Rows, 1)
+	assert.Equal(t, "INSERT", table.Groups[0].Rows[0].OperationType)
+
+	assert.Equal(t, "T4382", table.Groups[1].EntityName)
+	require.Len(t, table.Groups[1].Rows, 1)
+	assert.Equal(t, "SELECT", table.Groups[1].Rows[0].OperationType)
+	assert.Equal(t, 6, table.Groups[1].Rows[0].OK)
+
+	assert.Equal(t, "T384", table.Groups[2].EntityName)
+	require.Len(t, table.Groups[2].Rows, 2, "T384 should have 2 rows (SELECT, INSERT)")
+	assert.Equal(t, "SELECT", table.Groups[2].Rows[0].OperationType)
+	assert.Equal(t, "INSERT", table.Groups[2].Rows[1].OperationType)
+	require.NotNil(t, table.Groups[2].Subtotal)
+	assert.Equal(t, 3, table.Groups[2].Subtotal.Total)
+
+	// Grand total
+	require.NotNil(t, table.GrandTotal)
+	assert.Equal(t, 10, table.GrandTotal.Total)
+}
+
+// ---------------------------------------------------------------------------
+// T025: parseGroupedAggregateTable — Escalation by Pool
+// ---------------------------------------------------------------------------
+
+func TestParseAggregateTable_EscByPool(t *testing.T) {
+	input := `
+Pool Escalation             Count     MIN Time MIN Line     MAX Time MAX Line     AVG Time     SUM Time
+---- --------------------- ------ ------------ -------- ------------ -------- ------------ ------------
+   6 INTG:SMS-POOL_CALLAPI      1        0.003    12327        0.003    12327        0.003        0.003
+                           ------                                                          ------------
+                                1                                                                 0.003
+
+                           ======                                                          ============
+                                1                                                                 0.003
+`
+	lines := strings.Split(input, "\n")
+	table := parseGroupedAggregateTable(lines)
+	require.NotNil(t, table)
+
+	// 1 group with entity "6"
+	require.Len(t, table.Groups, 1, "should have 1 group")
+	assert.Equal(t, "6", table.Groups[0].EntityName)
+	require.Len(t, table.Groups[0].Rows, 1)
+	assert.Equal(t, "INTG:SMS-POOL_CALLAPI", table.Groups[0].Rows[0].OperationType)
+	assert.Equal(t, 1, table.Groups[0].Rows[0].Total)
+
+	// Grand total
+	require.NotNil(t, table.GrandTotal)
+	assert.Equal(t, 1, table.GrandTotal.Total)
+}
+
+// ---------------------------------------------------------------------------
+// T029: parseGapEntries — Line Gaps
+// ---------------------------------------------------------------------------
+
+func TestParseGapEntries_LineGaps(t *testing.T) {
+	input := `
+    Line Gap    Line#                           TrID                    Date/Time                        Details
+------------ -------- ------------------------------ ---------------------------- ------------------------------
+       0.265        0 oKNmA5MvSwOxCzBulz9-zQ:0003436 Mon Nov 24 2025 14:47:07.436              BEGIN TRANSACTION
+       0.191        0 oKNmA5MvSwOxCzBulz9-zQ:0002980 Mon Nov 24 2025 14:47:00.268              BEGIN TRANSACTION
+       0.085        0 oKNmA5MvSwOxCzBulz9-zQ:0003478 Mon Nov 24 2025 14:47:08.068                             OK
+`
+	lines := strings.Split(input, "\n")
+	entries := parseGapEntries(lines)
+	require.Len(t, entries, 3, "should parse 3 gap entries")
+
+	// First entry
+	assert.InDelta(t, 0.265, entries[0].GapDuration, 0.001)
+	assert.Equal(t, 0, entries[0].LineNumber)
+	assert.Equal(t, "oKNmA5MvSwOxCzBulz9-zQ:0003436", entries[0].TraceID)
+	assert.Contains(t, entries[0].Details, "BEGIN TRANSACTION")
+
+	// Second entry
+	assert.InDelta(t, 0.191, entries[1].GapDuration, 0.001)
+
+	// Third entry
+	assert.Contains(t, entries[2].Details, "OK")
+}
+
+// ---------------------------------------------------------------------------
+// T030: parseGapEntries — Thread Gaps
+// ---------------------------------------------------------------------------
+
+func TestParseGapEntries_ThreadGaps(t *testing.T) {
+	input := `
+  Thread Gap    Line#                           TrID                    Date/Time                        Details
+------------ -------- ------------------------------ ---------------------------- ------------------------------
+       0.075    16425 uNFzUimrQvidJDExR4_0dQ:0000458 Mon Nov 24 2025 14:47:08.422 WITH AR_SQL_Alias$1 AS (SELECT T338...)
+       0.024        0 uNFzUimrQvidJDExR4_0dQ:0000458 Mon Nov 24 2025 14:47:08.465           -GLEWF            OK
+`
+	lines := strings.Split(input, "\n")
+	entries := parseGapEntries(lines)
+	require.Len(t, entries, 2, "should parse 2 thread gap entries")
+
+	// First entry has LineNumber=16425 and long SQL in Details.
+	assert.Equal(t, 16425, entries[0].LineNumber)
+	assert.InDelta(t, 0.075, entries[0].GapDuration, 0.001)
+	assert.Contains(t, entries[0].Details, "SELECT T338")
+
+	// Second entry
+	assert.InDelta(t, 0.024, entries[1].GapDuration, 0.001)
+}
+
+// ---------------------------------------------------------------------------
+// T031: parseThreadStatsTable — API (with QCount/QTime columns)
+// ---------------------------------------------------------------------------
+
+func TestParseThreadStats_API(t *testing.T) {
+	input := `
+Queue          Thread            First Thread Time             Last Thread Time  Count Q Count    Q Time   Total Time   Busy%
+---------- ---------- ---------------------------- ---------------------------- ------ ------- --------- ------------ -------
+AssignEng  0000000365 Mon Nov 24 2025 14:47:02.798 Mon Nov 24 2025 14:47:02.835      5                          0.034   0.33%
+Fast       0000000314 Mon Nov 24 2025 14:47:07.005 Mon Nov 24 2025 14:47:07.007      1                          0.002   0.02%
+           0000000316 Mon Nov 24 2025 14:47:06.695 Mon Nov 24 2025 14:47:06.697      1                          0.002   0.02%
+Prv:390680 0000000356 Mon Nov 24 2025 14:47:03.376 Mon Nov 24 2025 14:47:03.937     39                          0.137   1.35%
+           0000000357 Mon Nov 24 2025 14:47:03.373 Mon Nov 24 2025 14:47:03.959     40                          0.404   3.98%
+`
+	lines := strings.Split(input, "\n")
+	entries := parseThreadStatsTable(lines)
+	require.Len(t, entries, 5, "should parse 5 thread stat entries")
+
+	// First: Queue="AssignEng", ThreadID="0000000365", Count=5
+	assert.Equal(t, "AssignEng", entries[0].Queue)
+	assert.Equal(t, "0000000365", entries[0].ThreadID)
+	assert.Equal(t, 5, entries[0].Count)
+	assert.InDelta(t, 0.034, entries[0].TotalTime, 0.001)
+	assert.InDelta(t, 0.33, entries[0].BusyPct, 0.01)
+
+	// Queue propagation: 0000000316 should inherit Queue="Fast" from 0000000314.
+	assert.Equal(t, "Fast", entries[1].Queue)
+	assert.Equal(t, "0000000314", entries[1].ThreadID)
+	assert.Equal(t, "Fast", entries[2].Queue)
+	assert.Equal(t, "0000000316", entries[2].ThreadID)
+
+	// Prv:390680 entries.
+	assert.Equal(t, "Prv:390680", entries[3].Queue)
+	assert.Equal(t, "0000000356", entries[3].ThreadID)
+	assert.Equal(t, 39, entries[3].Count)
+
+	assert.Equal(t, "Prv:390680", entries[4].Queue)
+	assert.Equal(t, "0000000357", entries[4].ThreadID)
+	assert.Equal(t, 40, entries[4].Count)
+	assert.InDelta(t, 3.98, entries[4].BusyPct, 0.01)
+}
+
+// ---------------------------------------------------------------------------
+// T032: parseThreadStatsTable — SQL (no QCount/QTime)
+// ---------------------------------------------------------------------------
+
+func TestParseThreadStats_SQL(t *testing.T) {
+	input := `
+Queue          Thread            First Thread Time             Last Thread Time  Count   Total Time   Busy%
+---------- ---------- ---------------------------- ---------------------------- ------ ------------ -------
+AssignEng  0000000365 Mon Nov 24 2025 14:47:02.801 Mon Nov 24 2025 14:47:02.832      8        0.007   0.07%
+Escalation 0000000532 Mon Nov 24 2025 14:46:58.509 Mon Nov 24 2025 14:47:08.645   1881        6.169  60.71%
+           0000003876 Mon Nov 24 2025 14:47:05.440 Mon Nov 24 2025 14:47:05.442      1        0.002   0.02%
+`
+	lines := strings.Split(input, "\n")
+	entries := parseThreadStatsTable(lines)
+	require.Len(t, entries, 3, "should parse 3 SQL thread stat entries")
+
+	// Escalation thread with heavy usage.
+	assert.Equal(t, "Escalation", entries[1].Queue)
+	assert.Equal(t, "0000000532", entries[1].ThreadID)
+	assert.Equal(t, 1881, entries[1].Count)
+	assert.InDelta(t, 6.169, entries[1].TotalTime, 0.001)
+	assert.InDelta(t, 60.71, entries[1].BusyPct, 0.01)
+
+	// Queue propagation: 0000003876 inherits "Escalation".
+	assert.Equal(t, "Escalation", entries[2].Queue)
+	assert.Equal(t, "0000003876", entries[2].ThreadID)
+}
+
+// ---------------------------------------------------------------------------
+// T037: parseAPIErrors
+// ---------------------------------------------------------------------------
+
+func TestParseAPIErrors(t *testing.T) {
+	input := `
+End Line#                           TrID Queue      API        Form        User                                         Start Time Error Message
+--------- ------------------------------ ---------- ---------- ----------- -------------------------- ---------------------------- -------------
+     6211 nZ0UaxoDR9eTQGaKLpHwgQ:0000001 AssignEng  SE         SRM:Request Remedy Application Service Mon Nov 24 2025 14:47:02.814 -SE      FAIL -- AR Error(45386) null : Required field (without a default) not specified :  Category 1*
+`
+	lines := strings.Split(input, "\n")
+	entries := parseAPIErrors(lines)
+	require.Len(t, entries, 1, "should parse 1 API error entry")
+
+	e := entries[0]
+	assert.Equal(t, 6211, e.EndLine)
+	assert.Equal(t, "nZ0UaxoDR9eTQGaKLpHwgQ:0000001", e.TraceID)
+	assert.Equal(t, "AssignEng", e.Queue)
+	assert.Equal(t, "SE", e.API)
+	assert.Equal(t, "SRM:Request", e.Form)
+	assert.Equal(t, "Remedy Application Service", e.User)
+	assert.Contains(t, e.ErrorMessage, "AR Error(45386)")
+}
+
+// ---------------------------------------------------------------------------
+// T038: parseExceptionReport — API exceptions
+// ---------------------------------------------------------------------------
+
+func TestParseExceptionReport_API(t *testing.T) {
+	input := `
+   Line#                           TrID Type                                             Message
+-------- ------------------------------ ---- ---------------------------------------------------
+   16447 SsjZsHC9R4a1jxb56Qmy0A:0000315  SGE WARNING: Start of API call has no corresponding end
+   16448 SsjZsHC9R4a1jxb56Qmy0A:0000316   SE WARNING: Start of API call has no corresponding end
+   16589 SsjZsHC9R4a1jxb56Qmy0A:0000316  SSI WARNING: Start of API call has no corresponding end
+`
+	lines := strings.Split(input, "\n")
+	entries := parseExceptionReport(lines)
+	require.Len(t, entries, 3, "should parse 3 API exception entries")
+
+	// First entry.
+	assert.Equal(t, 16447, entries[0].LineNumber)
+	assert.Equal(t, "SsjZsHC9R4a1jxb56Qmy0A:0000315", entries[0].TraceID)
+	assert.Equal(t, "SGE", entries[0].Type)
+	assert.Contains(t, entries[0].Message, "WARNING")
+
+	// Second entry.
+	assert.Equal(t, 16448, entries[1].LineNumber)
+	assert.Equal(t, "SsjZsHC9R4a1jxb56Qmy0A:0000316", entries[1].TraceID)
+	assert.Equal(t, "SE", entries[1].Type)
+
+	// Third entry.
+	assert.Equal(t, 16589, entries[2].LineNumber)
+	assert.Equal(t, "SSI", entries[2].Type)
+}
+
+// ---------------------------------------------------------------------------
+// T039: parseExceptionReport — SQL exceptions
+// ---------------------------------------------------------------------------
+
+func TestParseExceptionReport_SQL(t *testing.T) {
+	input := `
+   Line#                           TrID                 Message                                                    SQL Statement
+-------- ------------------------------ ----------------------- ----------------------------------------------------------------
+   16992 oKNmA5MvSwOxCzBulz9-zQ:0003493 WARNING: Start of SQL call has no corresponding end SELECT T4381.C1 FROM T4381 WHERE (T4381.C1 = N'000000000003768')
+`
+	lines := strings.Split(input, "\n")
+	entries := parseExceptionReport(lines)
+	require.Len(t, entries, 1, "should parse 1 SQL exception entry")
+
+	e := entries[0]
+	assert.Equal(t, 16992, e.LineNumber)
+	assert.Equal(t, "oKNmA5MvSwOxCzBulz9-zQ:0003493", e.TraceID)
+	assert.Contains(t, e.Message, "WARNING")
+	assert.Contains(t, e.SQLStatement, "SELECT T4381")
 }

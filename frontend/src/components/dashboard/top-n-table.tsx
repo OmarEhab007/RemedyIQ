@@ -42,6 +42,12 @@ function parseDetails(details?: string): ParsedDetails {
   }
 }
 
+function parseLastLine(details?: string): number | null {
+  if (!details) return null;
+  const match = details.match(/last_line=(\d+)/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
 function truncate(str: string, len: number): string {
   if (str.length <= len) return str;
   return str.slice(0, len) + "...";
@@ -67,7 +73,7 @@ export function TopNTable({ apiCalls, sqlStatements, filters, escalations, jobId
   const getTypeColumns = () => {
     switch (activeTab) {
       case "api":
-        return ["Form", "User", "Queue"];
+        return ["Form", "Queue"];
       case "sql":
         return ["Table", "Statement", "Queue Wait"];
       case "filters":
@@ -83,7 +89,7 @@ export function TopNTable({ apiCalls, sqlStatements, filters, escalations, jobId
     const d = parseDetails(entry.details);
     switch (activeTab) {
       case "api":
-        return [entry.form || "-", entry.user || "-", entry.queue || "-"];
+        return [entry.form || "-", entry.queue || "-"];
       case "sql":
         return [
           d.sql_table || entry.identifier || "-",
@@ -170,47 +176,72 @@ export function TopNTable({ apiCalls, sqlStatements, filters, escalations, jobId
                     {expandedRow === idx ? "▲" : "▼"}
                   </td>
                 </tr>
-                {expandedRow === idx && (
-                  <tr key={`${idx}-detail`} className="border-b bg-muted/10">
-                    <td colSpan={getTypeColumns().length + 5} className="px-6 py-3">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                        <div>
-                          <span className="text-muted-foreground">Trace ID:</span>{" "}
-                          <span className="font-mono">{entry.trace_id || "-"}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">RPC ID:</span>{" "}
-                          <span className="font-mono">{entry.rpc_id || "-"}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Thread:</span>{" "}
-                          <span className="font-mono">{parseDetails(entry.details).thread_id || "-"}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Line:</span>{" "}
-                          {entry.line_number}
-                        </div>
-                        {parseDetails(entry.details).raw_text && (
-                          <div className="col-span-full">
-                            <span className="text-muted-foreground">Raw:</span>{" "}
-                            <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-x-auto whitespace-pre-wrap">
-                              {parseDetails(entry.details).raw_text}
-                            </pre>
+                {expandedRow === idx && (() => {
+                  const d = parseDetails(entry.details);
+                  const lastLine = parseLastLine(entry.details);
+                  return (
+                    <tr key={`${idx}-detail`} className="border-b bg-muted/10">
+                      <td colSpan={getTypeColumns().length + 5} className="px-6 py-3">
+                        <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
+                          {entry.trace_id && (
+                            <div>
+                              <span className="text-muted-foreground">Trace ID:</span>{" "}
+                              <span className="font-mono">{entry.trace_id}</span>
+                            </div>
+                          )}
+                          {entry.rpc_id && (
+                            <div>
+                              <span className="text-muted-foreground">RPC ID:</span>{" "}
+                              <span className="font-mono">{entry.rpc_id}</span>
+                            </div>
+                          )}
+                          {d.thread_id && (
+                            <div>
+                              <span className="text-muted-foreground">Thread:</span>{" "}
+                              <span className="font-mono">{d.thread_id}</span>
+                            </div>
+                          )}
+                          {entry.user && (
+                            <div>
+                              <span className="text-muted-foreground">User:</span>{" "}
+                              <span className="font-mono">{entry.user}</span>
+                            </div>
+                          )}
+                          <div>
+                            <span className="text-muted-foreground">Line:</span>{" "}
+                            <span className="font-mono">{entry.line_number.toLocaleString()}</span>
+                            {lastLine && (
+                              <span className="text-muted-foreground"> – {lastLine.toLocaleString()}</span>
+                            )}
                           </div>
+                          {entry.timestamp && (
+                            <div>
+                              <span className="text-muted-foreground">Time:</span>{" "}
+                              <span className="font-mono">{new Date(entry.timestamp).toLocaleTimeString()}</span>
+                            </div>
+                          )}
+                          {d.raw_text && (
+                            <div className="basis-full">
+                              <span className="text-muted-foreground">Raw:</span>{" "}
+                              <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-x-auto whitespace-pre-wrap">
+                                {d.raw_text}
+                              </pre>
+                            </div>
+                          )}
+                        </div>
+                        {jobId && (
+                          <a
+                            href={`/explorer?line=${entry.line_number}&job=${jobId}`}
+                            className="inline-block mt-2 text-xs text-blue-500 hover:text-blue-400 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            View in Explorer →
+                          </a>
                         )}
-                      </div>
-                      {jobId && (
-                        <a
-                          href={`/explorer?line=${entry.line_number}&job=${jobId}`}
-                          className="inline-block mt-2 text-xs text-blue-500 hover:text-blue-400 hover:underline"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          View in Explorer →
-                        </a>
-                      )}
-                    </td>
-                  </tr>
-                )}
+                      </td>
+                    </tr>
+                  );
+                })()}
               </Fragment>
             ))}
             {entries.length === 0 && (
