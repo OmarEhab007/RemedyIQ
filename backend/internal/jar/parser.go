@@ -54,6 +54,8 @@ func ParseOutput(output string) (*domain.ParseResult, error) {
 		Distribution: make(map[string]map[string]int),
 	}
 
+	result := &domain.ParseResult{Dashboard: data}
+
 	sections := splitSections(output)
 
 	for name, body := range sections {
@@ -68,50 +70,241 @@ func ParseOutput(output string) (*domain.ParseResult, error) {
 		case strings.Contains(normalized, "general statistic"):
 			parseGeneralStatistics(body, &data.GeneralStats)
 
-		// v3: "Top API Calls", v4: "50 LONGEST RUNNING INDIVIDUAL API CALLS"
-		// Note: must include "running" to avoid matching "QUEUED" sections.
+		// --- GAP ANALYSIS ---
+		case strings.Contains(normalized, "longest line gap"):
+			entries := parseGapEntries(body)
+			if len(entries) > 0 {
+				if result.JARGaps == nil {
+					result.JARGaps = &domain.JARGapsResponse{Source: "jar_parsed"}
+				}
+				result.JARGaps.LineGaps = entries
+			}
+		case strings.Contains(normalized, "longest thread gap"):
+			entries := parseGapEntries(body)
+			if len(entries) > 0 {
+				if result.JARGaps == nil {
+					result.JARGaps = &domain.JARGapsResponse{Source: "jar_parsed"}
+				}
+				result.JARGaps.ThreadGaps = entries
+			}
+
+		// --- ABBREVIATION LEGEND ---
+		case strings.Contains(normalized, "abbreviation legend"):
+			result.APIAbbreviations = parseAPIAbbreviationLegend(body)
+
+		// --- API TOP-N ---
 		case strings.Contains(normalized, "top") && strings.Contains(normalized, "api"):
 			data.TopAPICalls = parseTopNSection(body)
 		case strings.Contains(normalized, "longest") && strings.Contains(normalized, "running") && strings.Contains(normalized, "api"):
 			data.TopAPICalls = parseTopNSection(body)
 
-		// v3: "Top SQL Statements", v4: "50 LONGEST RUNNING INDIVIDUAL SQL CALLS"
+		// --- QUEUED API CALLS ---
+		case strings.Contains(normalized, "queued") && strings.Contains(normalized, "api"):
+			if !sectionContainsNoData(body) {
+				result.QueuedAPICalls = parseTopNSection(body)
+			}
+
+		// --- API AGGREGATES ---
+		case strings.Contains(normalized, "api call aggregates") && strings.Contains(normalized, "by form"):
+			table := parseGroupedAggregateTable(body)
+			if table != nil {
+				if result.JARAggregates == nil {
+					result.JARAggregates = &domain.JARAggregatesResponse{Source: "jar_parsed"}
+				}
+				if idx := strings.Index(normalized, "sorted by"); idx >= 0 {
+					table.SortedBy = strings.TrimSpace(name[strings.Index(strings.ToLower(name), "sorted by")+10:])
+				}
+				result.JARAggregates.APIByForm = table
+			}
+		case strings.Contains(normalized, "api call aggregates") && strings.Contains(normalized, "by client ip"):
+			table := parseGroupedAggregateTable(body)
+			if table != nil {
+				if result.JARAggregates == nil {
+					result.JARAggregates = &domain.JARAggregatesResponse{Source: "jar_parsed"}
+				}
+				if idx := strings.Index(normalized, "sorted by"); idx >= 0 {
+					table.SortedBy = strings.TrimSpace(name[strings.Index(strings.ToLower(name), "sorted by")+10:])
+				}
+				result.JARAggregates.APIByClientIP = table
+			}
+		case strings.Contains(normalized, "api call aggregates") && strings.Contains(normalized, "by client"):
+			table := parseGroupedAggregateTable(body)
+			if table != nil {
+				if result.JARAggregates == nil {
+					result.JARAggregates = &domain.JARAggregatesResponse{Source: "jar_parsed"}
+				}
+				if idx := strings.Index(normalized, "sorted by"); idx >= 0 {
+					table.SortedBy = strings.TrimSpace(name[strings.Index(strings.ToLower(name), "sorted by")+10:])
+				}
+				result.JARAggregates.APIByClient = table
+			}
+
+		// --- API THREAD STATISTICS ---
+		case strings.Contains(normalized, "api thread statistics"):
+			entries := parseThreadStatsTable(body)
+			if len(entries) > 0 {
+				if result.JARThreadStats == nil {
+					result.JARThreadStats = &domain.JARThreadStatsResponse{Source: "jar_parsed"}
+				}
+				result.JARThreadStats.APIThreads = entries
+			}
+
+		// --- API ERRORS ---
+		case strings.Contains(normalized, "errored out"):
+			entries := parseAPIErrors(body)
+			if len(entries) > 0 {
+				if result.JARExceptions == nil {
+					result.JARExceptions = &domain.JARExceptionsResponse{Source: "jar_parsed"}
+				}
+				result.JARExceptions.APIErrors = entries
+			}
+
+		// --- API EXCEPTION REPORT ---
+		case strings.Contains(normalized, "api exception report"):
+			entries := parseExceptionReport(body)
+			if len(entries) > 0 {
+				if result.JARExceptions == nil {
+					result.JARExceptions = &domain.JARExceptionsResponse{Source: "jar_parsed"}
+				}
+				result.JARExceptions.APIExceptions = entries
+			}
+
+		// --- SQL TOP-N ---
 		case strings.Contains(normalized, "top") && strings.Contains(normalized, "sql"):
 			data.TopSQL = parseTopNSection(body)
 		case strings.Contains(normalized, "longest") && strings.Contains(normalized, "running") && strings.Contains(normalized, "sql"):
 			data.TopSQL = parseTopNSection(body)
 
-		// v3: "Top Filter Executions", v4: "LONGEST RUNNING INDIVIDUAL FLTR"
-		case strings.Contains(normalized, "top") && strings.Contains(normalized, "filter"):
-			data.TopFilters = parseTopNSection(body)
-		case strings.Contains(normalized, "longest") && strings.Contains(normalized, "running") && strings.Contains(normalized, "fltr"):
-			data.TopFilters = parseTopNSection(body)
+		// --- SQL AGGREGATES ---
+		case strings.Contains(normalized, "sql call aggregates") && strings.Contains(normalized, "by table"):
+			table := parseGroupedAggregateTable(body)
+			if table != nil {
+				if result.JARAggregates == nil {
+					result.JARAggregates = &domain.JARAggregatesResponse{Source: "jar_parsed"}
+				}
+				if idx := strings.Index(normalized, "sorted by"); idx >= 0 {
+					table.SortedBy = strings.TrimSpace(name[strings.Index(strings.ToLower(name), "sorted by")+10:])
+				}
+				result.JARAggregates.SQLByTable = table
+			}
 
-		// v3: "Top Escalation Executions", v4: "LONGEST RUNNING INDIVIDUAL ESCL" / "ESCALATION"
+		// --- SQL THREAD STATISTICS ---
+		case strings.Contains(normalized, "sql thread statistics"):
+			entries := parseThreadStatsTable(body)
+			if len(entries) > 0 {
+				if result.JARThreadStats == nil {
+					result.JARThreadStats = &domain.JARThreadStatsResponse{Source: "jar_parsed"}
+				}
+				result.JARThreadStats.SQLThreads = entries
+			}
+
+		// --- SQL EXCEPTION REPORT ---
+		case strings.Contains(normalized, "sql exception report"):
+			entries := parseExceptionReport(body)
+			if len(entries) > 0 {
+				if result.JARExceptions == nil {
+					result.JARExceptions = &domain.JARExceptionsResponse{Source: "jar_parsed"}
+				}
+				result.JARExceptions.SQLExceptions = entries
+			}
+
+		// --- ESCALATION TOP-N ---
 		case strings.Contains(normalized, "top") && strings.Contains(normalized, "escalation"):
 			data.TopEscalations = parseTopNSection(body)
 		case strings.Contains(normalized, "longest") && strings.Contains(normalized, "running") && (strings.Contains(normalized, "escl") || strings.Contains(normalized, "escalation")):
 			data.TopEscalations = parseTopNSection(body)
 
-		// v3/v4: Thread distribution / thread statistics
-		case strings.Contains(normalized, "thread") && !strings.Contains(normalized, "gap"):
+		// --- ESCALATION AGGREGATES ---
+		case strings.Contains(normalized, "escalation call aggregates") && strings.Contains(normalized, "by form"):
+			table := parseGroupedAggregateTable(body)
+			if table != nil {
+				if result.JARAggregates == nil {
+					result.JARAggregates = &domain.JARAggregatesResponse{Source: "jar_parsed"}
+				}
+				if idx := strings.Index(normalized, "sorted by"); idx >= 0 {
+					table.SortedBy = strings.TrimSpace(name[strings.Index(strings.ToLower(name), "sorted by")+10:])
+				}
+				result.JARAggregates.EscByForm = table
+			}
+		case strings.Contains(normalized, "escalation call aggregates") && strings.Contains(normalized, "by pool"):
+			table := parseGroupedAggregateTable(body)
+			if table != nil {
+				if result.JARAggregates == nil {
+					result.JARAggregates = &domain.JARAggregatesResponse{Source: "jar_parsed"}
+				}
+				if idx := strings.Index(normalized, "sorted by"); idx >= 0 {
+					table.SortedBy = strings.TrimSpace(name[strings.Index(strings.ToLower(name), "sorted by")+10:])
+				}
+				result.JARAggregates.EscByPool = table
+			}
+
+		// --- FILTER TOP-N (longest running) ---
+		case strings.Contains(normalized, "top") && strings.Contains(normalized, "filter"):
+			data.TopFilters = parseTopNSection(body)
+		case strings.Contains(normalized, "longest") && strings.Contains(normalized, "running") && strings.Contains(normalized, "fltr"):
+			data.TopFilters = parseTopNSection(body)
+
+		// --- FILTER: MOST EXECUTED PER TRANSACTION (must match before "most executed fltr") ---
+		case strings.Contains(normalized, "most executed fltr per transaction"):
+			entries := parseFilterExecutedPerTxn(body)
+			if len(entries) > 0 {
+				if result.JARFilters == nil {
+					result.JARFilters = &domain.JARFilterComplexityResponse{Source: "jar_parsed"}
+				}
+				result.JARFilters.ExecutedPerTxn = entries
+			}
+
+		// --- FILTER: MOST EXECUTED ---
+		case strings.Contains(normalized, "most executed fltr"):
+			entries := parseMostExecutedFilters(body)
+			if len(entries) > 0 {
+				if result.JARFilters == nil {
+					result.JARFilters = &domain.JARFilterComplexityResponse{Source: "jar_parsed"}
+				}
+				result.JARFilters.MostExecuted = entries
+			}
+
+		// --- FILTER: MOST FILTERS PER TRANSACTION ---
+		case strings.Contains(normalized, "most filters per transaction"):
+			entries := parseFilterPerTransaction(body)
+			if len(entries) > 0 {
+				if result.JARFilters == nil {
+					result.JARFilters = &domain.JARFilterComplexityResponse{Source: "jar_parsed"}
+				}
+				result.JARFilters.PerTransaction = entries
+			}
+
+		// --- FILTER: MOST FILTER LEVELS ---
+		case strings.Contains(normalized, "most filter levels"):
+			entries := parseFilterLevels(body)
+			if len(entries) > 0 {
+				if result.JARFilters == nil {
+					result.JARFilters = &domain.JARFilterComplexityResponse{Source: "jar_parsed"}
+				}
+				result.JARFilters.FilterLevels = entries
+			}
+
+		// --- GENERIC FALLBACKS (v3 compatibility) ---
+		case strings.Contains(normalized, "thread") && !strings.Contains(normalized, "gap") && !strings.Contains(normalized, "api thread") && !strings.Contains(normalized, "sql thread"):
 			parseDistribution(body, data, "threads")
-
-		// v3/v4: Exception / error distribution
-		case strings.Contains(normalized, "exception") || strings.Contains(normalized, "error"):
+		case (strings.Contains(normalized, "exception") || strings.Contains(normalized, "error")) &&
+			!strings.Contains(normalized, "errored out") &&
+			!strings.Contains(normalized, "api exception") &&
+			!strings.Contains(normalized, "sql exception"):
 			parseDistribution(body, data, "errors")
-
-		// v3: "User Distribution/Statistics"
 		case strings.Contains(normalized, "user") && !strings.Contains(normalized, "count"):
 			parseDistribution(body, data, "users")
-
-		// v3: "Form Distribution/Statistics"
-		case strings.Contains(normalized, "form") && !strings.Contains(normalized, "count") && !strings.Contains(normalized, "longest"):
+		case strings.Contains(normalized, "form") && !strings.Contains(normalized, "count") && !strings.Contains(normalized, "longest") && !strings.Contains(normalized, "aggregates"):
 			parseDistribution(body, data, "forms")
 		}
 	}
 
-	return &domain.ParseResult{Dashboard: data}, nil
+	// Copy TopFilters to JARFilters.LongestRunning if available.
+	if len(data.TopFilters) > 0 && result.JARFilters != nil {
+		result.JARFilters.LongestRunning = data.TopFilters
+	}
+
+	return result, nil
 }
 
 // splitSections splits the JAR output into named sections.
@@ -908,4 +1101,824 @@ func tryParseTimestamp(s string) (time.Time, bool) {
 		}
 	}
 	return time.Time{}, false
+}
+
+// --- JAR-Native Section Parsers ---
+
+// isEqualsSeparator returns true if the line consists of only equals signs and spaces.
+func isEqualsSeparator(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return false
+	}
+	hasEquals := false
+	for _, ch := range trimmed {
+		if ch == '=' {
+			hasEquals = true
+		} else if ch != ' ' {
+			return false
+		}
+	}
+	return hasEquals
+}
+
+// parseFloatSafe parses a float string, returning 0 on failure. Handles "NaN".
+func parseFloatSafe(s string) float64 {
+	s = strings.TrimSpace(s)
+	if s == "" || strings.EqualFold(s, "nan") {
+		return 0
+	}
+	f, _ := strconv.ParseFloat(s, 64)
+	return f
+}
+
+// parseGapEntries parses a gap table (line gaps or thread gaps) into JARGapEntry slices.
+func parseGapEntries(lines []string) []domain.JARGapEntry {
+	sepIdx := -1
+	for i, line := range lines {
+		if isDashSeparator(line) {
+			sepIdx = i
+			break
+		}
+	}
+	if sepIdx < 1 {
+		return nil
+	}
+
+	headerLine := lines[sepIdx-1]
+	sepLine := lines[sepIdx]
+	boundaries := extractColumnBoundaries(sepLine)
+	headers := extractColumnValues(headerLine, boundaries)
+
+	gapCol, lineCol, tridCol, dateCol, detailsCol := -1, -1, -1, -1, -1
+	for i, h := range headers {
+		hl := strings.ToLower(strings.TrimSpace(h))
+		switch {
+		case strings.Contains(hl, "gap"):
+			gapCol = i
+		case hl == "line#":
+			lineCol = i
+		case hl == "trid":
+			tridCol = i
+		case strings.Contains(hl, "date") || hl == "date/time":
+			dateCol = i
+		case hl == "details":
+			detailsCol = i
+		}
+	}
+
+	var entries []domain.JARGapEntry
+	for i := sepIdx + 1; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "" {
+			continue
+		}
+		if isDashSeparator(lines[i]) || isEqualsSeparator(lines[i]) || strings.HasPrefix(trimmed, "###") {
+			break
+		}
+
+		values := extractColumnValues(lines[i], boundaries)
+		entry := domain.JARGapEntry{}
+		if gapCol >= 0 && gapCol < len(values) {
+			entry.GapDuration = parseFloatSafe(values[gapCol])
+		}
+		if lineCol >= 0 && lineCol < len(values) {
+			entry.LineNumber = int(parseIntSafe(values[lineCol]))
+		}
+		if tridCol >= 0 && tridCol < len(values) {
+			entry.TraceID = values[tridCol]
+		}
+		if dateCol >= 0 && dateCol < len(values) {
+			entry.Timestamp = parseTimestampSafe(values[dateCol])
+		}
+		if detailsCol >= 0 && detailsCol < len(values) {
+			entry.Details = values[detailsCol]
+		}
+		if entry.GapDuration > 0 || entry.TraceID != "" {
+			entries = append(entries, entry)
+		}
+	}
+	return entries
+}
+
+// parseGroupedAggregateTable parses a grouped aggregate table (API/SQL/Escalation aggregates).
+// Handles the two-pass grouped pattern: entity → operation rows → subtotal (------) → grand total (======).
+func parseGroupedAggregateTable(lines []string) *domain.JARAggregateTable {
+	sepIdx := -1
+	for i, line := range lines {
+		if isDashSeparator(line) {
+			sepIdx = i
+			break
+		}
+	}
+	if sepIdx < 1 {
+		return nil
+	}
+
+	headerLine := lines[sepIdx-1]
+	sepLine := lines[sepIdx]
+	boundaries := extractColumnBoundaries(sepLine)
+	headers := extractColumnValues(headerLine, boundaries)
+
+	// Map column roles.
+	opCol, okCol, failCol, totalCol, countCol := -1, -1, -1, -1, -1
+	minTimeCol, minLineCol, maxTimeCol, maxLineCol, avgTimeCol, sumTimeCol := -1, -1, -1, -1, -1, -1
+	for i, h := range headers {
+		hl := strings.ToLower(strings.TrimSpace(h))
+		switch hl {
+		case "api", "sql", "escalation":
+			opCol = i
+		case "ok":
+			okCol = i
+		case "fail":
+			failCol = i
+		case "total":
+			totalCol = i
+		case "count":
+			countCol = i
+		case "min time":
+			minTimeCol = i
+		case "min line":
+			minLineCol = i
+		case "max time":
+			maxTimeCol = i
+		case "max line":
+			maxLineCol = i
+		case "avg time":
+			avgTimeCol = i
+		case "sum time":
+			sumTimeCol = i
+		}
+	}
+
+	table := &domain.JARAggregateTable{
+		GroupedBy: strings.TrimSpace(headers[0]),
+	}
+
+	getVal := func(values []string, col int) string {
+		if col >= 0 && col < len(values) {
+			return values[col]
+		}
+		return ""
+	}
+
+	buildRow := func(values []string) domain.JARAggregateRow {
+		row := domain.JARAggregateRow{
+			OperationType: getVal(values, opCol),
+			OK:            int(parseIntSafe(getVal(values, okCol))),
+			Fail:          int(parseIntSafe(getVal(values, failCol))),
+			MinTime:       parseFloatSafe(getVal(values, minTimeCol)),
+			MinLine:       int(parseIntSafe(getVal(values, minLineCol))),
+			MaxTime:       parseFloatSafe(getVal(values, maxTimeCol)),
+			MaxLine:       int(parseIntSafe(getVal(values, maxLineCol))),
+			AvgTime:       parseFloatSafe(getVal(values, avgTimeCol)),
+			SumTime:       parseFloatSafe(getVal(values, sumTimeCol)),
+		}
+		if totalCol >= 0 {
+			row.Total = int(parseIntSafe(getVal(values, totalCol)))
+		} else if countCol >= 0 {
+			row.Total = int(parseIntSafe(getVal(values, countCol)))
+		}
+		return row
+	}
+
+	var currentGroup *domain.JARAggregateGroup
+	expectSubtotal := false
+	expectGrandTotal := false
+
+	for i := sepIdx + 1; i < len(lines); i++ {
+		line := lines[i]
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "###") {
+			break
+		}
+
+		if isEqualsSeparator(line) {
+			if currentGroup != nil {
+				table.Groups = append(table.Groups, *currentGroup)
+				currentGroup = nil
+			}
+			expectGrandTotal = true
+			continue
+		}
+		if isDashSeparator(line) {
+			expectSubtotal = true
+			continue
+		}
+
+		values := extractColumnValues(line, boundaries)
+
+		if expectGrandTotal {
+			row := buildRow(values)
+			table.GrandTotal = &row
+			expectGrandTotal = false
+			continue
+		}
+		if expectSubtotal {
+			row := buildRow(values)
+			if currentGroup != nil {
+				currentGroup.Subtotal = &row
+				table.Groups = append(table.Groups, *currentGroup)
+				currentGroup = nil
+			}
+			expectSubtotal = false
+			continue
+		}
+
+		entityName := ""
+		if len(values) > 0 {
+			entityName = values[0]
+		}
+		if entityName != "" {
+			if currentGroup != nil {
+				table.Groups = append(table.Groups, *currentGroup)
+			}
+			currentGroup = &domain.JARAggregateGroup{EntityName: entityName}
+		}
+
+		if currentGroup != nil {
+			row := buildRow(values)
+			if row.Total > 0 || row.OK > 0 || row.OperationType != "" {
+				currentGroup.Rows = append(currentGroup.Rows, row)
+			}
+		}
+	}
+	if currentGroup != nil {
+		table.Groups = append(table.Groups, *currentGroup)
+	}
+	return table
+}
+
+// parseThreadStatsTable parses thread statistics into JARThreadStat slices.
+// Handles API (with QCount/QTime columns) and SQL (without) variants.
+func parseThreadStatsTable(lines []string) []domain.JARThreadStat {
+	sepIdx := -1
+	for i, line := range lines {
+		if isDashSeparator(line) {
+			sepIdx = i
+			break
+		}
+	}
+	if sepIdx < 1 {
+		return nil
+	}
+
+	headerLine := lines[sepIdx-1]
+	sepLine := lines[sepIdx]
+	boundaries := extractColumnBoundaries(sepLine)
+	headers := extractColumnValues(headerLine, boundaries)
+
+	queueCol, threadCol, firstCol, lastCol := -1, -1, -1, -1
+	countCol, qCountCol, qTimeCol, totalTimeCol, busyCol := -1, -1, -1, -1, -1
+	for i, h := range headers {
+		hl := strings.ToLower(strings.TrimSpace(h))
+		switch {
+		case hl == "queue":
+			queueCol = i
+		case hl == "thread":
+			threadCol = i
+		case strings.Contains(hl, "first"):
+			firstCol = i
+		case strings.Contains(hl, "last"):
+			lastCol = i
+		case hl == "count":
+			countCol = i
+		case hl == "q count":
+			qCountCol = i
+		case hl == "q time":
+			qTimeCol = i
+		case hl == "total time":
+			totalTimeCol = i
+		case strings.Contains(hl, "busy"):
+			busyCol = i
+		}
+	}
+
+	var entries []domain.JARThreadStat
+	currentQueue := ""
+	for i := sepIdx + 1; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "" {
+			continue
+		}
+		if isDashSeparator(lines[i]) || isEqualsSeparator(lines[i]) || strings.HasPrefix(trimmed, "###") {
+			break
+		}
+
+		values := extractColumnValues(lines[i], boundaries)
+		if queueCol >= 0 && queueCol < len(values) && values[queueCol] != "" {
+			currentQueue = values[queueCol]
+		}
+
+		stat := domain.JARThreadStat{Queue: currentQueue}
+		if threadCol >= 0 && threadCol < len(values) {
+			stat.ThreadID = values[threadCol]
+		}
+		if firstCol >= 0 && firstCol < len(values) {
+			stat.FirstTime = parseTimestampSafe(values[firstCol])
+		}
+		if lastCol >= 0 && lastCol < len(values) {
+			stat.LastTime = parseTimestampSafe(values[lastCol])
+		}
+		if countCol >= 0 && countCol < len(values) {
+			stat.Count = int(parseIntSafe(values[countCol]))
+		}
+		if qCountCol >= 0 && qCountCol < len(values) {
+			stat.QCount = int(parseIntSafe(values[qCountCol]))
+		}
+		if qTimeCol >= 0 && qTimeCol < len(values) {
+			stat.QTime = parseFloatSafe(values[qTimeCol])
+		}
+		if totalTimeCol >= 0 && totalTimeCol < len(values) {
+			stat.TotalTime = parseFloatSafe(values[totalTimeCol])
+		}
+		if busyCol >= 0 && busyCol < len(values) {
+			s := strings.TrimSuffix(strings.TrimSpace(values[busyCol]), "%")
+			stat.BusyPct = parseFloatSafe(s)
+		}
+
+		if stat.ThreadID != "" {
+			entries = append(entries, stat)
+		}
+	}
+	return entries
+}
+
+// parseAPIErrors parses "API CALLS THAT ERRORED OUT" section.
+func parseAPIErrors(lines []string) []domain.JARAPIError {
+	sepIdx := -1
+	for i, line := range lines {
+		if isDashSeparator(line) {
+			sepIdx = i
+			break
+		}
+	}
+	if sepIdx < 1 {
+		return nil
+	}
+
+	headerLine := lines[sepIdx-1]
+	sepLine := lines[sepIdx]
+	boundaries := extractColumnBoundaries(sepLine)
+	headers := extractColumnValues(headerLine, boundaries)
+
+	endLineCol, tridCol, queueCol, apiCol, formCol, userCol, startCol, errCol := -1, -1, -1, -1, -1, -1, -1, -1
+	for i, h := range headers {
+		hl := strings.ToLower(strings.TrimSpace(h))
+		switch {
+		case strings.Contains(hl, "end line"):
+			endLineCol = i
+		case hl == "trid":
+			tridCol = i
+		case hl == "queue":
+			queueCol = i
+		case hl == "api":
+			apiCol = i
+		case hl == "form":
+			formCol = i
+		case hl == "user":
+			userCol = i
+		case strings.Contains(hl, "start time"):
+			startCol = i
+		case strings.Contains(hl, "error"):
+			errCol = i
+		}
+	}
+
+	var entries []domain.JARAPIError
+	for i := sepIdx + 1; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "" {
+			continue
+		}
+		if isDashSeparator(lines[i]) || isEqualsSeparator(lines[i]) || strings.HasPrefix(trimmed, "###") {
+			break
+		}
+
+		values := extractColumnValues(lines[i], boundaries)
+		entry := domain.JARAPIError{}
+		if endLineCol >= 0 && endLineCol < len(values) {
+			entry.EndLine = int(parseIntSafe(values[endLineCol]))
+		}
+		if tridCol >= 0 && tridCol < len(values) {
+			entry.TraceID = values[tridCol]
+		}
+		if queueCol >= 0 && queueCol < len(values) {
+			entry.Queue = values[queueCol]
+		}
+		if apiCol >= 0 && apiCol < len(values) {
+			entry.API = values[apiCol]
+		}
+		if formCol >= 0 && formCol < len(values) {
+			entry.Form = values[formCol]
+		}
+		if userCol >= 0 && userCol < len(values) {
+			entry.User = values[userCol]
+		}
+		if startCol >= 0 && startCol < len(values) {
+			entry.StartTime = parseTimestampSafe(values[startCol])
+		}
+		if errCol >= 0 && errCol < len(values) {
+			entry.ErrorMessage = values[errCol]
+		}
+		if entry.TraceID != "" || entry.EndLine > 0 {
+			entries = append(entries, entry)
+		}
+	}
+	return entries
+}
+
+// parseExceptionReport parses an API or SQL exception report.
+// API variant columns: Line#, TrID, Type, Message
+// SQL variant columns: Line#, TrID, Message, SQL Statement
+func parseExceptionReport(lines []string) []domain.JARExceptionEntry {
+	sepIdx := -1
+	for i, line := range lines {
+		if isDashSeparator(line) {
+			sepIdx = i
+			break
+		}
+	}
+	if sepIdx < 1 {
+		return nil
+	}
+
+	headerLine := lines[sepIdx-1]
+	sepLine := lines[sepIdx]
+	boundaries := extractColumnBoundaries(sepLine)
+	headers := extractColumnValues(headerLine, boundaries)
+
+	lineCol, tridCol, typeCol, msgCol, sqlCol := -1, -1, -1, -1, -1
+	for i, h := range headers {
+		hl := strings.ToLower(strings.TrimSpace(h))
+		switch {
+		case hl == "line#":
+			lineCol = i
+		case hl == "trid":
+			tridCol = i
+		case hl == "type":
+			typeCol = i
+		case hl == "message":
+			msgCol = i
+		case strings.Contains(hl, "sql statement"):
+			sqlCol = i
+		}
+	}
+
+	var entries []domain.JARExceptionEntry
+	for i := sepIdx + 1; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "" {
+			continue
+		}
+		if isDashSeparator(lines[i]) || isEqualsSeparator(lines[i]) || strings.HasPrefix(trimmed, "###") {
+			break
+		}
+
+		values := extractColumnValues(lines[i], boundaries)
+		entry := domain.JARExceptionEntry{}
+		if lineCol >= 0 && lineCol < len(values) {
+			entry.LineNumber = int(parseIntSafe(values[lineCol]))
+		}
+		if tridCol >= 0 && tridCol < len(values) {
+			entry.TraceID = values[tridCol]
+		}
+		if typeCol >= 0 && typeCol < len(values) {
+			entry.Type = values[typeCol]
+		}
+		if msgCol >= 0 && msgCol < len(values) {
+			entry.Message = values[msgCol]
+		}
+		if sqlCol >= 0 && sqlCol < len(values) {
+			entry.SQLStatement = values[sqlCol]
+		}
+		if entry.LineNumber > 0 || entry.TraceID != "" {
+			entries = append(entries, entry)
+		}
+	}
+	return entries
+}
+
+// parseMostExecutedFilters parses "50 MOST EXECUTED FLTR" section.
+func parseMostExecutedFilters(lines []string) []domain.JARFilterMostExecuted {
+	sepIdx := -1
+	for i, line := range lines {
+		if isDashSeparator(line) {
+			sepIdx = i
+			break
+		}
+	}
+	if sepIdx < 1 {
+		return nil
+	}
+
+	headerLine := lines[sepIdx-1]
+	sepLine := lines[sepIdx]
+	boundaries := extractColumnBoundaries(sepLine)
+	headers := extractColumnValues(headerLine, boundaries)
+
+	filterCol, passCol, failCol := -1, -1, -1
+	for i, h := range headers {
+		hl := strings.ToLower(strings.TrimSpace(h))
+		switch {
+		case hl == "filter":
+			filterCol = i
+		case strings.Contains(hl, "pass"):
+			passCol = i
+		case strings.Contains(hl, "fail"):
+			failCol = i
+		}
+	}
+
+	var entries []domain.JARFilterMostExecuted
+	for i := sepIdx + 1; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "" {
+			continue
+		}
+		if isDashSeparator(lines[i]) || isEqualsSeparator(lines[i]) || strings.HasPrefix(trimmed, "###") {
+			break
+		}
+
+		values := extractColumnValues(lines[i], boundaries)
+		entry := domain.JARFilterMostExecuted{}
+		if filterCol >= 0 && filterCol < len(values) {
+			entry.FilterName = values[filterCol]
+		}
+		if passCol >= 0 && passCol < len(values) {
+			entry.PassCount = int(parseIntSafe(values[passCol]))
+		}
+		if failCol >= 0 && failCol < len(values) {
+			entry.FailCount = int(parseIntSafe(values[failCol]))
+		}
+		if entry.FilterName != "" {
+			entries = append(entries, entry)
+		}
+	}
+	return entries
+}
+
+// parseFilterPerTransaction parses "50 MOST FILTERS PER TRANSACTION" section.
+func parseFilterPerTransaction(lines []string) []domain.JARFilterPerTransaction {
+	sepIdx := -1
+	for i, line := range lines {
+		if isDashSeparator(line) {
+			sepIdx = i
+			break
+		}
+	}
+	if sepIdx < 1 {
+		return nil
+	}
+
+	headerLine := lines[sepIdx-1]
+	sepLine := lines[sepIdx]
+	boundaries := extractColumnBoundaries(sepLine)
+	headers := extractColumnValues(headerLine, boundaries)
+
+	lineCol, tridCol, countCol, opCol, formCol, reqCol, rateCol := -1, -1, -1, -1, -1, -1, -1
+	for i, h := range headers {
+		hl := strings.ToLower(strings.TrimSpace(h))
+		switch {
+		case hl == "line#":
+			lineCol = i
+		case hl == "trid":
+			tridCol = i
+		case strings.Contains(hl, "filter count"):
+			countCol = i
+		case hl == "operation":
+			opCol = i
+		case hl == "form":
+			formCol = i
+		case strings.Contains(hl, "request"):
+			reqCol = i
+		case strings.Contains(hl, "filters/sec") || strings.Contains(hl, "filters/"):
+			rateCol = i
+		}
+	}
+
+	var entries []domain.JARFilterPerTransaction
+	for i := sepIdx + 1; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "" {
+			continue
+		}
+		if isDashSeparator(lines[i]) || isEqualsSeparator(lines[i]) || strings.HasPrefix(trimmed, "###") {
+			break
+		}
+
+		values := extractColumnValues(lines[i], boundaries)
+		entry := domain.JARFilterPerTransaction{}
+		if lineCol >= 0 && lineCol < len(values) {
+			entry.LineNumber = int(parseIntSafe(values[lineCol]))
+		}
+		if tridCol >= 0 && tridCol < len(values) {
+			entry.TraceID = values[tridCol]
+		}
+		if countCol >= 0 && countCol < len(values) {
+			entry.FilterCount = int(parseIntSafe(values[countCol]))
+		}
+		if opCol >= 0 && opCol < len(values) {
+			entry.Operation = values[opCol]
+		}
+		if formCol >= 0 && formCol < len(values) {
+			entry.Form = values[formCol]
+		}
+		if reqCol >= 0 && reqCol < len(values) {
+			entry.RequestID = values[reqCol]
+		}
+		if rateCol >= 0 && rateCol < len(values) {
+			entry.FiltersPerSec = parseFloatSafe(values[rateCol]) // handles NaN → 0
+		}
+		if entry.LineNumber > 0 || entry.TraceID != "" {
+			entries = append(entries, entry)
+		}
+	}
+	return entries
+}
+
+// parseFilterExecutedPerTxn parses "50 MOST EXECUTED FLTR PER TRANSACTION" section.
+func parseFilterExecutedPerTxn(lines []string) []domain.JARFilterExecutedPerTxn {
+	sepIdx := -1
+	for i, line := range lines {
+		if isDashSeparator(line) {
+			sepIdx = i
+			break
+		}
+	}
+	if sepIdx < 1 {
+		return nil
+	}
+
+	headerLine := lines[sepIdx-1]
+	sepLine := lines[sepIdx]
+	boundaries := extractColumnBoundaries(sepLine)
+	headers := extractColumnValues(headerLine, boundaries)
+
+	lineCol, tridCol, filterCol, passCol, failCol := -1, -1, -1, -1, -1
+	for i, h := range headers {
+		hl := strings.ToLower(strings.TrimSpace(h))
+		switch {
+		case hl == "line#":
+			lineCol = i
+		case hl == "trid":
+			tridCol = i
+		case hl == "filter":
+			filterCol = i
+		case strings.Contains(hl, "pass"):
+			passCol = i
+		case strings.Contains(hl, "fail"):
+			failCol = i
+		}
+	}
+
+	var entries []domain.JARFilterExecutedPerTxn
+	for i := sepIdx + 1; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "" {
+			continue
+		}
+		if isDashSeparator(lines[i]) || isEqualsSeparator(lines[i]) || strings.HasPrefix(trimmed, "###") {
+			break
+		}
+
+		values := extractColumnValues(lines[i], boundaries)
+		entry := domain.JARFilterExecutedPerTxn{}
+		if lineCol >= 0 && lineCol < len(values) {
+			entry.LineNumber = int(parseIntSafe(values[lineCol]))
+		}
+		if tridCol >= 0 && tridCol < len(values) {
+			entry.TraceID = values[tridCol]
+		}
+		if filterCol >= 0 && filterCol < len(values) {
+			entry.FilterName = values[filterCol]
+		}
+		if passCol >= 0 && passCol < len(values) {
+			entry.PassCount = int(parseIntSafe(values[passCol]))
+		}
+		if failCol >= 0 && failCol < len(values) {
+			entry.FailCount = int(parseIntSafe(values[failCol]))
+		}
+		if entry.LineNumber > 0 || entry.TraceID != "" {
+			entries = append(entries, entry)
+		}
+	}
+	return entries
+}
+
+// parseFilterLevels parses "50 MOST FILTER LEVELS IN TRANSACTIONS" section.
+func parseFilterLevels(lines []string) []domain.JARFilterLevel {
+	sepIdx := -1
+	for i, line := range lines {
+		if isDashSeparator(line) {
+			sepIdx = i
+			break
+		}
+	}
+	if sepIdx < 1 {
+		return nil
+	}
+
+	headerLine := lines[sepIdx-1]
+	sepLine := lines[sepIdx]
+	boundaries := extractColumnBoundaries(sepLine)
+	headers := extractColumnValues(headerLine, boundaries)
+
+	lineCol, tridCol, levelCol, opCol, formCol, reqCol := -1, -1, -1, -1, -1, -1
+	for i, h := range headers {
+		hl := strings.ToLower(strings.TrimSpace(h))
+		switch {
+		case hl == "line#":
+			lineCol = i
+		case hl == "trid":
+			tridCol = i
+		case strings.Contains(hl, "filter level"):
+			levelCol = i
+		case hl == "operation":
+			opCol = i
+		case hl == "form":
+			formCol = i
+		case strings.Contains(hl, "request"):
+			reqCol = i
+		}
+	}
+
+	var entries []domain.JARFilterLevel
+	for i := sepIdx + 1; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "" {
+			continue
+		}
+		if isDashSeparator(lines[i]) || isEqualsSeparator(lines[i]) || strings.HasPrefix(trimmed, "###") {
+			break
+		}
+
+		values := extractColumnValues(lines[i], boundaries)
+		entry := domain.JARFilterLevel{}
+		if lineCol >= 0 && lineCol < len(values) {
+			entry.LineNumber = int(parseIntSafe(values[lineCol]))
+		}
+		if tridCol >= 0 && tridCol < len(values) {
+			entry.TraceID = values[tridCol]
+		}
+		if levelCol >= 0 && levelCol < len(values) {
+			entry.FilterLevel = int(parseIntSafe(values[levelCol]))
+		}
+		if opCol >= 0 && opCol < len(values) {
+			entry.Operation = values[opCol]
+		}
+		if formCol >= 0 && formCol < len(values) {
+			entry.Form = values[formCol]
+		}
+		if reqCol >= 0 && reqCol < len(values) {
+			entry.RequestID = values[reqCol]
+		}
+		if entry.LineNumber > 0 || entry.TraceID != "" {
+			entries = append(entries, entry)
+		}
+	}
+	return entries
+}
+
+// parseAPIAbbreviationLegend parses the "API Call Abbreviation Legend" section.
+func parseAPIAbbreviationLegend(lines []string) []domain.JARAPIAbbreviation {
+	var entries []domain.JARAPIAbbreviation
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		parts := strings.SplitN(trimmed, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		abbr := strings.TrimSpace(parts[0])
+		full := strings.TrimSpace(parts[1])
+		if abbr != "" && full != "" {
+			entries = append(entries, domain.JARAPIAbbreviation{
+				Abbreviation: abbr,
+				FullName:     full,
+			})
+		}
+	}
+	return entries
+}
+
+// sectionContainsNoData checks if a section body indicates no data (e.g., "No Queued API's").
+func sectionContainsNoData(lines []string) bool {
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "No ") || strings.HasPrefix(trimmed, "None") {
+			return true
+		}
+		// If we find a non-empty, non-"No" line, there's data.
+		return false
+	}
+	return true
 }

@@ -24,6 +24,41 @@ func ComputeEnhancedSections(dashboard *domain.DashboardData) *domain.ParseResul
 	return result
 }
 
+// EnhanceParseResult fills in computed sections for any section where
+// JAR-native data is not already present. This preserves the JAR-parsed
+// data from ParseOutput() while adding fallback computed data.
+func EnhanceParseResult(result *domain.ParseResult) {
+	if result == nil || result.Dashboard == nil {
+		return
+	}
+	dashboard := result.Dashboard
+
+	// Only compute aggregates if JAR-native data is absent.
+	if result.JARAggregates == nil {
+		result.Aggregates = computeAggregates(dashboard)
+	}
+
+	// Only compute exceptions if JAR-native data is absent.
+	if result.JARExceptions == nil {
+		result.Exceptions = computeExceptions(dashboard)
+	}
+
+	// Only compute thread stats if JAR-native data is absent.
+	if result.JARThreadStats == nil {
+		result.ThreadStats = computeThreadStats(dashboard)
+	}
+
+	// Only compute filters if JAR-native data is absent.
+	if result.JARFilters == nil {
+		result.Filters = computeFilters(dashboard)
+	}
+
+	// Only compute gaps if JAR-native data is absent.
+	if result.JARGaps == nil {
+		result.Gaps = computeGaps(dashboard)
+	}
+}
+
 func computeAggregates(dashboard *domain.DashboardData) *domain.AggregatesResponse {
 	resp := &domain.AggregatesResponse{}
 
@@ -428,4 +463,236 @@ type queueAccumulator struct {
 	totalMS    int64
 	errorCount int64
 	durations  []int64
+}
+
+// generateTimeSeries creates time-bucketed data points from TopN entry timestamps.
+// Buckets by minute if log duration > 1 min, by second otherwise.
+func generateTimeSeries(dashboard *domain.DashboardData) []domain.TimeSeriesPoint {
+	if dashboard == nil {
+		return nil
+	}
+
+	type entryWithType struct {
+		ts       time.Time
+		logType  string
+		duration int
+		success  bool
+	}
+
+	var entries []entryWithType
+
+	for _, e := range dashboard.TopAPICalls {
+		if !e.Timestamp.IsZero() {
+			entries = append(entries, entryWithType{ts: e.Timestamp, logType: "api", duration: e.DurationMS, success: e.Success})
+		}
+	}
+	for _, e := range dashboard.TopSQL {
+		if !e.Timestamp.IsZero() {
+			entries = append(entries, entryWithType{ts: e.Timestamp, logType: "sql", duration: e.DurationMS, success: e.Success})
+		}
+	}
+	for _, e := range dashboard.TopFilters {
+		if !e.Timestamp.IsZero() {
+			entries = append(entries, entryWithType{ts: e.Timestamp, logType: "filter", duration: e.DurationMS, success: e.Success})
+		}
+	}
+	for _, e := range dashboard.TopEscalations {
+		if !e.Timestamp.IsZero() {
+			entries = append(entries, entryWithType{ts: e.Timestamp, logType: "esc", duration: e.DurationMS, success: e.Success})
+		}
+	}
+
+	if len(entries) == 0 {
+		return nil
+	}
+
+	// Sort by timestamp.
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].ts.Before(entries[j].ts)
+	})
+
+	// Determine bucket size: minute if span > 1 min, else second.
+	span := entries[len(entries)-1].ts.Sub(entries[0].ts)
+	bucketByMinute := span > time.Minute
+
+	truncate := func(t time.Time) time.Time {
+		if bucketByMinute {
+			return t.Truncate(time.Minute)
+		}
+		return t.Truncate(time.Second)
+	}
+
+	type bucket struct {
+		apiCount    int
+		sqlCount    int
+		filterCount int
+		escCount    int
+		totalDurMS  int64
+		durCount    int
+		errorCount  int
+	}
+
+	buckets := make(map[time.Time]*bucket)
+
+	for _, e := range entries {
+		key := truncate(e.ts)
+		b, ok := buckets[key]
+		if !ok {
+			b = &bucket{}
+			buckets[key] = b
+		}
+		switch e.logType {
+		case "api":
+			b.apiCount++
+		case "sql":
+			b.sqlCount++
+		case "filter":
+			b.filterCount++
+		case "esc":
+			b.escCount++
+		}
+		b.totalDurMS += int64(e.duration)
+		b.durCount++
+		if !e.success {
+			b.errorCount++
+		}
+	}
+
+	var points []domain.TimeSeriesPoint
+	for ts, b := range buckets {
+		avgDur := float64(0)
+		if b.durCount > 0 {
+			avgDur = float64(b.totalDurMS) / float64(b.durCount)
+		}
+		points = append(points, domain.TimeSeriesPoint{
+			Timestamp:     ts,
+			APICount:      b.apiCount,
+			SQLCount:      b.sqlCount,
+			FilterCount:   b.filterCount,
+			EscCount:      b.escCount,
+			AvgDurationMS: avgDur,
+			ErrorCount:    b.errorCount,
+		})
+	}
+
+	sort.Slice(points, func(i, j int) bool {
+		return points[i].Timestamp.Before(points[j].Timestamp)
+	})
+
+	return points
+}
+
+// generateDistribution builds distribution maps from dashboard data and JAR aggregates.
+func generateDistribution(dashboard *domain.DashboardData, parseResult *domain.ParseResult) map[string]map[string]int {
+	dist := make(map[string]map[string]int)
+
+	// 1. by_type: from GeneralStats counts.
+	byType := make(map[string]int)
+	if dashboard.GeneralStats.APICount > 0 {
+		byType["API"] = int(dashboard.GeneralStats.APICount)
+	}
+	if dashboard.GeneralStats.SQLCount > 0 {
+		byType["SQL"] = int(dashboard.GeneralStats.SQLCount)
+	}
+	if dashboard.GeneralStats.FilterCount > 0 {
+		byType["Filter"] = int(dashboard.GeneralStats.FilterCount)
+	}
+	if dashboard.GeneralStats.EscCount > 0 {
+		byType["Escalation"] = int(dashboard.GeneralStats.EscCount)
+	}
+	if len(byType) > 0 {
+		dist["by_type"] = byType
+	}
+
+	// 2. by_form: from JAR aggregates if available, else from TopN entries.
+	byForm := make(map[string]int)
+	if parseResult != nil && parseResult.JARAggregates != nil && parseResult.JARAggregates.APIByForm != nil {
+		for _, g := range parseResult.JARAggregates.APIByForm.Groups {
+			if g.Subtotal != nil {
+				byForm[g.EntityName] = g.Subtotal.Total
+			} else {
+				total := 0
+				for _, r := range g.Rows {
+					total += r.Total
+				}
+				byForm[g.EntityName] = total
+			}
+		}
+	} else {
+		for _, e := range dashboard.TopAPICalls {
+			if e.Form != "" {
+				byForm[e.Form]++
+			}
+		}
+	}
+	if len(byForm) > 0 {
+		dist["by_form"] = byForm
+	}
+
+	// 3. by_table: from JAR aggregates if available, else from TopN entries.
+	byTable := make(map[string]int)
+	if parseResult != nil && parseResult.JARAggregates != nil && parseResult.JARAggregates.SQLByTable != nil {
+		for _, g := range parseResult.JARAggregates.SQLByTable.Groups {
+			if g.Subtotal != nil {
+				byTable[g.EntityName] = g.Subtotal.Total
+			} else {
+				total := 0
+				for _, r := range g.Rows {
+					total += r.Total
+				}
+				byTable[g.EntityName] = total
+			}
+		}
+	} else {
+		for _, e := range dashboard.TopSQL {
+			if e.Identifier != "" {
+				byTable[e.Identifier]++
+			}
+		}
+	}
+	if len(byTable) > 0 {
+		dist["by_table"] = byTable
+	}
+
+	// 4. by_queue: from JAR thread stats if available, else from TopN entries.
+	byQueue := make(map[string]int)
+	if parseResult != nil && parseResult.JARThreadStats != nil {
+		for _, t := range parseResult.JARThreadStats.APIThreads {
+			byQueue[t.Queue] += t.Count
+		}
+		for _, t := range parseResult.JARThreadStats.SQLThreads {
+			byQueue[t.Queue] += t.Count
+		}
+	} else {
+		for _, e := range dashboard.TopAPICalls {
+			if e.Queue != "" {
+				byQueue[e.Queue]++
+			}
+		}
+	}
+	if len(byQueue) > 0 {
+		dist["by_queue"] = byQueue
+	}
+
+	// 5. by_user: from TopN entries.
+	byUser := make(map[string]int)
+	for _, e := range dashboard.TopAPICalls {
+		if e.User != "" {
+			byUser[e.User]++
+		}
+	}
+	if len(byUser) > 0 {
+		dist["by_user"] = byUser
+	}
+
+	// Preserve any existing distribution keys (e.g., "threads", "errors").
+	if dashboard.Distribution != nil {
+		for k, v := range dashboard.Distribution {
+			if _, exists := dist[k]; !exists {
+				dist[k] = v
+			}
+		}
+	}
+
+	return dist
 }

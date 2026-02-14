@@ -24,6 +24,7 @@ import { ExceptionsSection } from "@/components/dashboard/exceptions-section";
 import { GapsSection } from "@/components/dashboard/gaps-section";
 import { ThreadsSection } from "@/components/dashboard/threads-section";
 import { FiltersSection } from "@/components/dashboard/filters-section";
+import { CollapsibleSection } from "@/components/dashboard/collapsible-section";
 
 interface Anomaly {
   id: string;
@@ -120,50 +121,65 @@ export default function AnalysisPage() {
         jobId={params.id}
       />
 
-      {/* Lazy-loaded sections */}
+      {/* Lazy-loaded collapsible sections */}
       <div ref={aggregates.ref}>
-        <AggregatesSection
-          data={aggregates.data}
-          loading={aggregates.loading}
-          error={aggregates.error}
-          refetch={aggregates.refetch}
-        />
+        <CollapsibleSection title="Aggregates">
+          <AggregatesSection
+            data={aggregates.data}
+            loading={aggregates.loading}
+            error={aggregates.error}
+            refetch={aggregates.refetch}
+            headless
+          />
+        </CollapsibleSection>
       </div>
 
       <div ref={exceptions.ref}>
-        <ExceptionsSection
-          data={exceptions.data}
-          loading={exceptions.loading}
-          error={exceptions.error}
-          refetch={exceptions.refetch}
-        />
+        <CollapsibleSection title="Exceptions">
+          <ExceptionsSection
+            data={exceptions.data}
+            loading={exceptions.loading}
+            error={exceptions.error}
+            refetch={exceptions.refetch}
+            headless
+          />
+        </CollapsibleSection>
       </div>
 
       <div ref={gaps.ref}>
-        <GapsSection
-          data={gaps.data}
-          loading={gaps.loading}
-          error={gaps.error}
-          refetch={gaps.refetch}
-        />
+        <CollapsibleSection title="Gap Analysis">
+          <GapsSection
+            data={gaps.data}
+            loading={gaps.loading}
+            error={gaps.error}
+            refetch={gaps.refetch}
+            headless
+          />
+        </CollapsibleSection>
       </div>
 
       <div ref={threads.ref}>
-        <ThreadsSection
-          data={threads.data}
-          loading={threads.loading}
-          error={threads.error}
-          refetch={threads.refetch}
-        />
+        <CollapsibleSection title="Thread Statistics">
+          <ThreadsSection
+            data={threads.data}
+            loading={threads.loading}
+            error={threads.error}
+            refetch={threads.refetch}
+            headless
+          />
+        </CollapsibleSection>
       </div>
 
       <div ref={filters.ref}>
-        <FiltersSection
-          data={filters.data}
-          loading={filters.loading}
-          error={filters.error}
-          refetch={filters.refetch}
-        />
+        <CollapsibleSection title="Filter Complexity">
+          <FiltersSection
+            data={filters.data}
+            loading={filters.loading}
+            error={filters.error}
+            refetch={filters.refetch}
+            headless
+          />
+        </CollapsibleSection>
       </div>
     </div>
   );

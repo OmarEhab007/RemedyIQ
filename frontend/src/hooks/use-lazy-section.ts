@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface UseLazySectionResult<T> {
   data: T | null;
@@ -14,46 +14,34 @@ export function useLazySection<T>(
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fetched, setFetched] = useState(false);
+  const fetchedRef = useRef(false);
 
   const elementRef = useRef<HTMLDivElement>(null);
-  const observerRef = useRef<IntersectionObserver | null>(null);
 
-  const fetchAndSetData = async () => {
+  const fetchAndSetData = useCallback(async () => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
     setLoading(true);
     setError(null);
     try {
       const result = await fetchFn();
       setData(result);
-      setFetched(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load data");
+      fetchedRef.current = false;
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchFn]);
 
+  // Fetch eagerly on mount. The dashboard page already guards rendering
+  // behind the main dashboard load, so these calls only start once the
+  // page is ready. Five lightweight section calls (<50 KB each) are not
+  // worth the complexity and fragility of IntersectionObserver in nested
+  // scroll layouts (flex h-screen + overflow-auto main).
   useEffect(() => {
-    const element = elementRef.current;
-    if (!element || fetched) return;
-
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !fetched && !loading) {
-          fetchAndSetData();
-        }
-      },
-      { threshold: 0.1, rootMargin: "100px" }
-    );
-
-    observerRef.current.observe(element);
-
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
-    };
-  }, [fetched, loading]);
+    fetchAndSetData();
+  }, [fetchAndSetData]);
 
   return { data, loading, error, ref: elementRef, refetch: fetchAndSetData };
 }

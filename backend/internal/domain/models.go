@@ -383,6 +383,167 @@ type FilterComplexityResponse struct {
 	TotalFilterTimeMS int64                  `json:"total_filter_time_ms"`
 }
 
+// --- JAR-Native Types (parsed directly from JAR v3.2.2 output) ---
+
+// JARGapEntry represents a single line gap or thread gap from the JAR output.
+type JARGapEntry struct {
+	GapDuration float64   `json:"gap_duration"`
+	LineNumber  int       `json:"line_number"`
+	TraceID     string    `json:"trace_id"`
+	Timestamp   time.Time `json:"timestamp"`
+	Details     string    `json:"details"`
+}
+
+// JARGapsResponse contains both line gaps and thread gaps from the GAP ANALYSIS section.
+type JARGapsResponse struct {
+	LineGaps    []JARGapEntry        `json:"line_gaps"`
+	ThreadGaps  []JARGapEntry        `json:"thread_gaps"`
+	QueueHealth []QueueHealthSummary `json:"queue_health"`
+	Source      string               `json:"source"`
+}
+
+// JARAggregateRow represents one row in a JAR aggregate table.
+type JARAggregateRow struct {
+	OperationType string  `json:"operation_type"`
+	OK            int     `json:"ok"`
+	Fail          int     `json:"fail"`
+	Total         int     `json:"total"`
+	MinTime       float64 `json:"min_time"`
+	MinLine       int     `json:"min_line"`
+	MaxTime       float64 `json:"max_time"`
+	MaxLine       int     `json:"max_line"`
+	AvgTime       float64 `json:"avg_time"`
+	SumTime       float64 `json:"sum_time"`
+}
+
+// JARAggregateGroup represents one entity with its operation breakdowns.
+type JARAggregateGroup struct {
+	EntityName string            `json:"entity_name"`
+	Rows       []JARAggregateRow `json:"rows"`
+	Subtotal   *JARAggregateRow  `json:"subtotal"`
+}
+
+// JARAggregateTable represents a complete aggregate section.
+type JARAggregateTable struct {
+	GroupedBy  string              `json:"grouped_by"`
+	SortedBy   string              `json:"sorted_by"`
+	Groups     []JARAggregateGroup `json:"groups"`
+	GrandTotal *JARAggregateRow    `json:"grand_total"`
+}
+
+// JARAggregatesResponse contains all aggregate tables parsed from JAR output.
+type JARAggregatesResponse struct {
+	APIByForm     *JARAggregateTable `json:"api_by_form"`
+	APIByClient   *JARAggregateTable `json:"api_by_client"`
+	APIByClientIP *JARAggregateTable `json:"api_by_client_ip"`
+	SQLByTable    *JARAggregateTable `json:"sql_by_table"`
+	EscByForm     *JARAggregateTable `json:"esc_by_form"`
+	EscByPool     *JARAggregateTable `json:"esc_by_pool"`
+	Source        string             `json:"source"`
+}
+
+// JARThreadStat represents one thread's statistics within a queue.
+type JARThreadStat struct {
+	Queue     string    `json:"queue"`
+	ThreadID  string    `json:"thread_id"`
+	FirstTime time.Time `json:"first_time"`
+	LastTime  time.Time `json:"last_time"`
+	Count     int       `json:"count"`
+	QCount    int       `json:"q_count"`
+	QTime     float64   `json:"q_time"`
+	TotalTime float64   `json:"total_time"`
+	BusyPct   float64   `json:"busy_pct"`
+}
+
+// JARThreadStatsResponse contains thread statistics for both API and SQL sections.
+type JARThreadStatsResponse struct {
+	APIThreads []JARThreadStat `json:"api_threads"`
+	SQLThreads []JARThreadStat `json:"sql_threads"`
+	Source     string          `json:"source"`
+}
+
+// JARAPIError represents one API call that errored out.
+type JARAPIError struct {
+	EndLine      int       `json:"end_line"`
+	TraceID      string    `json:"trace_id"`
+	Queue        string    `json:"queue"`
+	API          string    `json:"api"`
+	Form         string    `json:"form"`
+	User         string    `json:"user"`
+	StartTime    time.Time `json:"start_time"`
+	ErrorMessage string    `json:"error_message"`
+}
+
+// JARExceptionEntry represents one entry from an API or SQL exception report.
+type JARExceptionEntry struct {
+	LineNumber   int    `json:"line_number"`
+	TraceID      string `json:"trace_id"`
+	Type         string `json:"type"`
+	Message      string `json:"message"`
+	SQLStatement string `json:"sql_statement"`
+}
+
+// JARExceptionsResponse contains all error and exception data from JAR output.
+type JARExceptionsResponse struct {
+	APIErrors     []JARAPIError       `json:"api_errors"`
+	APIExceptions []JARExceptionEntry `json:"api_exceptions"`
+	SQLExceptions []JARExceptionEntry `json:"sql_exceptions"`
+	Source        string              `json:"source"`
+}
+
+// JARFilterMostExecuted represents one filter in the "50 MOST EXECUTED FLTR" section.
+type JARFilterMostExecuted struct {
+	FilterName string `json:"filter_name"`
+	PassCount  int    `json:"pass_count"`
+	FailCount  int    `json:"fail_count"`
+}
+
+// JARFilterPerTransaction represents one entry in "50 MOST FILTERS PER TRANSACTION".
+type JARFilterPerTransaction struct {
+	LineNumber    int     `json:"line_number"`
+	TraceID       string  `json:"trace_id"`
+	FilterCount   int     `json:"filter_count"`
+	Operation     string  `json:"operation"`
+	Form          string  `json:"form"`
+	RequestID     string  `json:"request_id"`
+	FiltersPerSec float64 `json:"filters_per_sec"`
+}
+
+// JARFilterExecutedPerTxn represents one entry in "50 MOST EXECUTED FLTR PER TRANSACTION".
+type JARFilterExecutedPerTxn struct {
+	LineNumber int    `json:"line_number"`
+	TraceID    string `json:"trace_id"`
+	FilterName string `json:"filter_name"`
+	PassCount  int    `json:"pass_count"`
+	FailCount  int    `json:"fail_count"`
+}
+
+// JARFilterLevel represents one entry in "50 MOST FILTER LEVELS IN TRANSACTIONS".
+type JARFilterLevel struct {
+	LineNumber  int    `json:"line_number"`
+	TraceID     string `json:"trace_id"`
+	FilterLevel int    `json:"filter_level"`
+	Operation   string `json:"operation"`
+	Form        string `json:"form"`
+	RequestID   string `json:"request_id"`
+}
+
+// JARFilterComplexityResponse contains all 5 filter sub-sections from JAR output.
+type JARFilterComplexityResponse struct {
+	LongestRunning []TopNEntry               `json:"longest_running"`
+	MostExecuted   []JARFilterMostExecuted   `json:"most_executed"`
+	PerTransaction []JARFilterPerTransaction `json:"per_transaction"`
+	ExecutedPerTxn []JARFilterExecutedPerTxn `json:"executed_per_txn"`
+	FilterLevels   []JARFilterLevel          `json:"filter_levels"`
+	Source         string                    `json:"source"`
+}
+
+// JARAPIAbbreviation maps an API abbreviation to its full name.
+type JARAPIAbbreviation struct {
+	Abbreviation string `json:"abbreviation"`
+	FullName     string `json:"full_name"`
+}
+
 // ParseResult wraps the DashboardData with optional section-specific data
 // populated during enhanced analysis.
 type ParseResult struct {
@@ -392,4 +553,15 @@ type ParseResult struct {
 	Gaps        *GapsResponse             `json:"gaps,omitempty"`
 	ThreadStats *ThreadStatsResponse      `json:"thread_stats,omitempty"`
 	Filters     *FilterComplexityResponse `json:"filters,omitempty"`
+
+	// JAR-native types (parsed directly from JAR output)
+	JARGaps        *JARGapsResponse             `json:"jar_gaps,omitempty"`
+	JARAggregates  *JARAggregatesResponse       `json:"jar_aggregates,omitempty"`
+	JARExceptions  *JARExceptionsResponse       `json:"jar_exceptions,omitempty"`
+	JARThreadStats *JARThreadStatsResponse      `json:"jar_thread_stats,omitempty"`
+	JARFilters     *JARFilterComplexityResponse `json:"jar_filters,omitempty"`
+
+	// Supplementary data
+	APIAbbreviations []JARAPIAbbreviation `json:"api_abbreviations,omitempty"`
+	QueuedAPICalls   []TopNEntry          `json:"queued_api_calls,omitempty"`
 }

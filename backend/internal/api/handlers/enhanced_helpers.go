@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/domain"
@@ -13,10 +14,23 @@ import (
 
 const sectionCacheTTL = 24 * time.Hour
 
-func getOrComputeAggregates(ctx context.Context, redis storage.RedisCache, tenantID, jobID string) (*domain.AggregatesResponse, error) {
+// isJARParsedCache checks if a cached JSON string contains the jar_parsed source marker.
+func isJARParsedCache(cached string) bool {
+	return strings.Contains(cached, `"source":"jar_parsed"`)
+}
+
+func getOrComputeAggregates(ctx context.Context, redis storage.RedisCache, tenantID, jobID string) (any, error) {
 	cacheKey := redis.TenantKey(tenantID, "dashboard", jobID) + ":agg"
 	cached, err := redis.Get(ctx, cacheKey)
 	if err == nil && cached != "" {
+		// Try JAR-native type first.
+		if isJARParsedCache(cached) {
+			var jarData domain.JARAggregatesResponse
+			if err := json.Unmarshal([]byte(cached), &jarData); err == nil {
+				return &jarData, nil
+			}
+		}
+		// Fall back to computed type.
 		var data domain.AggregatesResponse
 		if err := json.Unmarshal([]byte(cached), &data); err == nil {
 			return &data, nil
@@ -37,10 +51,16 @@ func getOrComputeAggregates(ctx context.Context, redis storage.RedisCache, tenan
 	return result.Aggregates, nil
 }
 
-func getOrComputeExceptions(ctx context.Context, redis storage.RedisCache, tenantID, jobID string) (*domain.ExceptionsResponse, error) {
+func getOrComputeExceptions(ctx context.Context, redis storage.RedisCache, tenantID, jobID string) (any, error) {
 	cacheKey := redis.TenantKey(tenantID, "dashboard", jobID) + ":exc"
 	cached, err := redis.Get(ctx, cacheKey)
 	if err == nil && cached != "" {
+		if isJARParsedCache(cached) {
+			var jarData domain.JARExceptionsResponse
+			if err := json.Unmarshal([]byte(cached), &jarData); err == nil {
+				return &jarData, nil
+			}
+		}
 		var data domain.ExceptionsResponse
 		if err := json.Unmarshal([]byte(cached), &data); err == nil {
 			return &data, nil
@@ -65,10 +85,16 @@ func getOrComputeExceptions(ctx context.Context, redis storage.RedisCache, tenan
 	return result.Exceptions, nil
 }
 
-func getOrComputeGaps(ctx context.Context, redis storage.RedisCache, tenantID, jobID string) (*domain.GapsResponse, error) {
+func getOrComputeGaps(ctx context.Context, redis storage.RedisCache, tenantID, jobID string) (any, error) {
 	cacheKey := redis.TenantKey(tenantID, "dashboard", jobID) + ":gaps"
 	cached, err := redis.Get(ctx, cacheKey)
 	if err == nil && cached != "" {
+		if isJARParsedCache(cached) {
+			var jarData domain.JARGapsResponse
+			if err := json.Unmarshal([]byte(cached), &jarData); err == nil {
+				return &jarData, nil
+			}
+		}
 		var data domain.GapsResponse
 		if err := json.Unmarshal([]byte(cached), &data); err == nil {
 			return &data, nil
@@ -92,10 +118,16 @@ func getOrComputeGaps(ctx context.Context, redis storage.RedisCache, tenantID, j
 	return result.Gaps, nil
 }
 
-func getOrComputeThreads(ctx context.Context, redis storage.RedisCache, tenantID, jobID string) (*domain.ThreadStatsResponse, error) {
+func getOrComputeThreads(ctx context.Context, redis storage.RedisCache, tenantID, jobID string) (any, error) {
 	cacheKey := redis.TenantKey(tenantID, "dashboard", jobID) + ":threads"
 	cached, err := redis.Get(ctx, cacheKey)
 	if err == nil && cached != "" {
+		if isJARParsedCache(cached) {
+			var jarData domain.JARThreadStatsResponse
+			if err := json.Unmarshal([]byte(cached), &jarData); err == nil {
+				return &jarData, nil
+			}
+		}
 		var data domain.ThreadStatsResponse
 		if err := json.Unmarshal([]byte(cached), &data); err == nil {
 			return &data, nil
@@ -118,10 +150,16 @@ func getOrComputeThreads(ctx context.Context, redis storage.RedisCache, tenantID
 	return result.ThreadStats, nil
 }
 
-func getOrComputeFilters(ctx context.Context, redis storage.RedisCache, tenantID, jobID string) (*domain.FilterComplexityResponse, error) {
+func getOrComputeFilters(ctx context.Context, redis storage.RedisCache, tenantID, jobID string) (any, error) {
 	cacheKey := redis.TenantKey(tenantID, "dashboard", jobID) + ":filters"
 	cached, err := redis.Get(ctx, cacheKey)
 	if err == nil && cached != "" {
+		if isJARParsedCache(cached) {
+			var jarData domain.JARFilterComplexityResponse
+			if err := json.Unmarshal([]byte(cached), &jarData); err == nil {
+				return &jarData, nil
+			}
+		}
 		var data domain.FilterComplexityResponse
 		if err := json.Unmarshal([]byte(cached), &data); err == nil {
 			return &data, nil
