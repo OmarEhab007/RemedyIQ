@@ -93,6 +93,8 @@ func main() {
 	dashboardHandler := handlers.NewDashboardHandler(pg, ch, redis)
 	streamHandler := handlers.NewStreamHandler(wsHub, []string{"*"})
 
+	reportHandler := handlers.NewReportHandler(pg, redis)
+
 	// --- Build router ---
 	router := api.NewRouter(api.RouterConfig{
 		AllowedOrigins:        []string{"*"},
@@ -110,9 +112,10 @@ func main() {
 		GapsHandler:           handlers.NewGapsHandler(pg, ch, redis),
 		ThreadsHandler:        handlers.NewThreadsHandler(pg, ch, redis),
 		FiltersHandler:        handlers.NewFiltersHandler(pg, ch, redis),
+		GenerateReportHandler: reportHandler,
 		WSHandler:             streamHandler,
-		// SearchLogsHandler, GetLogEntryHandler, GetTraceHandler, QueryAIHandler,
-		// GenerateReportHandler require BleveManager/AI Registry — added later.
+		// SearchLogsHandler, GetLogEntryHandler, GetTraceHandler, QueryAIHandler
+		// require BleveManager/AI Registry — added later.
 	})
 
 	// --- Start HTTP server ---
