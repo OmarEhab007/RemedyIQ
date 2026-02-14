@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type {
   FilterComplexityResponse,
   MostExecutedFilter,
@@ -128,10 +128,14 @@ export function FiltersSection({ data, loading, error, refetch, headless }: Filt
       availableTabs.push({ key: "filter_levels", label: "Filter Levels", count: jarData.filter_levels.length });
     }
 
-    // Set initial tab to first available
-    if (availableTabs.length > 0 && !availableTabs.find(t => t.key === activeTab)) {
-      setActiveTab(availableTabs[0].key);
-    }
+    // Sync tab selection when available tabs change (via effect to avoid render-loop).
+    const needsTabSync = availableTabs.length > 0 && !availableTabs.find(t => t.key === activeTab);
+    const syncTarget = needsTabSync ? availableTabs[0].key : null;
+    useEffect(() => {
+      if (syncTarget) {
+        setActiveTab(syncTarget);
+      }
+    }, [syncTarget]);
 
     return (
       <div className={headless ? "" : "border rounded-lg p-6 bg-card"}>

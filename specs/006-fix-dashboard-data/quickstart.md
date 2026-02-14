@@ -16,7 +16,7 @@
 ### 1. Start Infrastructure
 
 ```bash
-cd /Users/omar/Developer/ARLogAnalyzer-25
+cd <repo-root>  # e.g., cd $(git rev-parse --show-toplevel)
 docker compose up -d
 ```
 
@@ -71,7 +71,7 @@ npm run dev
 To generate fresh JAR output for testing:
 
 ```bash
-cd /Users/omar/Developer/ARLogAnalyzer-25
+cd <repo-root>  # e.g., cd $(git rev-parse --show-toplevel)
 
 # Run JAR against test log (requires Java 17+)
 java -Xmx4096m \

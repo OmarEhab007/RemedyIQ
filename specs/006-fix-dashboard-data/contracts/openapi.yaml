@@ -4,6 +4,16 @@ info:
   description: Updated API response schemas for JAR-parsed dashboard sections
   version: 1.1.0
 
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
 paths:
   /api/v1/analysis/{job_id}/dashboard/aggregates:
     get:
