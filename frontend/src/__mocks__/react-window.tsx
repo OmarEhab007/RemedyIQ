@@ -41,14 +41,14 @@ export const VariableSizeList = React.forwardRef<any, MockVariableSizeListProps>
 )
 VariableSizeList.displayName = 'VariableSizeList'
 
-// react-window also exports List as an alias for FixedSizeList in some configurations.
-// Components that use `import * as ReactWindow` and then `ReactWindow.List` need this.
+// Mock for react-window v2 List component.
+// v2 API uses rowCount, rowHeight, rowComponent, and rowProps (spread onto the component).
 export const List = React.forwardRef<any, any>(
-  ({ itemCount, itemSize, itemData, children: RowComponent, ...props }, ref) => (
+  ({ rowCount, rowHeight, rowComponent: RowComponent, rowProps, ...props }, ref) => (
     <div ref={ref} data-testid="virtual-list" {...props}>
-      {Array.from({ length: Math.min(itemCount, 50) }).map((_, index) => (
-        <div key={index} style={{ position: 'absolute', top: index * (itemSize || 40) }}>
-          <RowComponent index={index} style={{ position: 'absolute', top: index * (itemSize || 40) }} data={itemData} />
+      {Array.from({ length: Math.min(rowCount || 0, 50) }).map((_, index) => (
+        <div key={index} style={{ position: 'absolute', top: index * (rowHeight || 40) }}>
+          <RowComponent index={index} style={{ position: 'absolute', top: index * (rowHeight || 40) }} {...rowProps} />
         </div>
       ))}
     </div>

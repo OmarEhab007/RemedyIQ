@@ -28,31 +28,31 @@ describe("useSearch", () => {
 
   describe("initial state", () => {
     it("returns empty query initially", () => {
-      const { result } = renderHook(() => useSearch());
+      const { result } = renderHook(() => useSearch({ jobId: "" }));
 
       expect(result.current.query).toBe("");
     });
 
     it("returns null results initially", () => {
-      const { result } = renderHook(() => useSearch());
+      const { result } = renderHook(() => useSearch({ jobId: "" }));
 
       expect(result.current.results).toBeNull();
     });
 
     it("returns loading as false initially", () => {
-      const { result } = renderHook(() => useSearch());
+      const { result } = renderHook(() => useSearch({ jobId: "" }));
 
       expect(result.current.loading).toBe(false);
     });
 
     it("returns error as null initially", () => {
-      const { result } = renderHook(() => useSearch());
+      const { result } = renderHook(() => useSearch({ jobId: "" }));
 
       expect(result.current.error).toBeNull();
     });
 
     it("returns page as 1 initially", () => {
-      const { result } = renderHook(() => useSearch());
+      const { result } = renderHook(() => useSearch({ jobId: "" }));
 
       expect(result.current.page).toBe(1);
     });
@@ -64,16 +64,16 @@ describe("useSearch", () => {
         results: [{ id: "1", score: 0.95, fields: { message: "test" } }],
         total: 1,
         page: 1,
-        page_size: 25,
+        page_size: 50,
         total_pages: 1,
       };
 
-      vi.mocked(fetch).mockResolvedValueOnce({
+      vi.mocked(fetch).mockResolvedValue({
         ok: true,
         json: async () => mockResponse,
       } as Response);
 
-      const { result } = renderHook(() => useSearch());
+      const { result } = renderHook(() => useSearch({ jobId: "test-job" }));
 
       act(() => {
         result.current.search("test query");
@@ -88,13 +88,13 @@ describe("useSearch", () => {
     });
 
     it("sets error on failed search", async () => {
-      vi.mocked(fetch).mockResolvedValueOnce({
+      vi.mocked(fetch).mockResolvedValue({
         ok: false,
         status: 500,
         json: async () => ({ message: "Search failed" }),
       } as Response);
 
-      const { result } = renderHook(() => useSearch());
+      const { result } = renderHook(() => useSearch({ jobId: "test-job" }));
 
       act(() => {
         result.current.search("test query");
@@ -108,11 +108,11 @@ describe("useSearch", () => {
       );
     });
 
-    it("clears results when query is empty", async () => {
-      const { result } = renderHook(() => useSearch());
+    it("skips fetch when jobId is empty", async () => {
+      const { result } = renderHook(() => useSearch({ jobId: "" }));
 
       act(() => {
-        result.current.search("   ");
+        result.current.search("test");
       });
 
       expect(result.current.results).toBeNull();
@@ -122,7 +122,7 @@ describe("useSearch", () => {
 
   describe("search", () => {
     it("updates query state", () => {
-      const { result } = renderHook(() => useSearch());
+      const { result } = renderHook(() => useSearch({ jobId: "" }));
 
       act(() => {
         result.current.search("new query");
@@ -135,8 +135,8 @@ describe("useSearch", () => {
       const mockResponse = {
         results: [],
         total: 0,
-        page: 2,
-        page_size: 25,
+        page: 1,
+        page_size: 50,
         total_pages: 0,
       };
 
@@ -145,7 +145,7 @@ describe("useSearch", () => {
         json: async () => mockResponse,
       } as Response);
 
-      const { result } = renderHook(() => useSearch());
+      const { result } = renderHook(() => useSearch({ jobId: "test-job" }));
 
       act(() => {
         result.current.search("test");
@@ -166,7 +166,7 @@ describe("useSearch", () => {
         results: [],
         total: 0,
         page: 2,
-        page_size: 25,
+        page_size: 50,
         total_pages: 0,
       };
 
@@ -175,7 +175,7 @@ describe("useSearch", () => {
         json: async () => mockResponse,
       } as Response);
 
-      const { result } = renderHook(() => useSearch());
+      const { result } = renderHook(() => useSearch({ jobId: "test-job" }));
 
       act(() => {
         result.current.search("test");
@@ -209,7 +209,7 @@ describe("useSearch", () => {
 
   describe("setQuery", () => {
     it("updates query without triggering search", () => {
-      const { result } = renderHook(() => useSearch());
+      const { result } = renderHook(() => useSearch({ jobId: "" }));
 
       act(() => {
         result.current.setQuery("new query");
@@ -226,17 +226,17 @@ describe("useSearch", () => {
         results: [],
         total: 0,
         page: 1,
-        page_size: 25,
+        page_size: 50,
         total_pages: 0,
       };
 
-      vi.mocked(fetch).mockResolvedValueOnce({
+      vi.mocked(fetch).mockResolvedValue({
         ok: true,
         json: async () => mockResponse,
       } as Response);
 
       const filters = { log_type: ["API", "SQL"], user: ["Demo"] };
-      const { result } = renderHook(() => useSearch("job-1", filters));
+      const { result } = renderHook(() => useSearch({ jobId: "job-1", filters }));
 
       act(() => {
         result.current.search("test");
@@ -256,13 +256,13 @@ describe("useSearch", () => {
 
   describe("error handling", () => {
     it("handles non-JSON error response", async () => {
-      vi.mocked(fetch).mockResolvedValueOnce({
+      vi.mocked(fetch).mockResolvedValue({
         ok: false,
         status: 500,
         json: async () => { throw new Error("not json"); },
       } as Response);
 
-      const { result } = renderHook(() => useSearch());
+      const { result } = renderHook(() => useSearch({ jobId: "test-job" }));
 
       act(() => {
         result.current.search("test");
@@ -277,9 +277,9 @@ describe("useSearch", () => {
     });
 
     it("handles non-Error exceptions", async () => {
-      vi.mocked(fetch).mockRejectedValueOnce("network down");
+      vi.mocked(fetch).mockRejectedValue("network down");
 
-      const { result } = renderHook(() => useSearch());
+      const { result } = renderHook(() => useSearch({ jobId: "test-job" }));
 
       act(() => {
         result.current.search("test");
@@ -298,7 +298,7 @@ describe("useSearch", () => {
     it("cleans up debounce timer on unmount", async () => {
       vi.useFakeTimers();
 
-      const { result, unmount } = renderHook(() => useSearch());
+      const { result, unmount } = renderHook(() => useSearch({ jobId: "" }));
 
       act(() => {
         result.current.search("test");

@@ -1,0 +1,571 @@
+openapi: 3.1.0
+info:
+  title: RemedyIQ Log Explorer API Extensions
+  version: 1.0.0
+  description: >
+    API contracts for the Complete Log Explorer feature (007).
+    These endpoints extend the existing RemedyIQ API v1.
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+paths:
+  /analysis/{job_id}/search:
+    get:
+      operationId: searchLogs
+      summary: Search log entries with KQL (job-scoped)
+      tags: [Search]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: KQL query string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [timestamp, duration_ms, line_number, user]
+            default: timestamp
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: time_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Start of time range filter (ISO 8601)
+        - name: time_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: End of time range filter (ISO 8601)
+        - name: include_histogram
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Include timeline histogram data in response
+      responses:
+        '200':
+          description: Search results with optional histogram
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          description: Invalid query syntax
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /analysis/{job_id}/entries/{entry_id}:
+    get:
+      operationId: getLogEntry
+      summary: Get a single log entry by ID
+      tags: [Search]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: entry_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Full log entry details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogEntry'
+        '404':
+          description: Entry not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /analysis/{job_id}/entries/{entry_id}/context:
+    get:
+      operationId: getLogEntryContext
+      summary: Get surrounding log entries for context
+      tags: [Search]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: entry_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: window
+          in: query
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 50
+          description: Number of entries before and after
+      responses:
+        '200':
+          description: Context window of log entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContextResponse'
+
+  /analysis/{job_id}/search/export:
+    get:
+      operationId: exportSearchResults
+      summary: Export search results as CSV or JSON
+      tags: [Search]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [csv, json]
+        - name: time_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: time_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10000
+            maximum: 10000
+      responses:
+        '200':
+          description: Exported data
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LogEntry'
+
+  /search/autocomplete:
+    get:
+      operationId: searchAutocomplete
+      summary: Get search field/value autocomplete suggestions
+      tags: [Search]
+      parameters:
+        - name: prefix
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          description: >
+            The text prefix to autocomplete. If it contains a colon
+            (e.g. "type:A"), returns value suggestions for that field.
+            Otherwise returns field name suggestions.
+        - name: job_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Scope suggestions to a specific job's data
+      responses:
+        '200':
+          description: Autocomplete suggestions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutocompleteResponse'
+
+  /search/saved:
+    get:
+      operationId: listSavedSearches
+      summary: List user's saved searches
+      tags: [Search]
+      responses:
+        '200':
+          description: List of saved searches
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  searches:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SavedSearch'
+    post:
+      operationId: createSavedSearch
+      summary: Save a search query
+      tags: [Search]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavedSearchRequest'
+      responses:
+        '201':
+          description: Search saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedSearch'
+
+  /search/saved/{search_id}:
+    delete:
+      operationId: deleteSavedSearch
+      summary: Delete a saved search
+      tags: [Search]
+      parameters:
+        - name: search_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Search deleted
+        '404':
+          description: Search not found
+
+  /search/history:
+    get:
+      operationId: getSearchHistory
+      summary: Get user's recent search history
+      tags: [Search]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+      responses:
+        '200':
+          description: Recent search queries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  history:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SearchHistoryEntry'
+
+components:
+  schemas:
+    SearchResponse:
+      type: object
+      required: [results, total, page, page_size, total_pages]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchHit'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_pages:
+          type: integer
+        facets:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/FacetEntry'
+        histogram:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistogramBucket'
+          description: Present only when include_histogram=true
+
+    SearchHit:
+      type: object
+      required: [id, score, fields]
+      properties:
+        id:
+          type: string
+        score:
+          type: number
+        fields:
+          type: object
+          additionalProperties: true
+
+    FacetEntry:
+      type: object
+      required: [value, count]
+      properties:
+        value:
+          type: string
+        count:
+          type: integer
+
+    HistogramBucket:
+      type: object
+      required: [timestamp, counts]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Bucket start time
+        counts:
+          type: object
+          properties:
+            API:
+              type: integer
+            SQL:
+              type: integer
+            FLTR:
+              type: integer
+            ESCL:
+              type: integer
+            total:
+              type: integer
+
+    LogEntry:
+      type: object
+      properties:
+        entry_id:
+          type: string
+        job_id:
+          type: string
+        tenant_id:
+          type: string
+        line_number:
+          type: integer
+        file_number:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        log_type:
+          type: string
+          enum: [API, SQL, FLTR, ESCL]
+        trace_id:
+          type: string
+        rpc_id:
+          type: string
+        thread_id:
+          type: string
+        queue:
+          type: string
+        user:
+          type: string
+        duration_ms:
+          type: integer
+        queue_time_ms:
+          type: integer
+        success:
+          type: boolean
+        api_code:
+          type: string
+        form:
+          type: string
+        sql_table:
+          type: string
+        sql_statement:
+          type: string
+        filter_name:
+          type: string
+        filter_level:
+          type: integer
+        operation:
+          type: string
+        request_id:
+          type: string
+        esc_name:
+          type: string
+        esc_pool:
+          type: string
+        scheduled_time:
+          type: string
+          format: date-time
+          nullable: true
+        delay_ms:
+          type: integer
+        error_encountered:
+          type: boolean
+        raw_text:
+          type: string
+        error_message:
+          type: string
+
+    ContextResponse:
+      type: object
+      required: [target, before, after]
+      properties:
+        target:
+          $ref: '#/components/schemas/LogEntry'
+        before:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogEntry'
+        after:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogEntry'
+        window_size:
+          type: integer
+
+    AutocompleteResponse:
+      type: object
+      required: [suggestions]
+      properties:
+        suggestions:
+          type: array
+          items:
+            type: object
+            required: [field, value, count]
+            properties:
+              field:
+                type: string
+                description: Field name (for field suggestions) or empty (for value suggestions)
+              value:
+                type: string
+                description: Suggestion text
+              count:
+                type: integer
+                description: Occurrence count (0 for field suggestions)
+              description:
+                type: string
+                description: Human-readable description (for field suggestions)
+
+    SavedSearch:
+      type: object
+      required: [id, name, kql_query, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kql_query:
+          type: string
+        filters:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        time_range:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [relative, absolute]
+            value:
+              type: string
+              description: For relative (e.g. "1h", "24h", "7d")
+            start:
+              type: string
+              format: date-time
+              description: For absolute ranges
+            end:
+              type: string
+              format: date-time
+              description: For absolute ranges
+        is_pinned:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    SavedSearchRequest:
+      type: object
+      required: [name, kql_query]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        kql_query:
+          type: string
+        filters:
+          type: object
+        time_range:
+          type: object
+
+    SearchHistoryEntry:
+      type: object
+      required: [id, kql_query, result_count, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        kql_query:
+          type: string
+        result_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string

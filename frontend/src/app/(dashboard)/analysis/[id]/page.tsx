@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import {
   getDashboard,
   getDashboardAggregates,
@@ -25,6 +26,8 @@ import { GapsSection } from "@/components/dashboard/gaps-section";
 import { ThreadsSection } from "@/components/dashboard/threads-section";
 import { FiltersSection } from "@/components/dashboard/filters-section";
 import { CollapsibleSection } from "@/components/dashboard/collapsible-section";
+import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
 
 interface Anomaly {
   id: string;
@@ -99,7 +102,15 @@ export default function AnalysisPage() {
             Job ID: {params.id}
           </p>
         </div>
-        <ReportButton jobId={params.id} />
+        <div className="flex items-center gap-2">
+          <Link href={`/analysis/${params.id}/explorer`}>
+            <Button variant="outline">
+              <Search className="h-4 w-4 mr-2" />
+              Explore Logs
+            </Button>
+          </Link>
+          <ReportButton jobId={params.id} />
+        </div>
       </div>
 
       <HealthScoreCard healthScore={data.health_score} />

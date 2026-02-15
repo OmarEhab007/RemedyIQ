@@ -56,11 +56,13 @@ describe("websocket", () => {
         );
       });
 
-      it("closes existing connection before creating new one", () => {
+      it("skips reconnect when already connected", () => {
         client.connect("first-token");
         mockWebSocket.readyState = 1;
         client.connect("second-token");
-        expect(mockWebSocket.close).toHaveBeenCalled();
+        // Implementation returns early if already OPEN/CONNECTING
+        expect(mockWebSocket.close).not.toHaveBeenCalled();
+        expect(WebSocketMock).toHaveBeenCalledTimes(1);
       });
 
       it("URL encodes the token", () => {

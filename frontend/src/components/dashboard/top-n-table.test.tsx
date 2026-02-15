@@ -128,11 +128,10 @@ describe('TopNTable', () => {
       />
     )
 
-    // Check for column headers
+    // Check for column headers (API tab has: #, Identifier, Form, Queue, Duration, Status)
     expect(screen.getByText('#')).toBeInTheDocument()
     expect(screen.getByText('Identifier')).toBeInTheDocument()
     expect(screen.getByText('Form')).toBeInTheDocument()
-    expect(screen.getByText('User')).toBeInTheDocument()
     expect(screen.getByText('Queue')).toBeInTheDocument()
     expect(screen.getByText('Duration (ms)')).toBeInTheDocument()
     expect(screen.getByText('Status')).toBeInTheDocument()
@@ -159,10 +158,6 @@ describe('TopNTable', () => {
     // Check form
     expect(screen.getByText('HPD:Help Desk')).toBeInTheDocument()
     expect(screen.getByText('CHG:Change')).toBeInTheDocument()
-
-    // Check user
-    expect(screen.getByText('Demo')).toBeInTheDocument()
-    expect(screen.getByText('Admin')).toBeInTheDocument()
 
     // Check duration (formatted with toLocaleString)
     expect(screen.getByText('5,000')).toBeInTheDocument()

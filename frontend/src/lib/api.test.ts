@@ -80,6 +80,36 @@ describe("api", () => {
   });
 
   describe("uploadFile", () => {
+    // uploadFile uses XMLHttpRequest, not fetch - need XHR mock
+    let xhrMock: {
+      open: ReturnType<typeof vi.fn>;
+      send: ReturnType<typeof vi.fn>;
+      setRequestHeader: ReturnType<typeof vi.fn>;
+      upload: { onprogress: ((event: ProgressEvent) => void) | null };
+      onload: (() => void) | null;
+      onerror: (() => void) | null;
+      onabort: (() => void) | null;
+      status: number;
+      statusText: string;
+      responseText: string;
+    };
+
+    beforeEach(() => {
+      xhrMock = {
+        open: vi.fn(),
+        send: vi.fn(),
+        setRequestHeader: vi.fn(),
+        upload: { onprogress: null },
+        onload: null,
+        onerror: null,
+        onabort: null,
+        status: 200,
+        statusText: "OK",
+        responseText: "",
+      };
+      vi.stubGlobal("XMLHttpRequest", vi.fn(() => xhrMock));
+    });
+
     it("uploads a file successfully", async () => {
       const mockFile = new File(["content"], "test.log", { type: "text/plain" });
       const mockResponse = {
@@ -90,20 +120,16 @@ describe("api", () => {
         uploaded_at: "2026-02-12T00:00:00Z",
       };
 
-      vi.mocked(fetch).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      } as Response);
+      xhrMock.status = 200;
+      xhrMock.responseText = JSON.stringify(mockResponse);
 
-      const result = await uploadFile(mockFile);
+      const promise = uploadFile(mockFile);
+      xhrMock.onload!();
+
+      const result = await promise;
       expect(result).toEqual(mockResponse);
-      expect(fetch).toHaveBeenCalledWith(
-        `${API_BASE}/files/upload`,
-        expect.objectContaining({
-          method: "POST",
-          body: expect.any(FormData),
-        })
-      );
+      expect(xhrMock.open).toHaveBeenCalledWith("POST", `${API_BASE}/files/upload`);
+      expect(xhrMock.send).toHaveBeenCalled();
     });
 
     it("uploads a file with token", async () => {
@@ -116,39 +142,27 @@ describe("api", () => {
         uploaded_at: "2026-02-12T00:00:00Z",
       };
 
-      vi.mocked(fetch).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      } as Response);
+      xhrMock.status = 200;
+      xhrMock.responseText = JSON.stringify(mockResponse);
 
-      await uploadFile(mockFile, "test-token");
-      expect(fetch).toHaveBeenCalledWith(
-        `${API_BASE}/files/upload`,
-        expect.objectContaining({
-          method: "POST",
-          headers: expect.objectContaining({
-            Authorization: "Bearer test-token",
-          }),
-        })
-      );
+      const promise = uploadFile(mockFile, "test-token");
+      xhrMock.onload!();
+
+      await promise;
+      expect(xhrMock.setRequestHeader).toHaveBeenCalledWith("Authorization", "Bearer test-token");
     });
 
     it("throws ApiError on failure", async () => {
       const mockFile = new File(["content"], "test.log", { type: "text/plain" });
 
-      const errorResponse = {
-        ok: false,
-        status: 400,
-        statusText: "Bad Request",
-        headers: new Headers({ "content-type": "application/json" }),
-        json: async () => ({ code: "invalid_file", message: "Invalid file format" }),
-      } as Response;
+      xhrMock.status = 400;
+      xhrMock.statusText = "Bad Request";
+      xhrMock.responseText = JSON.stringify({ code: "invalid_file", message: "Invalid file format" });
 
-      vi.mocked(fetch).mockResolvedValueOnce(errorResponse);
-      await expect(uploadFile(mockFile)).rejects.toThrow(ApiError);
+      const promise = uploadFile(mockFile);
+      xhrMock.onload!();
 
-      vi.mocked(fetch).mockResolvedValueOnce(errorResponse);
-      await expect(uploadFile(mockFile)).rejects.toThrow("Invalid file format");
+      await expect(promise).rejects.toThrow("Invalid file format");
     });
   });
 

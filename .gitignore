@@ -17,6 +17,8 @@ Thumbs.db
 backend/bin/
 backend/tmp/
 *.exe
+*.test
+*.out
 
 # Node
 node_modules/

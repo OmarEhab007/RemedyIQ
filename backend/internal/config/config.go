@@ -46,6 +46,9 @@ type Config struct {
 	// App
 	Environment string // development, staging, production
 	LogLevel    string
+
+	// Bleve search index
+	BlevePath string
 }
 
 // Load reads configuration from environment variables.
@@ -69,6 +72,7 @@ func Load() (*Config, error) {
 		AnthropicAPIKey:          getEnv("ANTHROPIC_API_KEY", ""),
 		Environment:              getEnv("ENVIRONMENT", "development"),
 		LogLevel:                 getEnv("LOG_LEVEL", "info"),
+		BlevePath:                getEnv("BLEVE_PATH", "./data/bleve"),
 	}
 
 	if err := cfg.validate(); err != nil {
