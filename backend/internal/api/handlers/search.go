@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -259,7 +262,9 @@ func (h *SearchLogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if tenantUUID, err := uuid.Parse(tenantID); err == nil {
 				jobUUID, _ := uuid.Parse(jobID)
 				go func() {
-					if err := h.pg.RecordSearchHistory(r.Context(), tenantUUID, userID, &jobUUID, query, int(chResult.TotalCount)); err != nil {
+					bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+					if err := h.pg.RecordSearchHistory(bgCtx, tenantUUID, userID, &jobUUID, query, int(chResult.TotalCount)); err != nil {
 						slog.Warn("failed to record search history", "error", err)
 					}
 				}()
@@ -344,8 +349,25 @@ func entryToFieldMap(e domain.LogEntry) map[string]interface{} {
 }
 
 func (h *SearchLogsHandler) buildCacheKey(tenantID, jobID, query string, page, pageSize int, sortBy, sortDir string, timeFrom, timeTo *time.Time, includeHistogram bool, logTypes, users, queues []string) string {
-	raw := fmt.Sprintf("%s|%s|%s|%d|%d|%s|%s|%v|%v|%v|%v|%v|%v",
-		tenantID, jobID, query, page, pageSize, sortBy, sortDir, timeFrom, timeTo, includeHistogram, logTypes, users, queues)
+	var fromStr, toStr string
+	if timeFrom != nil {
+		fromStr = timeFrom.UTC().Format(time.RFC3339Nano)
+	}
+	if timeTo != nil {
+		toStr = timeTo.UTC().Format(time.RFC3339Nano)
+	}
+	sortedTypes := make([]string, len(logTypes))
+	copy(sortedTypes, logTypes)
+	sort.Strings(sortedTypes)
+	sortedUsers := make([]string, len(users))
+	copy(sortedUsers, users)
+	sort.Strings(sortedUsers)
+	sortedQueues := make([]string, len(queues))
+	copy(sortedQueues, queues)
+	sort.Strings(sortedQueues)
+	raw := fmt.Sprintf("%s|%s|%s|%d|%d|%s|%s|%s|%s|%v|%s|%s|%s",
+		tenantID, jobID, query, page, pageSize, sortBy, sortDir, fromStr, toStr, includeHistogram,
+		strings.Join(sortedTypes, ","), strings.Join(sortedUsers, ","), strings.Join(sortedQueues, ","))
 	hash := sha256.Sum256([]byte(raw))
 	return fmt.Sprintf("cache:%s:search:%x", tenantID, hash[:8])
 }

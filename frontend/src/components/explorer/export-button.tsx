@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getApiHeaders } from "@/lib/api";
 
 interface ExportButtonProps {
@@ -13,6 +13,18 @@ interface ExportButtonProps {
 export function ExportButton({ jobId, query, timeFrom, timeTo }: ExportButtonProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showMenu]);
 
   const handleExport = async (format: "csv" | "json") => {
     setShowMenu(false);
@@ -54,7 +66,7 @@ export function ExportButton({ jobId, query, timeFrom, timeTo }: ExportButtonPro
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={menuRef}>
       <button
         onClick={() => setShowMenu(!showMenu)}
         disabled={exporting}

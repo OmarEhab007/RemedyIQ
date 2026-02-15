@@ -149,7 +149,11 @@ export function tokenizeKQL(input: string): Token[] {
     }
 
     if (isDigit(c) || (c === "-" && isDigit(peek(1)))) {
-      const num = readNumber();
+      let num = "";
+      if (c === "-") {
+        num += advance();
+      }
+      num += readNumber();
       tokens.push({ text: num, type: "value-number", start: startPos, end: pos });
       continue;
     }

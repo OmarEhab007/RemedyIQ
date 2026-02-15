@@ -70,8 +70,8 @@ func (h *ContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	window := 10
 	if windowStr := r.URL.Query().Get("window"); windowStr != "" {
-		if w, err := strconv.Atoi(windowStr); err == nil && w > 0 {
-			window = w
+		if parsed, err := strconv.Atoi(windowStr); err == nil && parsed > 0 {
+			window = parsed
 		}
 	}
 

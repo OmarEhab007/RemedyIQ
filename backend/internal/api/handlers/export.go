@@ -104,7 +104,9 @@ func (h *ExportHandler) exportCSV(w http.ResponseWriter, entries []domain.LogEnt
 	defer writer.Flush()
 
 	header := []string{"line_number", "timestamp", "log_type", "user", "duration_ms", "success", "form", "raw_text"}
-	writer.Write(header)
+	if err := writer.Write(header); err != nil {
+		return
+	}
 
 	for _, e := range entries {
 		row := []string{
@@ -117,7 +119,9 @@ func (h *ExportHandler) exportCSV(w http.ResponseWriter, entries []domain.LogEnt
 			e.Form,
 			e.RawText,
 		}
-		writer.Write(row)
+		if err := writer.Write(row); err != nil {
+			return
+		}
 	}
 }
 
