@@ -129,6 +129,19 @@ func (m *MockPostgresStore) DeleteSavedSearch(ctx context.Context, tenantID uuid
 	return args.Error(0)
 }
 
+func (m *MockPostgresStore) RecordSearchHistory(ctx context.Context, tenantID uuid.UUID, userID string, jobID *uuid.UUID, kqlQuery string, resultCount int) error {
+	args := m.Called(ctx, tenantID, userID, jobID, kqlQuery, resultCount)
+	return args.Error(0)
+}
+
+func (m *MockPostgresStore) GetSearchHistory(ctx context.Context, tenantID uuid.UUID, userID string, limit int) ([]domain.SearchHistoryEntry, error) {
+	args := m.Called(ctx, tenantID, userID, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.SearchHistoryEntry), args.Error(1)
+}
+
 func (m *MockPostgresStore) Close() {
 	m.Called()
 }
@@ -145,6 +158,14 @@ func (m *MockClickHouseStore) Ping(ctx context.Context) error {
 func (m *MockClickHouseStore) BatchInsertEntries(ctx context.Context, entries []domain.LogEntry) error {
 	args := m.Called(ctx, entries)
 	return args.Error(0)
+}
+
+func (m *MockClickHouseStore) GetLogEntry(ctx context.Context, tenantID, jobID, entryID string) (*domain.LogEntry, error) {
+	args := m.Called(ctx, tenantID, jobID, entryID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.LogEntry), args.Error(1)
 }
 
 func (m *MockClickHouseStore) GetDashboardData(ctx context.Context, tenantID, jobID string, topN int) (*domain.DashboardData, error) {
@@ -209,6 +230,54 @@ func (m *MockClickHouseStore) SearchEntries(ctx context.Context, tenantID, jobID
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*storage.SearchResult), args.Error(1)
+}
+
+func (m *MockClickHouseStore) GetHistogramData(ctx context.Context, tenantID, jobID string, timeFrom, timeTo time.Time) (*domain.HistogramResponse, error) {
+	args := m.Called(ctx, tenantID, jobID, timeFrom, timeTo)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.HistogramResponse), args.Error(1)
+}
+
+func (m *MockClickHouseStore) GetEntryContext(ctx context.Context, tenantID, jobID, entryID string, window int) (*domain.ContextResponse, error) {
+	args := m.Called(ctx, tenantID, jobID, entryID, window)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.ContextResponse), args.Error(1)
+}
+
+func (m *MockClickHouseStore) GetAutocompleteValues(ctx context.Context, tenantID, jobID, field, prefix string, limit int) ([]domain.AutocompleteValue, error) {
+	args := m.Called(ctx, tenantID, jobID, field, prefix, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.AutocompleteValue), args.Error(1)
+}
+
+func (m *MockClickHouseStore) GetTraceEntries(ctx context.Context, tenantID, jobID, traceID string) ([]domain.LogEntry, error) {
+	args := m.Called(ctx, tenantID, jobID, traceID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.LogEntry), args.Error(1)
+}
+
+func (m *MockClickHouseStore) GetJobTimeRange(ctx context.Context, tenantID, jobID string) (*storage.JobTimeRange, error) {
+	args := m.Called(ctx, tenantID, jobID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*storage.JobTimeRange), args.Error(1)
+}
+
+func (m *MockClickHouseStore) GetFacets(ctx context.Context, tenantID, jobID string, q storage.SearchQuery) (map[string][]storage.FacetValue, error) {
+	args := m.Called(ctx, tenantID, jobID, q)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string][]storage.FacetValue), args.Error(1)
 }
 
 func (m *MockClickHouseStore) Close() error {

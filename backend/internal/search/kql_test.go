@@ -484,7 +484,7 @@ func TestToClickHouseWhere_Nil(t *testing.T) {
 func TestToClickHouseWhere_SimpleEquals(t *testing.T) {
 	node := &QueryNode{Field: "type", Op: OpEquals, Value: "API"}
 	sql, params := node.ToClickHouseWhere()
-	assert.Equal(t, "log_type = ?", sql)
+	assert.Equal(t, "log_type = ?", sql) // Enum column uses exact match, not ILIKE
 	require.Len(t, params, 1)
 	assert.Equal(t, "API", params[0])
 }
@@ -526,7 +526,7 @@ func TestToClickHouseWhere_FieldMapping(t *testing.T) {
 func TestToClickHouseWhere_UnknownField(t *testing.T) {
 	node := &QueryNode{Field: "custom_field", Op: OpEquals, Value: "val"}
 	sql, params := node.ToClickHouseWhere()
-	assert.Equal(t, "custom_field = ?", sql)
+	assert.Equal(t, "custom_field ILIKE ?", sql)
 	require.Len(t, params, 1)
 	assert.Equal(t, "val", params[0])
 }
@@ -564,8 +564,10 @@ func TestToClickHouseWhere_Wildcard(t *testing.T) {
 func TestToClickHouseWhere_FullText(t *testing.T) {
 	node := &QueryNode{Op: OpFullText, Value: "error"}
 	sql, params := node.ToClickHouseWhere()
-	assert.Equal(t, "raw_text ILIKE ?", sql)
-	require.Len(t, params, 1)
+	assert.Contains(t, sql, "raw_text ILIKE ?")
+	assert.Contains(t, sql, "error_message ILIKE ?")
+	assert.Contains(t, sql, "user ILIKE ?")
+	require.Len(t, params, 7)
 	assert.Equal(t, "%error%", params[0])
 }
 
@@ -578,7 +580,7 @@ func TestToClickHouseWhere_AND(t *testing.T) {
 		},
 	}
 	sql, params := node.ToClickHouseWhere()
-	assert.Equal(t, "(log_type = ? AND user = ?)", sql)
+	assert.Equal(t, "(log_type = ? AND user ILIKE ?)", sql)
 	require.Len(t, params, 2)
 	assert.Equal(t, "API", params[0])
 	assert.Equal(t, "Demo", params[1])
@@ -655,7 +657,7 @@ func TestEndToEnd_ParseAndGenerate(t *testing.T) {
 		{
 			name:        "and",
 			kql:         "type:API AND user:Demo",
-			expectedSQL: "(log_type = ? AND user = ?)",
+			expectedSQL: "(log_type = ? AND user ILIKE ?)",
 			paramCount:  2,
 		},
 		{
@@ -685,8 +687,8 @@ func TestEndToEnd_ParseAndGenerate(t *testing.T) {
 		{
 			name:        "fulltext",
 			kql:         "error",
-			expectedSQL: "raw_text ILIKE ?",
-			paramCount:  1,
+			expectedSQL: "(raw_text ILIKE ? OR error_message ILIKE ? OR user ILIKE ? OR form ILIKE ? OR api_code ILIKE ? OR filter_name ILIKE ? OR esc_name ILIKE ?)",
+			paramCount:  7,
 		},
 		{
 			name:        "parenthesized or with and",
@@ -697,13 +699,13 @@ func TestEndToEnd_ParseAndGenerate(t *testing.T) {
 		{
 			name:        "quoted value",
 			kql:         `form:"HPD:Help Desk"`,
-			expectedSQL: "form = ?",
+			expectedSQL: "form ILIKE ?",
 			paramCount:  1,
 		},
 		{
 			name:        "not with and",
 			kql:         "NOT type:SQL AND user:Demo",
-			expectedSQL: "(NOT (log_type = ?) AND user = ?)",
+			expectedSQL: "(NOT (log_type = ?) AND user ILIKE ?)",
 			paramCount:  2,
 		},
 		{

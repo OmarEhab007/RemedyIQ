@@ -14,6 +14,7 @@ import (
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/api"
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/api/handlers"
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/config"
+	"github.com/OmarEhab007/RemedyIQ/backend/internal/search"
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/storage"
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/streaming"
 )
@@ -75,6 +76,14 @@ func main() {
 	if err != nil {
 		slog.Warn("S3 client initialization failed; file uploads will not work", "error", err)
 	}
+
+	bleveManager, err := search.NewBleveManager(cfg.BlevePath)
+	if err != nil {
+		slog.Error("failed to initialize BleveManager", "error", err)
+		os.Exit(1)
+	}
+	defer bleveManager.Close()
+
 	// --- WebSocket hub ---
 	wsHub := streaming.NewHub()
 	go wsHub.Run()
@@ -95,27 +104,44 @@ func main() {
 
 	reportHandler := handlers.NewReportHandler(pg, redis)
 
+	searchLogsHandler := handlers.NewSearchLogsHandler(ch, bleveManager, redis, pg)
+	autocompleteHandler := handlers.NewAutocompleteHandler(ch)
+	entryHandler := handlers.NewEntryHandler(ch)
+	contextHandler := handlers.NewContextHandler(ch)
+	exportHandler := handlers.NewExportHandler(ch)
+	traceHandler := handlers.NewTraceHandler(ch)
+	savedSearchHandler := handlers.NewSavedSearchHandler(pg)
+	deleteSavedSearchHandler := handlers.NewDeleteSavedSearchHandler(pg)
+	searchHistoryHandler := handlers.NewSearchHistoryHandler(pg)
+
 	// --- Build router ---
 	router := api.NewRouter(api.RouterConfig{
-		AllowedOrigins:        []string{"*"},
-		DevMode:               cfg.IsDevelopment(),
-		ClerkSecretKey:        cfg.ClerkSecretKey,
-		HealthHandler:         healthHandler,
-		UploadFileHandler:     uploadHandler,
-		ListFilesHandler:      fileHandlers.ListFiles(),
-		CreateAnalysisHandler: analysisHandlers.CreateAnalysis(),
-		ListAnalysesHandler:   analysisHandlers.ListAnalyses(),
-		GetAnalysisHandler:    analysisHandlers.GetAnalysis(),
-		GetDashboardHandler:   dashboardHandler,
-		AggregatesHandler:     handlers.NewAggregatesHandler(pg, ch, redis),
-		ExceptionsHandler:     handlers.NewExceptionsHandler(pg, ch, redis),
-		GapsHandler:           handlers.NewGapsHandler(pg, ch, redis),
-		ThreadsHandler:        handlers.NewThreadsHandler(pg, ch, redis),
-		FiltersHandler:        handlers.NewFiltersHandler(pg, ch, redis),
-		GenerateReportHandler: reportHandler,
-		WSHandler:             streamHandler,
-		// SearchLogsHandler, GetLogEntryHandler, GetTraceHandler, QueryAIHandler
-		// require BleveManager/AI Registry — added later.
+		AllowedOrigins:           []string{"*"},
+		DevMode:                  cfg.IsDevelopment(),
+		ClerkSecretKey:           cfg.ClerkSecretKey,
+		HealthHandler:            healthHandler,
+		UploadFileHandler:        uploadHandler,
+		ListFilesHandler:         fileHandlers.ListFiles(),
+		CreateAnalysisHandler:    analysisHandlers.CreateAnalysis(),
+		ListAnalysesHandler:      analysisHandlers.ListAnalyses(),
+		GetAnalysisHandler:       analysisHandlers.GetAnalysis(),
+		GetDashboardHandler:      dashboardHandler,
+		AggregatesHandler:        handlers.NewAggregatesHandler(pg, ch, redis),
+		ExceptionsHandler:        handlers.NewExceptionsHandler(pg, ch, redis),
+		GapsHandler:              handlers.NewGapsHandler(pg, ch, redis),
+		ThreadsHandler:           handlers.NewThreadsHandler(pg, ch, redis),
+		FiltersHandler:           handlers.NewFiltersHandler(pg, ch, redis),
+		GenerateReportHandler:    reportHandler,
+		WSHandler:                streamHandler,
+		SearchLogsHandler:        searchLogsHandler,
+		AutocompleteHandler:      autocompleteHandler,
+		GetLogEntryHandler:       entryHandler,
+		GetEntryContextHandler:   contextHandler,
+		ExportHandler:            exportHandler,
+		SavedSearchHandler:       savedSearchHandler,
+		DeleteSavedSearchHandler: deleteSavedSearchHandler,
+		SearchHistoryHandler:     searchHistoryHandler,
+		GetTraceHandler:          traceHandler,
 	})
 
 	// --- Start HTTP server ---

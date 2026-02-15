@@ -66,9 +66,11 @@ var KnownFields = map[string]string{
 	"sql_table":  "sql_table",
 	"filter":     "filter_name",
 	"escalation": "esc_name",
-	"timestamp":  "timestamp",
-	"error":      "error_message",
-	"identifier": "api_code",
+	"timestamp":   "timestamp",
+	"error":       "error_message",
+	"identifier":  "api_code",
+	"line_number": "line_number",
+	"line":        "line_number",
 }
 
 // numericFields is the set of ClickHouse columns that hold numeric data. Range
@@ -76,6 +78,14 @@ var KnownFields = map[string]string{
 // string ones.
 var numericFields = map[string]bool{
 	"duration_ms": true,
+	"line_number": true,
+}
+
+// exactMatchFields are ClickHouse columns that use Enum or Bool types
+// and do NOT support ILIKE. These must use = for equality comparisons.
+var exactMatchFields = map[string]bool{
+	"log_type": true, // Enum8('API','SQL','FLTR','ESCL')
+	"success":  true, // Bool
 }
 
 // --------------------------------------------------------------------------
@@ -508,9 +518,11 @@ func (q *QueryNode) toSQL() (string, []interface{}) {
 		}
 	}
 
-	// Leaf: fulltext.
+	// Leaf: fulltext — search across multiple fields for broader results.
 	if q.Op == OpFullText {
-		return "raw_text ILIKE ?", []interface{}{"%" + escapeLikePattern(q.Value) + "%"}
+		escaped := "%" + escapeLikePattern(q.Value) + "%"
+		return "(raw_text ILIKE ? OR error_message ILIKE ? OR user ILIKE ? OR form ILIKE ? OR api_code ILIKE ? OR filter_name ILIKE ? OR esc_name ILIKE ?)",
+			[]interface{}{escaped, escaped, escaped, escaped, escaped, escaped, escaped}
 	}
 
 	// Resolve column name.
@@ -518,9 +530,25 @@ func (q *QueryNode) toSQL() (string, []interface{}) {
 
 	switch q.Op {
 	case OpEquals:
-		return fmt.Sprintf("%s = ?", col), []interface{}{q.Value}
+		if numericFields[col] {
+			return fmt.Sprintf("%s = ?", col), []interface{}{castParam(col, q.Value)}
+		}
+		if col == "success" {
+			// Boolean field: convert string "true"/"false"/"OK"/"ERR" to bool.
+			boolVal := strings.ToLower(q.Value) == "true" || strings.ToLower(q.Value) == "ok" || q.Value == "1"
+			return fmt.Sprintf("%s = ?", col), []interface{}{boolVal}
+		}
+		if exactMatchFields[col] {
+			// Enum columns do not support ILIKE; use exact match.
+			return fmt.Sprintf("%s = ?", col), []interface{}{q.Value}
+		}
+		// String columns: case-insensitive matching.
+		return fmt.Sprintf("%s ILIKE ?", col), []interface{}{q.Value}
 	case OpNotEquals:
-		return fmt.Sprintf("%s != ?", col), []interface{}{q.Value}
+		if numericFields[col] || exactMatchFields[col] {
+			return fmt.Sprintf("%s != ?", col), []interface{}{castParam(col, q.Value)}
+		}
+		return fmt.Sprintf("NOT %s ILIKE ?", col), []interface{}{q.Value}
 	case OpGreaterThan:
 		return fmt.Sprintf("%s > ?", col), []interface{}{castParam(col, q.Value)}
 	case OpGreaterEqual:

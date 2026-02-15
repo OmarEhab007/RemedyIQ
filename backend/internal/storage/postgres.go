@@ -452,3 +452,74 @@ func (p *PostgresClient) DeleteSavedSearch(ctx context.Context, tenantID uuid.UU
 	}
 	return nil
 }
+
+// --------------------------------------------------------------------------
+// Search History
+// --------------------------------------------------------------------------
+
+const searchHistoryLimit = 20
+
+func (p *PostgresClient) RecordSearchHistory(ctx context.Context, tenantID uuid.UUID, userID string, jobID *uuid.UUID, kqlQuery string, resultCount int) error {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("postgres: record search history begin: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO search_history (tenant_id, user_id, job_id, kql_query, result_count, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, tenantID, userID, jobID, kqlQuery, resultCount, time.Now().UTC())
+	if err != nil {
+		return fmt.Errorf("postgres: record search history insert: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		DELETE FROM search_history
+		WHERE tenant_id = $1 AND user_id = $2
+		  AND id NOT IN (
+		    SELECT id FROM search_history
+		    WHERE tenant_id = $1 AND user_id = $2
+		    ORDER BY created_at DESC
+		    LIMIT $3
+		  )
+	`, tenantID, userID, searchHistoryLimit)
+	if err != nil {
+		return fmt.Errorf("postgres: record search history cleanup: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("postgres: record search history commit: %w", err)
+	}
+	return nil
+}
+
+func (p *PostgresClient) GetSearchHistory(ctx context.Context, tenantID uuid.UUID, userID string, limit int) ([]domain.SearchHistoryEntry, error) {
+	if limit <= 0 || limit > searchHistoryLimit {
+		limit = searchHistoryLimit
+	}
+
+	rows, err := p.pool.Query(ctx, `
+		SELECT id, tenant_id, user_id, job_id, kql_query, result_count, created_at
+		FROM search_history
+		WHERE tenant_id = $1 AND user_id = $2
+		ORDER BY created_at DESC
+		LIMIT $3
+	`, tenantID, userID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("postgres: get search history: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []domain.SearchHistoryEntry
+	for rows.Next() {
+		var e domain.SearchHistoryEntry
+		if err := rows.Scan(
+			&e.ID, &e.TenantID, &e.UserID, &e.JobID, &e.KQLQuery, &e.ResultCount, &e.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("postgres: scan search history: %w", err)
+		}
+		entries = append(entries, e)
+	}
+	return entries, rows.Err()
+}

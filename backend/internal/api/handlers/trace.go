@@ -3,22 +3,21 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/blevesearch/bleve/v2"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/api"
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/api/middleware"
-	"github.com/OmarEhab007/RemedyIQ/backend/internal/search"
+	"github.com/OmarEhab007/RemedyIQ/backend/internal/storage"
 )
 
 // TraceHandler serves GET /api/v1/analysis/{job_id}/trace/{trace_id}.
 type TraceHandler struct {
-	bleveManager search.SearchIndexer
+	ch storage.ClickHouseStore
 }
 
-func NewTraceHandler(bm search.SearchIndexer) *TraceHandler {
-	return &TraceHandler{bleveManager: bm}
+func NewTraceHandler(ch storage.ClickHouseStore) *TraceHandler {
+	return &TraceHandler{ch: ch}
 }
 
 func (h *TraceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -41,45 +40,26 @@ func (h *TraceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Search for entries with this trace_id AND job_id to prevent cross-job access.
-	// Create a conjunction query to match both trace_id and job_id.
-	traceQuery := bleve.NewTermQuery(traceID)
-	traceQuery.SetField("trace_id")
-
-	jobQuery := bleve.NewTermQuery(jobIDStr)
-	jobQuery.SetField("job_id")
-
-	conjunctionQuery := bleve.NewConjunctionQuery(traceQuery, jobQuery)
-
-	searchReq := bleve.NewSearchRequest(conjunctionQuery)
-	searchReq.Size = 1000
-	searchReq.Fields = []string{"*"}
-	searchReq.SortBy([]string{"timestamp"})
-
-	result, err := h.bleveManager.Search(r.Context(), tenantID, searchReq)
+	entries, err := h.ch.GetTraceEntries(r.Context(), tenantID, jobIDStr, traceID)
 	if err != nil {
 		api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "trace search failed")
 		return
 	}
 
-	entries := make([]map[string]interface{}, 0, len(result.Hits))
+	results := make([]map[string]interface{}, 0, len(entries))
 	var totalDuration int
-	for _, hit := range result.Hits {
-		entry := map[string]interface{}{
-			"id":     hit.ID,
-			"score":  hit.Score,
-			"fields": hit.Fields,
-		}
-		entries = append(entries, entry)
-		if d, ok := hit.Fields["duration_ms"].(float64); ok {
-			totalDuration += int(d)
-		}
+	for _, e := range entries {
+		results = append(results, map[string]interface{}{
+			"id":     e.EntryID,
+			"fields": entryToFieldMap(e),
+		})
+		totalDuration += int(e.DurationMS)
 	}
 
 	api.JSON(w, http.StatusOK, map[string]interface{}{
 		"trace_id":       traceID,
-		"entries":        entries,
-		"entry_count":    len(entries),
+		"entries":        results,
+		"entry_count":    len(results),
 		"total_duration": totalDuration,
 	})
 }

@@ -43,12 +43,17 @@ type RouterConfig struct {
 	FiltersHandler         http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/filters
 	SearchLogsHandler      http.Handler // GET  /api/v1/analysis/{job_id}/search
 	GetLogEntryHandler     http.Handler // GET  /api/v1/analysis/{job_id}/entries/{entry_id}
+	GetEntryContextHandler http.Handler // GET  /api/v1/analysis/{job_id}/entries/{entry_id}/context
 	GetTraceHandler        http.Handler // GET  /api/v1/analysis/{job_id}/trace/{trace_id}
+	ExportHandler          http.Handler // GET  /api/v1/analysis/{job_id}/search/export
 	QueryAIHandler         http.Handler // POST /api/v1/analysis/{job_id}/ai
 	GenerateReportHandler  http.Handler // POST /api/v1/analysis/{job_id}/report
 
 	// Search handlers
-	AutocompleteHandler http.Handler // GET /api/v1/search/autocomplete
+	AutocompleteHandler      http.Handler // GET  /api/v1/search/autocomplete
+	SavedSearchHandler       http.Handler // GET/POST /api/v1/search/saved
+	DeleteSavedSearchHandler http.Handler // DELETE /api/v1/search/saved/{search_id}
+	SearchHistoryHandler     http.Handler // GET  /api/v1/search/history
 
 	// WebSocket handler
 	WSHandler http.Handler // GET /api/v1/ws
@@ -94,13 +99,18 @@ func NewRouter(cfg RouterConfig) *mux.Router {
 	auth.Handle("/analysis/{job_id}/dashboard/threads", handlerOrStub(cfg.ThreadsHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/dashboard/filters", handlerOrStub(cfg.FiltersHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/search", handlerOrStub(cfg.SearchLogsHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/search/export", handlerOrStub(cfg.ExportHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/entries/{entry_id}", handlerOrStub(cfg.GetLogEntryHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/entries/{entry_id}/context", handlerOrStub(cfg.GetEntryContextHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/trace/{trace_id}", handlerOrStub(cfg.GetTraceHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/ai", handlerOrStub(cfg.QueryAIHandler)).Methods(http.MethodPost, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/report", handlerOrStub(cfg.GenerateReportHandler)).Methods(http.MethodPost, http.MethodOptions)
 
 	// Search
 	auth.Handle("/search/autocomplete", handlerOrStub(cfg.AutocompleteHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/search/saved", handlerOrStub(cfg.SavedSearchHandler)).Methods(http.MethodGet, http.MethodPost, http.MethodOptions)
+	auth.Handle("/search/saved/{search_id}", handlerOrStub(cfg.DeleteSavedSearchHandler)).Methods(http.MethodDelete, http.MethodOptions)
+	auth.Handle("/search/history", handlerOrStub(cfg.SearchHistoryHandler)).Methods(http.MethodGet, http.MethodOptions)
 
 	// WebSocket
 	auth.Handle("/ws", handlerOrStub(cfg.WSHandler)).Methods(http.MethodGet)

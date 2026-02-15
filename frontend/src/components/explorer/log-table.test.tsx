@@ -105,7 +105,7 @@ describe('LogTable', () => {
     render(<LogTable hits={[mockHits[2]]} onSelect={vi.fn()} />)
 
     const fltrType = screen.getByText('FLTR')
-    expect(fltrType).toHaveClass('bg-purple-100', 'text-purple-800')
+    expect(fltrType).toHaveClass('bg-orange-100', 'text-orange-800')
   })
 
   it('displays formatted timestamp', () => {

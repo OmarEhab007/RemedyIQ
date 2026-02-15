@@ -239,7 +239,7 @@ export function TopNTable({ apiCalls, sqlStatements, filters, escalations, jobId
                         </div>
                         {jobId && (
                           <a
-                            href={`/explorer?line=${entry.line_number}&job=${jobId}`}
+                            href={`/analysis/${jobId}/explorer?line=${entry.line_number}`}
                             className="inline-block mt-2 text-xs text-primary hover:text-primary/80 hover:underline"
                             onClick={(e) => e.stopPropagation()}
                           >

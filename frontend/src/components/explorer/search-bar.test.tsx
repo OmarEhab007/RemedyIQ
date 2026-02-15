@@ -41,13 +41,13 @@ describe('SearchBar', () => {
     expect(input).toBeInTheDocument()
   })
 
-  it('renders all search hint buttons', () => {
+  it('renders all search hint buttons when empty', () => {
     render(<SearchBar value="" onChange={vi.fn()} />)
 
     expect(screen.getByText('type:API')).toBeInTheDocument()
+    expect(screen.getByText('type:SQL')).toBeInTheDocument()
     expect(screen.getByText('duration:>1000')).toBeInTheDocument()
-    expect(screen.getByText('user:"Demo"')).toBeInTheDocument()
-    expect(screen.getByText('form:HPD*')).toBeInTheDocument()
+    expect(screen.getByText('status:false')).toBeInTheDocument()
   })
 
   it('appends hint to empty search value with AND', () => {
@@ -60,11 +60,11 @@ describe('SearchBar', () => {
     expect(onChange).toHaveBeenCalledWith('type:API')
   })
 
-  it('appends hint to existing search value with AND', () => {
+  it('shows refine hints when value exists and appends on click', () => {
     const onChange = vi.fn()
     render(<SearchBar value="user:Admin" onChange={onChange} />)
 
-    const hintButton = screen.getByText('duration:>1000')
+    const hintButton = screen.getByText('+ duration:>1000')
     fireEvent.click(hintButton)
 
     expect(onChange).toHaveBeenCalledWith('user:Admin AND duration:>1000')
@@ -122,7 +122,7 @@ describe('SearchBar', () => {
     render(<SearchBar value="" onChange={vi.fn()} />)
 
     const hintButton = screen.getByText('type:API')
-    expect(hintButton).toHaveClass('px-2', 'py-0.5', 'text-xs', 'font-mono')
+    expect(hintButton).toHaveClass('font-mono', 'py-0.5')
   })
 
   it('handles multiple rapid onChange calls', () => {

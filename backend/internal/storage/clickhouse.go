@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math"
+	"sort"
 	"strings"
 	"time"
 
@@ -12,27 +14,43 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/domain"
+	"github.com/OmarEhab007/RemedyIQ/backend/internal/search"
 )
+
+// JobTimeRange holds the min/max timestamps for a job's log entries.
+type JobTimeRange struct {
+	Start time.Time
+	End   time.Time
+}
 
 // SearchQuery defines the parameters for a paginated log search.
 type SearchQuery struct {
-	Query     string   `json:"query"`
-	LogTypes  []string `json:"log_types,omitempty"`
-	TimeFrom  *time.Time `json:"time_from,omitempty"`
-	TimeTo    *time.Time `json:"time_to,omitempty"`
-	UserFilter  string `json:"user_filter,omitempty"`
-	QueueFilter string `json:"queue_filter,omitempty"`
-	SortBy      string `json:"sort_by,omitempty"`
-	SortOrder   string `json:"sort_order,omitempty"`
-	Page        int    `json:"page"`
-	PageSize    int    `json:"page_size"`
+	Query       string     `json:"query"`
+	LogTypes    []string   `json:"log_types,omitempty"`
+	TimeFrom    *time.Time `json:"time_from,omitempty"`
+	TimeTo      *time.Time `json:"time_to,omitempty"`
+	UserFilter  string     `json:"user_filter,omitempty"`
+	Users       []string   `json:"users,omitempty"`
+	QueueFilter string     `json:"queue_filter,omitempty"`
+	Queues      []string   `json:"queues,omitempty"`
+	SortBy      string     `json:"sort_by,omitempty"`
+	SortOrder   string     `json:"sort_order,omitempty"`
+	Page        int        `json:"page"`
+	PageSize    int        `json:"page_size"`
+	ExportMode  bool       `json:"-"` // bypass page_size cap (export only)
 }
 
 // SearchResult holds the results from a paginated log search.
 type SearchResult struct {
 	Entries    []domain.LogEntry `json:"entries"`
-	TotalCount int64            `json:"total_count"`
-	TookMS     int              `json:"took_ms"`
+	TotalCount int64             `json:"total_count"`
+	TookMS     int               `json:"took_ms"`
+}
+
+// FacetValue holds a single value and its count for faceted search results.
+type FacetValue struct {
+	Value string `json:"value"`
+	Count int64  `json:"count"`
 }
 
 // ClickHouseClient wraps a ClickHouse connection pool.
@@ -425,10 +443,10 @@ func (c *ClickHouseClient) queryTimeSeries(ctx context.Context, tenantID, jobID 
 func (c *ClickHouseClient) queryDistribution(ctx context.Context, tenantID, jobID string, dash *domain.DashboardData) error {
 	// Distribution by log type.
 	typeRows, err := c.conn.Query(ctx, `
-		SELECT log_type, count() AS cnt
+		SELECT toString(log_type) AS lt, count() AS cnt
 		FROM log_entries
 		WHERE tenant_id = @tenantID AND job_id = @jobID
-		GROUP BY log_type
+		GROUP BY lt
 	`,
 		clickhouse.Named("tenantID", tenantID),
 		clickhouse.Named("jobID", jobID),
@@ -441,11 +459,11 @@ func (c *ClickHouseClient) queryDistribution(ctx context.Context, tenantID, jobI
 	byType := make(map[string]int)
 	for typeRows.Next() {
 		var lt string
-		var cnt int
+		var cnt uint64
 		if err := typeRows.Scan(&lt, &cnt); err != nil {
 			return fmt.Errorf("clickhouse: distribution by type scan: %w", err)
 		}
-		byType[lt] = cnt
+		byType[lt] = int(cnt)
 	}
 	if err := typeRows.Err(); err != nil {
 		return fmt.Errorf("clickhouse: distribution by type rows: %w", err)
@@ -472,11 +490,11 @@ func (c *ClickHouseClient) queryDistribution(ctx context.Context, tenantID, jobI
 	byQueue := make(map[string]int)
 	for queueRows.Next() {
 		var q string
-		var cnt int
+		var cnt uint64
 		if err := queueRows.Scan(&q, &cnt); err != nil {
 			return fmt.Errorf("clickhouse: distribution by queue scan: %w", err)
 		}
-		byQueue[q] = cnt
+		byQueue[q] = int(cnt)
 	}
 	if err := queueRows.Err(); err != nil {
 		return fmt.Errorf("clickhouse: distribution by queue rows: %w", err)
@@ -510,10 +528,11 @@ func (c *ClickHouseClient) GetLogEntry(ctx context.Context, tenantID, jobID, ent
 	)
 
 	var e domain.LogEntry
+	var logType string
 	var scheduledTime time.Time
 	if err := row.Scan(
 		&e.TenantID, &e.JobID, &e.EntryID, &e.LineNumber, &e.FileNumber,
-		&e.Timestamp, &e.IngestedAt, &e.LogType,
+		&e.Timestamp, &e.IngestedAt, &logType,
 		&e.TraceID, &e.RPCID, &e.ThreadID,
 		&e.Queue, &e.User,
 		&e.DurationMS, &e.QueueTimeMS, &e.Success,
@@ -525,6 +544,7 @@ func (c *ClickHouseClient) GetLogEntry(ctx context.Context, tenantID, jobID, ent
 	); err != nil {
 		return nil, fmt.Errorf("clickhouse: get entry: %w", err)
 	}
+	e.LogType = domain.LogType(logType)
 
 	if !scheduledTime.IsZero() {
 		e.ScheduledTime = &scheduledTime
@@ -541,8 +561,12 @@ func (c *ClickHouseClient) SearchEntries(ctx context.Context, tenantID, jobID st
 	if q.PageSize <= 0 {
 		q.PageSize = 50
 	}
-	if q.PageSize > 500 {
-		q.PageSize = 500
+	maxPageSize := 500
+	if q.ExportMode {
+		maxPageSize = 50000
+	}
+	if q.PageSize > maxPageSize {
+		q.PageSize = maxPageSize
 	}
 	if q.Page < 1 {
 		q.Page = 1
@@ -551,7 +575,7 @@ func (c *ClickHouseClient) SearchEntries(ctx context.Context, tenantID, jobID st
 	// Determine sort column and direction.
 	sortCol := "timestamp"
 	switch q.SortBy {
-	case "duration_ms", "line_number", "timestamp":
+	case "duration_ms", "line_number", "timestamp", "user", "log_type":
 		sortCol = q.SortBy
 	}
 	sortDir := "DESC"
@@ -566,10 +590,31 @@ func (c *ClickHouseClient) SearchEntries(ctx context.Context, tenantID, jobID st
 		{Name: "jobID", Value: jobID},
 	}
 
-	if q.Query != "" {
-		escaped := escapeLikePattern(q.Query)
-		where += " AND (raw_text ILIKE @query OR error_message ILIKE @query)"
-		namedArgs = append(namedArgs, driver.NamedValue{Name: "query", Value: "%" + escaped + "%"})
+	if q.Query != "" && q.Query != "*" {
+		parsed, parseErr := search.ParseKQL(q.Query)
+		if parseErr == nil && parsed != nil {
+			kqlSQL, kqlParams := parsed.ToClickHouseWhere()
+			// Convert positional ? params to named @kql_N params for
+			// compatibility with the rest of the named-arg query.
+			paramIdx := 0
+			var converted strings.Builder
+			for _, ch := range kqlSQL {
+				if ch == '?' && paramIdx < len(kqlParams) {
+					paramName := fmt.Sprintf("kql_%d", paramIdx)
+					converted.WriteString("@" + paramName)
+					namedArgs = append(namedArgs, driver.NamedValue{Name: paramName, Value: kqlParams[paramIdx]})
+					paramIdx++
+				} else {
+					converted.WriteRune(ch)
+				}
+			}
+			where += " AND (" + converted.String() + ")"
+		} else {
+			// Fallback to ILIKE for unparseable queries
+			escaped := escapeLikePattern(q.Query)
+			where += " AND (raw_text ILIKE @query OR error_message ILIKE @query)"
+			namedArgs = append(namedArgs, driver.NamedValue{Name: "query", Value: "%" + escaped + "%"})
+		}
 	}
 
 	if len(q.LogTypes) > 0 {
@@ -587,12 +632,18 @@ func (c *ClickHouseClient) SearchEntries(ctx context.Context, tenantID, jobID st
 		namedArgs = append(namedArgs, driver.NamedValue{Name: "timeTo", Value: *q.TimeTo})
 	}
 
-	if q.UserFilter != "" {
+	if len(q.Users) > 0 {
+		where += " AND user IN (@users)"
+		namedArgs = append(namedArgs, driver.NamedValue{Name: "users", Value: q.Users})
+	} else if q.UserFilter != "" {
 		where += " AND user = @userFilter"
 		namedArgs = append(namedArgs, driver.NamedValue{Name: "userFilter", Value: q.UserFilter})
 	}
 
-	if q.QueueFilter != "" {
+	if len(q.Queues) > 0 {
+		where += " AND queue IN (@queues)"
+		namedArgs = append(namedArgs, driver.NamedValue{Name: "queues", Value: q.Queues})
+	} else if q.QueueFilter != "" {
 		where += " AND queue = @queueFilter"
 		namedArgs = append(namedArgs, driver.NamedValue{Name: "queueFilter", Value: q.QueueFilter})
 	}
@@ -605,7 +656,7 @@ func (c *ClickHouseClient) SearchEntries(ctx context.Context, tenantID, jobID st
 
 	// Count query.
 	countQuery := fmt.Sprintf("SELECT count() FROM log_entries WHERE %s", where)
-	var totalCount int64
+	var totalCount uint64
 	if err := c.conn.QueryRow(ctx, countQuery, chArgs...).Scan(&totalCount); err != nil {
 		return nil, fmt.Errorf("clickhouse: search count: %w", err)
 	}
@@ -639,10 +690,11 @@ func (c *ClickHouseClient) SearchEntries(ctx context.Context, tenantID, jobID st
 	var entries []domain.LogEntry
 	for rows.Next() {
 		var e domain.LogEntry
+		var logType string
 		var scheduledTime time.Time
 		if err := rows.Scan(
 			&e.TenantID, &e.JobID, &e.EntryID, &e.LineNumber, &e.FileNumber,
-			&e.Timestamp, &e.IngestedAt, &e.LogType,
+			&e.Timestamp, &e.IngestedAt, &logType,
 			&e.TraceID, &e.RPCID, &e.ThreadID,
 			&e.Queue, &e.User,
 			&e.DurationMS, &e.QueueTimeMS, &e.Success,
@@ -654,6 +706,7 @@ func (c *ClickHouseClient) SearchEntries(ctx context.Context, tenantID, jobID st
 		); err != nil {
 			return nil, fmt.Errorf("clickhouse: scan entry: %w", err)
 		}
+		e.LogType = domain.LogType(logType)
 		if !scheduledTime.IsZero() {
 			e.ScheduledTime = &scheduledTime
 		}
@@ -666,7 +719,7 @@ func (c *ClickHouseClient) SearchEntries(ctx context.Context, tenantID, jobID st
 
 	return &SearchResult{
 		Entries:    entries,
-		TotalCount: totalCount,
+		TotalCount: int64(totalCount),
 		TookMS:     int(time.Since(start).Milliseconds()),
 	}, nil
 }
@@ -702,10 +755,11 @@ func (c *ClickHouseClient) GetTraceEntries(ctx context.Context, tenantID, jobID,
 	var entries []domain.LogEntry
 	for rows.Next() {
 		var e domain.LogEntry
+		var logType string
 		var scheduledTime time.Time
 		if err := rows.Scan(
 			&e.TenantID, &e.JobID, &e.EntryID, &e.LineNumber, &e.FileNumber,
-			&e.Timestamp, &e.IngestedAt, &e.LogType,
+			&e.Timestamp, &e.IngestedAt, &logType,
 			&e.TraceID, &e.RPCID, &e.ThreadID,
 			&e.Queue, &e.User,
 			&e.DurationMS, &e.QueueTimeMS, &e.Success,
@@ -717,6 +771,7 @@ func (c *ClickHouseClient) GetTraceEntries(ctx context.Context, tenantID, jobID,
 		); err != nil {
 			return nil, fmt.Errorf("clickhouse: scan trace entry: %w", err)
 		}
+		e.LogType = domain.LogType(logType)
 		if !scheduledTime.IsZero() {
 			e.ScheduledTime = &scheduledTime
 		}
@@ -890,15 +945,17 @@ func (c *ClickHouseClient) GetExceptions(ctx context.Context, tenantID, jobID st
 
 	for rows.Next() {
 		var e domain.ExceptionEntry
+		var logType string
 		var sampleLine uint32
 		if err := rows.Scan(
 			&e.ErrorCode, &e.Message, &e.Count,
 			&e.FirstSeen, &e.LastSeen,
-			&e.LogType, &e.Queue, &e.Form, &e.User,
+			&logType, &e.Queue, &e.Form, &e.User,
 			&sampleLine, &e.SampleTrace,
 		); err != nil {
 			return nil, fmt.Errorf("clickhouse: exceptions scan: %w", err)
 		}
+		e.LogType = domain.LogType(logType)
 		e.SampleLine = int(sampleLine)
 		resp.Exceptions = append(resp.Exceptions, e)
 		resp.TotalCount += e.Count
@@ -1386,4 +1443,417 @@ func scoreSeverity(score int) string {
 		return "yellow"
 	}
 	return "red"
+}
+
+func computeBucketSize(rangeStart, rangeEnd time.Time) string {
+	duration := rangeEnd.Sub(rangeStart)
+	switch {
+	case duration <= 30*time.Second:
+		return "1 SECOND"
+	case duration <= 2*time.Minute:
+		return "5 SECOND"
+	case duration <= 5*time.Minute:
+		return "10 SECOND"
+	case duration <= 15*time.Minute:
+		return "30 SECOND"
+	case duration <= time.Hour:
+		return "1 MINUTE"
+	case duration <= 6*time.Hour:
+		return "5 MINUTE"
+	case duration <= 24*time.Hour:
+		return "15 MINUTE"
+	case duration <= 7*24*time.Hour:
+		return "1 HOUR"
+	default:
+		return "6 HOUR"
+	}
+}
+
+func (c *ClickHouseClient) GetHistogramData(ctx context.Context, tenantID, jobID string, timeFrom, timeTo time.Time) (*domain.HistogramResponse, error) {
+	bucketSize := computeBucketSize(timeFrom, timeTo)
+
+	// INTERVAL cannot be passed as a named parameter; interpolate directly.
+	// bucketSize is computed internally (not user input), so this is safe.
+	// Time values are formatted as strings to avoid DateTime64(3) parse issues.
+	query := fmt.Sprintf(`
+		SELECT
+			toStartOfInterval(timestamp, INTERVAL %s) AS bucket,
+			toString(log_type) AS lt,
+			count() AS cnt
+		FROM log_entries
+		WHERE tenant_id = {tenant_id:String}
+		  AND job_id = {job_id:String}
+		  AND timestamp >= toDateTime64({time_from:String}, 3)
+		  AND timestamp <= toDateTime64({time_to:String}, 3)
+		GROUP BY bucket, lt
+		ORDER BY bucket ASC
+	`, bucketSize)
+
+	rows, err := c.conn.Query(ctx, query,
+		clickhouse.Named("tenant_id", tenantID),
+		clickhouse.Named("job_id", jobID),
+		clickhouse.Named("time_from", timeFrom.UTC().Format("2006-01-02 15:04:05.000")),
+		clickhouse.Named("time_to", timeTo.UTC().Format("2006-01-02 15:04:05.000")),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse: histogram query: %w", err)
+	}
+	defer rows.Close()
+
+	bucketMap := make(map[time.Time]*domain.HistogramBucket)
+	for rows.Next() {
+		var bucket time.Time
+		var logType string
+		var cnt uint64
+		if err := rows.Scan(&bucket, &logType, &cnt); err != nil {
+			return nil, fmt.Errorf("clickhouse: histogram scan: %w", err)
+		}
+
+		if _, ok := bucketMap[bucket]; !ok {
+			bucketMap[bucket] = &domain.HistogramBucket{Timestamp: bucket}
+		}
+
+		c := int64(cnt)
+		switch logType {
+		case "API":
+			bucketMap[bucket].Counts.API += c
+		case "SQL":
+			bucketMap[bucket].Counts.SQL += c
+		case "FLTR":
+			bucketMap[bucket].Counts.FLTR += c
+		case "ESCL":
+			bucketMap[bucket].Counts.ESCL += c
+		}
+		bucketMap[bucket].Counts.Total += c
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("clickhouse: histogram rows: %w", err)
+	}
+
+	buckets := make([]domain.HistogramBucket, 0, len(bucketMap))
+	for _, b := range bucketMap {
+		buckets = append(buckets, *b)
+	}
+
+	sort.Slice(buckets, func(i, j int) bool {
+		return buckets[i].Timestamp.Before(buckets[j].Timestamp)
+	})
+
+	return &domain.HistogramResponse{
+		Buckets:    buckets,
+		BucketSize: bucketSize,
+	}, nil
+}
+
+func (c *ClickHouseClient) GetEntryContext(ctx context.Context, tenantID, jobID, entryID string, window int) (*domain.ContextResponse, error) {
+	if window <= 0 {
+		window = 10
+	}
+	if window > 50 {
+		window = 50
+	}
+
+	row := c.conn.QueryRow(ctx, `
+		SELECT line_number FROM log_entries
+		WHERE tenant_id = {tenant_id:String} AND job_id = {job_id:String} AND entry_id = {entry_id:String}
+		LIMIT 1
+	`,
+		clickhouse.Named("tenant_id", tenantID),
+		clickhouse.Named("job_id", jobID),
+		clickhouse.Named("entry_id", entryID),
+	)
+
+	var targetLineNumber uint32
+	if err := row.Scan(&targetLineNumber); err != nil {
+		return nil, fmt.Errorf("clickhouse: get entry context target: %w", err)
+	}
+
+	startLine := int(targetLineNumber) - window
+	if startLine < 1 {
+		startLine = 1
+	}
+	endLine := int(targetLineNumber) + window
+
+	rows, err := c.conn.Query(ctx, `
+		SELECT
+			tenant_id, job_id, entry_id, line_number, file_number,
+			timestamp, ingested_at, log_type,
+			trace_id, rpc_id, thread_id,
+			queue, user,
+			duration_ms, queue_time_ms, success,
+			api_code, form,
+			sql_table, sql_statement,
+			filter_name, filter_level, operation, request_id,
+			esc_name, esc_pool, scheduled_time, delay_ms, error_encountered,
+			raw_text, error_message
+		FROM log_entries
+		WHERE tenant_id = {tenant_id:String}
+		  AND job_id = {job_id:String}
+		  AND line_number BETWEEN {start_line:Int32} AND {end_line:Int32}
+		ORDER BY line_number ASC
+	`,
+		clickhouse.Named("tenant_id", tenantID),
+		clickhouse.Named("job_id", jobID),
+		clickhouse.Named("start_line", startLine),
+		clickhouse.Named("end_line", endLine),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse: get entry context query: %w", err)
+	}
+	defer rows.Close()
+
+	var target *domain.LogEntry
+	var before, after []domain.LogEntry
+
+	for rows.Next() {
+		var e domain.LogEntry
+		var logType string
+		var scheduledTime time.Time
+		if err := rows.Scan(
+			&e.TenantID, &e.JobID, &e.EntryID, &e.LineNumber, &e.FileNumber,
+			&e.Timestamp, &e.IngestedAt, &logType,
+			&e.TraceID, &e.RPCID, &e.ThreadID,
+			&e.Queue, &e.User,
+			&e.DurationMS, &e.QueueTimeMS, &e.Success,
+			&e.APICode, &e.Form,
+			&e.SQLTable, &e.SQLStatement,
+			&e.FilterName, &e.FilterLevel, &e.Operation, &e.RequestID,
+			&e.EscName, &e.EscPool, &scheduledTime, &e.DelayMS, &e.ErrorEncountered,
+			&e.RawText, &e.ErrorMessage,
+		); err != nil {
+			return nil, fmt.Errorf("clickhouse: get entry context scan: %w", err)
+		}
+		e.LogType = domain.LogType(logType)
+		if !scheduledTime.IsZero() {
+			e.ScheduledTime = &scheduledTime
+		}
+
+		if e.EntryID == entryID {
+			target = &e
+		} else if e.LineNumber < targetLineNumber {
+			before = append(before, e)
+		} else {
+			after = append(after, e)
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("clickhouse: get entry context rows: %w", err)
+	}
+
+	if target == nil {
+		return nil, fmt.Errorf("clickhouse: entry not found: %s", entryID)
+	}
+
+	return &domain.ContextResponse{
+		Target:     *target,
+		Before:     before,
+		After:      after,
+		WindowSize: window,
+	}, nil
+}
+
+// GetFacets returns facet counts for log_type, user, and queue columns,
+// applying the same KQL-based WHERE clause as SearchEntries so facets reflect
+// the current search context.
+func (c *ClickHouseClient) GetFacets(ctx context.Context, tenantID, jobID string, q SearchQuery) (map[string][]FacetValue, error) {
+	where := "tenant_id = @tenantID AND job_id = @jobID"
+	namedArgs := []driver.NamedValue{
+		{Name: "tenantID", Value: tenantID},
+		{Name: "jobID", Value: jobID},
+	}
+
+	if q.Query != "" && q.Query != "*" {
+		parsed, parseErr := search.ParseKQL(q.Query)
+		if parseErr == nil && parsed != nil {
+			kqlSQL, kqlParams := parsed.ToClickHouseWhere()
+			paramIdx := 0
+			var converted strings.Builder
+			for _, ch := range kqlSQL {
+				if ch == '?' && paramIdx < len(kqlParams) {
+					paramName := fmt.Sprintf("kql_%d", paramIdx)
+					converted.WriteString("@" + paramName)
+					namedArgs = append(namedArgs, driver.NamedValue{Name: paramName, Value: kqlParams[paramIdx]})
+					paramIdx++
+				} else {
+					converted.WriteRune(ch)
+				}
+			}
+			where += " AND (" + converted.String() + ")"
+		}
+	}
+
+	if q.TimeFrom != nil {
+		where += " AND timestamp >= @timeFrom"
+		namedArgs = append(namedArgs, driver.NamedValue{Name: "timeFrom", Value: *q.TimeFrom})
+	}
+	if q.TimeTo != nil {
+		where += " AND timestamp <= @timeTo"
+		namedArgs = append(namedArgs, driver.NamedValue{Name: "timeTo", Value: *q.TimeTo})
+	}
+
+	chArgs := make([]any, len(namedArgs))
+	for i, na := range namedArgs {
+		chArgs[i] = clickhouse.Named(na.Name, na.Value)
+	}
+
+	facetFields := []string{"log_type", "user", "queue"}
+	// Enum/Bool columns cannot be compared with != '' — skip the empty filter for them.
+	enumFields := map[string]bool{"log_type": true, "success": true}
+	result := make(map[string][]FacetValue)
+
+	for _, field := range facetFields {
+		emptyFilter := fmt.Sprintf("AND %s != ''", field)
+		if enumFields[field] {
+			emptyFilter = "" // Enum columns are never empty
+		}
+		query := fmt.Sprintf(`
+			SELECT toString(%s) AS value, count() AS cnt
+			FROM log_entries
+			WHERE %s %s
+			GROUP BY value
+			ORDER BY cnt DESC
+			LIMIT 10
+		`, field, where, emptyFilter)
+
+		rows, err := c.conn.Query(ctx, query, chArgs...)
+		if err != nil {
+			slog.Warn("facet query failed", "field", field, "error", err, "query", query)
+			continue // non-fatal: skip this facet
+		}
+
+		var values []FacetValue
+		for rows.Next() {
+			var val string
+			var cnt uint64
+			if err := rows.Scan(&val, &cnt); err != nil {
+				slog.Warn("facet scan failed", "field", field, "error", err)
+				break
+			}
+			values = append(values, FacetValue{Value: val, Count: int64(cnt)})
+		}
+		rows.Close()
+
+		if len(values) > 0 {
+			result[field] = values
+		}
+	}
+
+	return result, nil
+}
+
+var knownFields = map[string]bool{
+	"log_type":          true,
+	"user":              true,
+	"queue":             true,
+	"thread_id":         true,
+	"trace_id":          true,
+	"rpc_id":            true,
+	"api_code":          true,
+	"form":              true,
+	"operation":         true,
+	"request_id":        true,
+	"sql_table":         true,
+	"filter_name":       true,
+	"esc_name":          true,
+	"esc_pool":          true,
+	"duration_ms":       true,
+	"success":           true,
+	"error_encountered": true,
+}
+
+func IsKnownField(field string) bool {
+	return knownFields[field]
+}
+
+func (c *ClickHouseClient) GetAutocompleteValues(ctx context.Context, tenantID, jobID, field, prefix string, limit int) ([]domain.AutocompleteValue, error) {
+	if !IsKnownField(field) {
+		return nil, fmt.Errorf("clickhouse: unknown field for autocomplete: %s", field)
+	}
+
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+
+	pattern := escapeLikePattern(prefix) + "%"
+
+	// Enum/Bool columns need toString() for LIKE and cannot use != ''
+	enumOrBoolFields := map[string]bool{"log_type": true, "success": true}
+
+	// field is already validated against knownFields whitelist, safe to interpolate as identifier
+	var query string
+	if enumOrBoolFields[field] {
+		query = fmt.Sprintf(`
+			SELECT toString(%s) AS value, count() AS cnt
+			FROM log_entries
+			WHERE tenant_id = {tenant_id:String}
+			  AND job_id = {job_id:String}
+			  AND toString(%s) LIKE {pattern:String}
+			GROUP BY value
+			ORDER BY cnt DESC
+			LIMIT {limit:Int32}
+		`, field, field)
+	} else {
+		query = fmt.Sprintf(`
+			SELECT %s AS value, count() AS cnt
+			FROM log_entries
+			WHERE tenant_id = {tenant_id:String}
+			  AND job_id = {job_id:String}
+			  AND %s LIKE {pattern:String}
+			  AND %s != ''
+			GROUP BY value
+			ORDER BY cnt DESC
+			LIMIT {limit:Int32}
+		`, field, field, field)
+	}
+
+	rows, err := c.conn.Query(ctx, query,
+		clickhouse.Named("tenant_id", tenantID),
+		clickhouse.Named("job_id", jobID),
+		clickhouse.Named("pattern", pattern),
+		clickhouse.Named("limit", limit),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse: autocomplete query: %w", err)
+	}
+	defer rows.Close()
+
+	var values []domain.AutocompleteValue
+	for rows.Next() {
+		var val string
+		var cnt uint64
+		if err := rows.Scan(&val, &cnt); err != nil {
+			return nil, fmt.Errorf("clickhouse: autocomplete scan: %w", err)
+		}
+		values = append(values, domain.AutocompleteValue{Value: val, Count: int64(cnt)})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("clickhouse: autocomplete rows: %w", err)
+	}
+
+	return values, nil
+}
+
+// GetJobTimeRange returns the min and max timestamps for a job's log entries.
+func (c *ClickHouseClient) GetJobTimeRange(ctx context.Context, tenantID, jobID string) (*JobTimeRange, error) {
+	var minTS, maxTS time.Time
+	err := c.conn.QueryRow(ctx, `
+		SELECT min(timestamp), max(timestamp)
+		FROM log_entries
+		WHERE tenant_id = @tenantID AND job_id = @jobID
+	`,
+		clickhouse.Named("tenantID", tenantID),
+		clickhouse.Named("jobID", jobID),
+	).Scan(&minTS, &maxTS)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse: get job time range: %w", err)
+	}
+
+	if minTS.IsZero() && maxTS.IsZero() {
+		return nil, fmt.Errorf("clickhouse: no entries found for job %s", jobID)
+	}
+
+	return &JobTimeRange{Start: minTS, End: maxTS}, nil
 }

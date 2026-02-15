@@ -10,6 +10,7 @@ import (
 
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/domain"
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/jar"
+	"github.com/OmarEhab007/RemedyIQ/backend/internal/logparser"
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/storage"
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/streaming"
 )
@@ -225,9 +226,16 @@ func (p *Pipeline) ProcessJob(ctx context.Context, job domain.AnalysisJob) error
 	}
 	_ = p.nats.PublishJobProgress(ctx, tenantID, jobID, 85, string(domain.JobStatusStoring), "storing results")
 
-	// 7. Store entries in ClickHouse (if parser produces entries in the future).
-	// For now, the JAR parser produces DashboardData but not individual LogEntry rows.
-	// Individual entry parsing will be added when native Go parsers are implemented.
+	// 7. Parse raw log file and store individual entries in ClickHouse.
+	count, parseErr := logparser.ParseFile(ctx, tmpFile.Name(), tenantID, jobID, 5000, func(batch []domain.LogEntry) error {
+		return p.ch.BatchInsertEntries(ctx, batch)
+	})
+	if parseErr != nil {
+		logger.Error("log entry ingestion failed (non-fatal)", "error", parseErr, "entries_parsed", count)
+	} else {
+		logger.Info("log entry ingestion complete", "entries_inserted", count)
+	}
+	_ = p.nats.PublishJobProgress(ctx, tenantID, jobID, 95, string(domain.JobStatusStoring), "log entries indexed")
 
 	// 8. Update job with completion stats.
 	now := time.Now().UTC()
