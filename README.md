@@ -391,7 +391,7 @@ cd backend && go vet ./...
 - [x] Report generation (HTML + JSON)
 - [ ] Anomaly detection baselines and alerts
 - [ ] Scheduled reports and notifications
-- [ ] ITSM integrations (ServiceNow, Jira, PagerDuty)
+- [ ] ITSM integrations (BMC Remedy,ServiceNow, Jira, PagerDuty)
 - [ ] Kubernetes deployment with Helm charts
 - [ ] Comparative analysis across time periods
 
