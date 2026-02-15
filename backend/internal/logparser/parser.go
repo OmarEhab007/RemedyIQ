@@ -286,7 +286,12 @@ func parseAPI(entry *domain.LogEntry, content string) {
 		entry.APICode = parts[0]
 	}
 	if len(parts) >= 2 {
-		entry.Form = parts[1]
+		// Rejoin remaining parts to preserve form names with spaces (e.g., "HPD:Help Desk")
+		entry.Form = strings.Join(parts[1:], " ")
+		// Trim trailing duration/status info if present
+		if idx := strings.Index(entry.Form, " (elapsed "); idx != -1 {
+			entry.Form = entry.Form[:idx]
+		}
 	}
 	extractDuration(entry, content)
 }

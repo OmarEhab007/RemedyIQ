@@ -98,14 +98,20 @@ func (h *SearchLogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		users = r.URL.Query()["user"]
 		queues = r.URL.Query()["queue"]
 		if fromStr := r.URL.Query().Get("time_from"); fromStr != "" {
-			if t, err := time.Parse(time.RFC3339, fromStr); err == nil {
-				timeFrom = &t
+			t, err := time.Parse(time.RFC3339, fromStr)
+			if err != nil {
+				api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "invalid time_from format, expected RFC3339")
+				return
 			}
+			timeFrom = &t
 		}
 		if toStr := r.URL.Query().Get("time_to"); toStr != "" {
-			if t, err := time.Parse(time.RFC3339, toStr); err == nil {
-				timeTo = &t
+			t, err := time.Parse(time.RFC3339, toStr)
+			if err != nil {
+				api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "invalid time_to format, expected RFC3339")
+				return
 			}
+			timeTo = &t
 		}
 	} else {
 		var req SearchRequest

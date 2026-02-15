@@ -60,8 +60,8 @@ func (h *SavedSearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *SavedSearchHandler) list(w http.ResponseWriter, r *http.Request, tenantID uuid.UUID, userID string) {
 	searches, err := h.pg.ListSavedSearches(r.Context(), tenantID, userID)
 	if err != nil {
-		slog.Warn("list saved searches failed, returning empty", "error", err)
-		api.JSON(w, http.StatusOK, []domain.SavedSearch{})
+		slog.Error("list saved searches failed", "error", err)
+		api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "failed to retrieve saved searches")
 		return
 	}
 
