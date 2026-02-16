@@ -144,7 +144,7 @@ export function Waterfall({
         traceEnd={traceEnd}
         totalDurationMs={totalDurationMs}
         width={scaledWidth}
-        zoomLevel={1}
+        zoomLevel={zoomLevel}
       />
 
       <div className="flex-1 overflow-auto" ref={containerRef}>

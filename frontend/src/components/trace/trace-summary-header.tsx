@@ -14,9 +14,13 @@ export function TraceSummaryHeader({ data, onClear }: TraceSummaryHeaderProps) {
   const [copiedTraceId, setCopiedTraceId] = useState(false);
 
   const copyTraceId = async () => {
-    await navigator.clipboard.writeText(data.trace_id);
-    setCopiedTraceId(true);
-    setTimeout(() => setCopiedTraceId(false), 2000);
+    try {
+      await navigator.clipboard.writeText(data.trace_id);
+      setCopiedTraceId(true);
+      setTimeout(() => setCopiedTraceId(false), 2000);
+    } catch {
+      // Clipboard API unavailable or permission denied
+    }
   };
 
   const typeBreakdown = data.type_breakdown || {};

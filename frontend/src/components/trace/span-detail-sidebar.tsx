@@ -224,9 +224,13 @@ export function SpanDetailSidebar({
     : "0";
 
   const copyToClipboard = async (text: string, field: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopiedField(field);
-    setTimeout(() => setCopiedField(null), 2000);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      // Clipboard API unavailable or permission denied
+    }
   };
 
   const renderTypeSpecificDetails = () => {

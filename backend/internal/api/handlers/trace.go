@@ -324,7 +324,11 @@ func (h *ExportTraceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		format = "json"
 	}
 
-	filename := fmt.Sprintf("trace-%s-%s-%s", traceID, jobIDStr[:8], time.Now().Format("20060102-150405"))
+	jobPrefix := jobIDStr
+	if len(jobPrefix) > 8 {
+		jobPrefix = jobPrefix[:8]
+	}
+	filename := fmt.Sprintf("trace-%s-%s-%s", traceID, jobPrefix, time.Now().Format("20060102-150405"))
 
 	switch format {
 	case "csv":

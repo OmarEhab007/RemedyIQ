@@ -47,8 +47,8 @@ func (b *HierarchyBuilder) Build() []SpanNode {
 
 	traceStart := sorted[0].Timestamp
 	nodes := make([]SpanNode, 0, len(sorted))
-	for i, e := range sorted {
-		node := entryToSpanNode(e, traceStart, i)
+	for _, e := range sorted {
+		node := entryToSpanNode(e, traceStart)
 		nodes = append(nodes, node)
 	}
 
@@ -134,7 +134,7 @@ func resolveChildren(root *SpanNode, allNodes *[]SpanNode) {
 	root.Children = children
 }
 
-func entryToSpanNode(e LogEntry, traceStart time.Time, index int) SpanNode {
+func entryToSpanNode(e LogEntry, traceStart time.Time) SpanNode {
 	startOffset := e.Timestamp.Sub(traceStart).Milliseconds()
 
 	node := SpanNode{
