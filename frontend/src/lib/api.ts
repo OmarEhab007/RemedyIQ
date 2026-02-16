@@ -376,6 +376,79 @@ export interface Pagination {
   total_pages: number;
 }
 
+export interface SpanNode {
+  id: string;
+  parent_id?: string;
+  depth: number;
+  log_type: "API" | "SQL" | "FLTR" | "ESCL";
+  start_offset_ms: number;
+  duration_ms: number;
+  fields: Record<string, unknown>;
+  children: SpanNode[];
+  on_critical_path: boolean;
+  has_error: boolean;
+  timestamp: string;
+  thread_id: string;
+  trace_id: string;
+  rpc_id?: string;
+  user?: string;
+  queue?: string;
+  form?: string;
+  operation?: string;
+  line_number: number;
+  file_number: number;
+  success: boolean;
+  error_message?: string;
+}
+
+export interface WaterfallResponse {
+  trace_id: string;
+  correlation_type: string;
+  total_duration_ms: number;
+  span_count: number;
+  error_count: number;
+  primary_user: string;
+  primary_queue: string;
+  type_breakdown: Record<string, number>;
+  trace_start: string;
+  trace_end: string;
+  spans: SpanNode[];
+  flat_spans: SpanNode[];
+  critical_path: string[];
+  took_ms: number;
+}
+
+export interface TransactionSummary {
+  trace_id: string;
+  correlation_type: string;
+  primary_user: string;
+  primary_form: string;
+  primary_operation: string;
+  total_duration_ms: number;
+  span_count: number;
+  error_count: number;
+  first_timestamp: string;
+  last_timestamp: string;
+  primary_queue?: string;
+}
+
+export interface TransactionSearchResponse {
+  transactions: TransactionSummary[];
+  total: number;
+  took_ms: number;
+}
+
+export interface TransactionSearchParams {
+  user?: string;
+  thread_id?: string;
+  trace_id?: string;
+  rpc_id?: string;
+  has_errors?: boolean;
+  min_duration_ms?: number;
+  limit?: number;
+  offset?: number;
+}
+
 // --- API Error ---
 
 export class ApiError extends Error {
@@ -610,4 +683,64 @@ export async function generateReport(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ format }),
   }, token);
+}
+
+export async function getWaterfall(
+  jobId: string,
+  traceId: string,
+  token?: string,
+): Promise<WaterfallResponse> {
+  const jid = encodeURIComponent(jobId);
+  const tid = encodeURIComponent(traceId);
+  return apiFetch<WaterfallResponse>(`/analysis/${jid}/trace/${tid}/waterfall`, {}, token);
+}
+
+export async function searchTransactions(
+  jobId: string,
+  params: TransactionSearchParams,
+  token?: string,
+): Promise<TransactionSearchResponse> {
+  const id = encodeURIComponent(jobId);
+  const searchParams = new URLSearchParams();
+  if (params.user) searchParams.set("user", params.user);
+  if (params.thread_id) searchParams.set("thread_id", params.thread_id);
+  if (params.trace_id) searchParams.set("trace_id", params.trace_id);
+  if (params.rpc_id) searchParams.set("rpc_id", params.rpc_id);
+  if (params.has_errors !== undefined) searchParams.set("has_errors", String(params.has_errors));
+  if (params.min_duration_ms) searchParams.set("min_duration_ms", String(params.min_duration_ms));
+  if (params.limit) searchParams.set("limit", String(params.limit));
+  if (params.offset) searchParams.set("offset", String(params.offset));
+  
+  const query = searchParams.toString();
+  return apiFetch<TransactionSearchResponse>(`/analysis/${id}/transactions${query ? `?${query}` : ""}`, {}, token);
+}
+
+export async function getRecentTraces(
+  userId: string,
+  token?: string,
+): Promise<TransactionSummary[]> {
+  return apiFetch<TransactionSummary[]>(`/trace/recent?user_id=${encodeURIComponent(userId)}`, {}, token);
+}
+
+export async function exportTrace(
+  jobId: string,
+  traceId: string,
+  format: "json" | "csv" = "json",
+  token?: string,
+): Promise<Blob> {
+  const jid = encodeURIComponent(jobId);
+  const tid = encodeURIComponent(traceId);
+  const headers: Record<string, string> = {};
+  
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  } else {
+    Object.assign(headers, getApiHeaders());
+  }
+  
+  const res = await fetch(`${API_BASE}/analysis/${jid}/trace/${tid}/export?format=${format}`, { headers });
+  if (!res.ok) {
+    throw new ApiError(res.status, "export_error", "Failed to export trace");
+  }
+  return res.blob();
 }

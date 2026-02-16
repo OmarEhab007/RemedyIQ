@@ -280,6 +280,14 @@ func (m *MockClickHouseStore) GetFacets(ctx context.Context, tenantID, jobID str
 	return args.Get(0).(map[string][]storage.FacetValue), args.Error(1)
 }
 
+func (m *MockClickHouseStore) SearchTransactions(ctx context.Context, tenantID, jobID string, params domain.TransactionSearchParams) (*domain.TransactionSearchResponse, error) {
+	args := m.Called(ctx, tenantID, jobID, params)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.TransactionSearchResponse), args.Error(1)
+}
+
 func (m *MockClickHouseStore) Close() error {
 	args := m.Called()
 	return args.Error(0)

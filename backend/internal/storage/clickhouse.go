@@ -1857,3 +1857,138 @@ func (c *ClickHouseClient) GetJobTimeRange(ctx context.Context, tenantID, jobID 
 
 	return &JobTimeRange{Start: minTS, End: maxTS}, nil
 }
+
+func (c *ClickHouseClient) SearchTransactions(ctx context.Context, tenantID, jobID string, params domain.TransactionSearchParams) (*domain.TransactionSearchResponse, error) {
+	start := time.Now()
+
+	if params.Limit <= 0 {
+		params.Limit = 50
+	}
+	if params.Limit > 100 {
+		params.Limit = 100
+	}
+
+	where := "tenant_id = @tenantID AND job_id = @jobID AND (trace_id != '' OR rpc_id != '')"
+	namedArgs := []any{
+		clickhouse.Named("tenantID", tenantID),
+		clickhouse.Named("jobID", jobID),
+	}
+
+	if params.User != "" {
+		where += " AND user = @user"
+		namedArgs = append(namedArgs, clickhouse.Named("user", params.User))
+	}
+	if params.ThreadID != "" {
+		where += " AND thread_id = @threadID"
+		namedArgs = append(namedArgs, clickhouse.Named("threadID", params.ThreadID))
+	}
+	if params.TraceID != "" {
+		where += " AND trace_id = @traceID"
+		namedArgs = append(namedArgs, clickhouse.Named("traceID", params.TraceID))
+	}
+	if params.RPCID != "" {
+		where += " AND rpc_id = @rpcID"
+		namedArgs = append(namedArgs, clickhouse.Named("rpcID", params.RPCID))
+	}
+	if params.HasErrors != nil {
+		if *params.HasErrors {
+			where += " AND success = false"
+		} else {
+			where += " AND success = true"
+		}
+	}
+	// MinDuration is applied as HAVING clause after GROUP BY to filter on total transaction duration
+	var havingClause string
+	if params.MinDuration > 0 {
+		havingClause = "HAVING dateDiff('millisecond', min(timestamp), max(timestamp)) >= @minDuration"
+		namedArgs = append(namedArgs, clickhouse.Named("minDuration", params.MinDuration))
+	}
+
+	var countQuery string
+	if havingClause != "" {
+		countQuery = fmt.Sprintf(`
+			SELECT count() FROM (
+				SELECT if(trace_id != '', trace_id, rpc_id) AS corr_id
+				FROM log_entries
+				WHERE %s
+				GROUP BY corr_id
+				%s
+			)
+		`, where, havingClause)
+	} else {
+		countQuery = fmt.Sprintf(`
+			SELECT uniqExact(if(trace_id != '', trace_id, rpc_id))
+			FROM log_entries
+			WHERE %s
+		`, where)
+	}
+
+	var total uint64
+	if err := c.conn.QueryRow(ctx, countQuery, namedArgs...).Scan(&total); err != nil {
+		return nil, fmt.Errorf("clickhouse: search transactions count: %w", err)
+	}
+
+	dataQuery := fmt.Sprintf(`
+		SELECT
+			if(trace_id != '', trace_id, rpc_id) AS corr_id,
+			if(trace_id != '', 'trace_id', 'rpc_id') AS corr_type,
+			any(user) AS primary_user,
+			any(form) AS primary_form,
+			any(operation) AS primary_operation,
+			any(queue) AS primary_queue,
+			dateDiff('millisecond', min(timestamp), max(timestamp)) AS total_duration_ms,
+			count() AS span_count,
+			countIf(success = false) AS error_count,
+			min(timestamp) AS first_timestamp,
+			max(timestamp) AS last_timestamp
+		FROM log_entries
+		WHERE %s
+		GROUP BY corr_id, corr_type
+		%s
+		ORDER BY first_timestamp DESC
+		LIMIT %d OFFSET %d
+	`, where, havingClause, params.Limit, params.Offset)
+
+	rows, err := c.conn.Query(ctx, dataQuery, namedArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse: search transactions query: %w", err)
+	}
+	defer rows.Close()
+
+	transactions := make([]domain.TransactionSummary, 0)
+	for rows.Next() {
+		var ts domain.TransactionSummary
+		var firstTS, lastTS time.Time
+		var spanCount, errorCount uint64
+		if err := rows.Scan(
+			&ts.TraceID,
+			&ts.CorrelationType,
+			&ts.PrimaryUser,
+			&ts.PrimaryForm,
+			&ts.PrimaryOperation,
+			&ts.PrimaryQueue,
+			&ts.TotalDurationMS,
+			&spanCount,
+			&errorCount,
+			&firstTS,
+			&lastTS,
+		); err != nil {
+			return nil, fmt.Errorf("clickhouse: search transactions scan: %w", err)
+		}
+		ts.SpanCount = int(spanCount)
+		ts.ErrorCount = int(errorCount)
+		ts.FirstTimestamp = firstTS.Format(time.RFC3339)
+		ts.LastTimestamp = lastTS.Format(time.RFC3339)
+		transactions = append(transactions, ts)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("clickhouse: search transactions rows: %w", err)
+	}
+
+	return &domain.TransactionSearchResponse{
+		Transactions: transactions,
+		Total:        int(total),
+		TookMS:       int(time.Since(start).Milliseconds()),
+	}, nil
+}

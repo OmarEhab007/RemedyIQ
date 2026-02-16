@@ -1,0 +1,374 @@
+openapi: 3.1.0
+info:
+  title: RemedyIQ Trace Transaction API
+  description: Enhanced trace transaction endpoints for waterfall visualization, transaction search, comparison, and AI insights.
+  version: 1.0.0
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    WaterfallResponse:
+      type: object
+      required: [trace_id, correlation_type, total_duration_ms, span_count, error_count, spans, flat_spans]
+      properties:
+        trace_id:
+          type: string
+        correlation_type:
+          type: string
+          enum: [trace_id, rpc_id]
+          description: Whether correlation used trace_id or rpc_id fallback
+        total_duration_ms:
+          type: integer
+          format: int64
+        span_count:
+          type: integer
+        error_count:
+          type: integer
+        primary_user:
+          type: string
+        primary_queue:
+          type: string
+        type_breakdown:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Span count per log type
+          example:
+            API: 5
+            SQL: 20
+            FLTR: 15
+            ESCL: 1
+        trace_start:
+          type: string
+          format: date-time
+        trace_end:
+          type: string
+          format: date-time
+        spans:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpanNode'
+          description: Hierarchical span tree (root spans only, children nested)
+        flat_spans:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpanNode'
+          description: Flat ordered list of all spans (for span list view)
+        critical_path:
+          type: array
+          items:
+            type: string
+          description: Ordered list of span IDs on the critical path
+        took_ms:
+          type: integer
+    SpanNode:
+      type: object
+      required: [id, depth, log_type, start_offset_ms, duration_ms, fields, children]
+      properties:
+        id:
+          type: string
+          description: Unique span identifier (entry_id)
+        parent_id:
+          type: string
+          description: Parent span ID (empty for root spans)
+        depth:
+          type: integer
+          description: Nesting depth (0 for root)
+        log_type:
+          type: string
+          enum: [API, SQL, FLTR, ESCL]
+        start_offset_ms:
+          type: integer
+          format: int64
+          description: Offset from trace start in milliseconds
+        duration_ms:
+          type: integer
+        fields:
+          type: object
+          additionalProperties: true
+          description: All entry fields (type-specific)
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpanNode'
+        on_critical_path:
+          type: boolean
+          default: false
+    TransactionSummary:
+      type: object
+      required: [trace_id, correlation_type, span_count, total_duration_ms, first_timestamp]
+      properties:
+        trace_id:
+          type: string
+        correlation_type:
+          type: string
+          enum: [trace_id, rpc_id]
+        primary_user:
+          type: string
+        primary_form:
+          type: string
+        primary_operation:
+          type: string
+        total_duration_ms:
+          type: integer
+          format: int64
+        span_count:
+          type: integer
+        error_count:
+          type: integer
+        first_timestamp:
+          type: string
+          format: date-time
+        last_timestamp:
+          type: string
+          format: date-time
+    TransactionSearchResponse:
+      type: object
+      required: [transactions, total, took_ms]
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionSummary'
+        total:
+          type: integer
+        took_ms:
+          type: integer
+
+paths:
+  /api/v1/analysis/{job_id}/trace/{trace_id}/waterfall:
+    get:
+      operationId: getTraceWaterfall
+      summary: Get hierarchical waterfall data for a trace
+      description: |
+        Returns the trace as a hierarchical span tree with parent-child relationships,
+        timing offsets, critical path, and summary statistics. The hierarchy is computed
+        using Temporal + Thread Containment algorithm and cached in Redis (5 min TTL).
+      tags: [Trace]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: trace_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: include_critical_path
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: true
+          description: Whether to compute and include critical path analysis
+      responses:
+        '200':
+          description: Waterfall hierarchy data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaterfallResponse'
+        '400':
+          description: Invalid job_id or trace_id format
+        '401':
+          description: Missing tenant context
+        '404':
+          description: Trace not found (0 entries matched)
+        '500':
+          description: Internal server error
+
+  /api/v1/analysis/{job_id}/transactions:
+    get:
+      operationId: searchTransactions
+      summary: Search for transactions by user, thread, or trace ID
+      description: |
+        Returns a list of transaction summaries matching the search criteria.
+        Used for transaction discovery before loading a full waterfall.
+      tags: [Trace]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: user
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter transactions by username
+        - name: thread_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter transactions by thread ID
+        - name: trace_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by partial trace ID (prefix match)
+        - name: rpc_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter transactions by RPC ID
+        - name: has_errors
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Only return transactions with errors
+        - name: min_duration_ms
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Minimum total duration filter
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Transaction search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionSearchResponse'
+        '400':
+          description: Invalid parameters
+        '401':
+          description: Missing tenant context
+
+  /api/v1/analysis/{job_id}/trace/{trace_id}/export:
+    get:
+      operationId: exportTrace
+      summary: Export trace data as JSON or CSV
+      tags: [Trace]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: trace_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [json, csv]
+      responses:
+        '200':
+          description: Trace data export
+          content:
+            application/json:
+              schema:
+                type: object
+            text/csv:
+              schema:
+                type: string
+        '400':
+          description: Invalid format parameter
+        '401':
+          description: Missing tenant context
+        '404':
+          description: Trace not found
+
+  /api/v1/analysis/{job_id}/trace/ai-analyze:
+    post:
+      operationId: analyzeTrace
+      summary: AI-powered trace analysis
+      description: |
+        Sends the trace hierarchy to the trace-analyzer AI skill for natural-language
+        analysis. Returns a streaming response with bottleneck identification and
+        optimization suggestions. Follows the AI-as-a-Skill pattern.
+      tags: [Trace, AI]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [trace_id]
+              properties:
+                trace_id:
+                  type: string
+                  description: The trace ID to analyze
+                focus:
+                  type: string
+                  enum: [bottleneck, errors, flow, optimization]
+                  default: bottleneck
+                  description: Analysis focus area
+      responses:
+        '200':
+          description: Streaming AI analysis (text/event-stream)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '400':
+          description: Invalid request
+        '401':
+          description: Missing tenant context
+        '404':
+          description: Trace not found
+        '503':
+          description: AI service unavailable (fallback message returned)
+
+  /api/v1/trace/recent:
+    get:
+      operationId: getRecentTraces
+      summary: Get recently viewed traces for the current user
+      description: Returns the last 20 traces viewed by the current user in this session.
+      tags: [Trace]
+      responses:
+        '200':
+          description: Recent traces list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  traces:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TransactionSummary'
+                    maxItems: 20
+        '401':
+          description: Missing tenant context

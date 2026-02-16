@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import * as ReactWindow from "react-window";
+import { FixedSizeList } from "react-window";
 import type { SearchHit } from "@/hooks/use-search";
 
 interface LogTableProps {
@@ -243,13 +243,25 @@ export function LogTable({
         <div className="w-[50px] px-2 py-2 text-center shrink-0">Status</div>
       </div>
       <div className="flex-1 min-h-0 overflow-hidden" ref={listContainerRef}>
-        <ReactWindow.List
+        <FixedSizeList
           height={listHeight}
-          rowCount={hits.length}
-          rowHeight={ROW_HEIGHT}
-          rowComponent={LogRow}
-          rowProps={rowProps}
-        />
+          itemCount={hits.length}
+          itemSize={ROW_HEIGHT}
+          width="100%"
+          itemData={rowProps}
+        >
+          {({ index, style, data }) => (
+            <LogRow
+              index={index}
+              style={style}
+              hits={data.hits}
+              onSelect={data.onSelect}
+              selectedId={data.selectedId}
+              focusedRowIndex={data.focusedRowIndex}
+              onFocusRow={data.onFocusRow}
+            />
+          )}
+        </FixedSizeList>
       </div>
     </div>
   );
