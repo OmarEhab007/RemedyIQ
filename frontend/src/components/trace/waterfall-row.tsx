@@ -52,7 +52,7 @@ export function WaterfallRow({
   
   return (
     <div
-      className={`flex items-center h-12 border-b hover:bg-muted/30 cursor-pointer transition-colors ${
+      className={`flex items-center h-9 border-b hover:bg-muted/30 cursor-pointer transition-colors ${
         isSelected ? "bg-primary/10 ring-1 ring-primary" : ""
       } ${hasError ? "bg-red-50/50" : ""} ${getRowOpacity()}`}
       onClick={() => onSelect(span.id)}
@@ -60,7 +60,7 @@ export function WaterfallRow({
     >
       <div 
         className="flex items-center gap-1 px-2 shrink-0"
-        style={{ paddingLeft: `${indentPx + 8}px`, width: "200px" }}
+        style={{ paddingLeft: `${indentPx + 8}px`, width: "260px" }}
       >
         {hasChildren && !collapsed && (
           <button
@@ -95,11 +95,13 @@ export function WaterfallRow({
         {showCriticalPath && isOnCriticalPath && (
           <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0" title="On critical path" />
         )}
+
+        <span className="text-xs text-muted-foreground truncate ml-1" title={label}>{label}</span>
       </div>
       
-      <div className="flex-1 relative h-6 mx-2">
+      <div className="flex-1 relative h-5 mx-2">
         <div
-          className={`absolute h-6 rounded ${colors.bg} border ${
+          className={`absolute h-5 rounded ${colors.bg} border ${
             hasError ? "border-red-500 bg-red-100" : colors.border
           } ${isSelected ? "ring-1 ring-primary" : ""} ${
             showCriticalPath && isOnCriticalPath ? "border-l-4 border-l-amber-500" : ""
@@ -119,10 +121,6 @@ export function WaterfallRow({
             </span>
           )}
         </div>
-      </div>
-      
-      <div className="w-32 px-2 shrink-0 text-xs text-muted-foreground truncate">
-        {label}
       </div>
       
       <div className="w-20 px-2 shrink-0 text-xs text-right font-mono">

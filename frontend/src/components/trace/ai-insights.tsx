@@ -7,6 +7,8 @@ import { getApiHeaders } from "@/lib/api";
 interface AIInsightsProps {
   jobId: string;
   traceId: string;
+  defaultOpen?: boolean;
+  onClose?: () => void;
 }
 
 type FocusMode = "bottleneck" | "errors" | "flow" | "optimization";
@@ -20,8 +22,8 @@ const FOCUS_OPTIONS: { value: FocusMode; label: string }[] = [
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
 
-export function AIInsights({ jobId, traceId }: AIInsightsProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function AIInsights({ jobId, traceId, defaultOpen = false, onClose }: AIInsightsProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const [focus, setFocus] = useState<FocusMode>("bottleneck");
   const [loading, setLoading] = useState(false);
   const [insights, setInsights] = useState<string | null>(null);
@@ -123,6 +125,7 @@ export function AIInsights({ jobId, traceId }: AIInsightsProps) {
     setIsOpen(false);
     setInsights(null);
     setError(null);
+    onClose?.();
   };
 
   const handleRetry = () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { SpanNode } from "@/lib/api";
 import { getSpanColor, formatDuration } from "@/lib/trace-utils";
 
@@ -20,7 +20,7 @@ interface FlameNode {
 }
 
 const ROW_HEIGHT = 24;
-const MIN_WIDTH = 2;
+const MIN_WIDTH = 4;
 
 export function FlameGraph({
   spans,
@@ -30,6 +30,20 @@ export function FlameGraph({
 }: FlameGraphProps) {
   const [hoveredSpan, setHoveredSpan] = useState<SpanNode | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = useState(400);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerHeight(entry.contentRect.height);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const flameNodes = useMemo(() => {
     const nodes: FlameNode[] = [];
@@ -84,20 +98,13 @@ export function FlameGraph({
   }
 
   return (
-    <div className="flex flex-col h-full border rounded-lg overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/30">
-        <span className="text-sm font-medium">Flame Graph</span>
-        <span className="text-xs text-muted-foreground">
-          {spans.length} root spans • Click to zoom
-        </span>
-      </div>
-
-      <div className="flex-1 overflow-auto p-4">
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex-1 overflow-auto p-4" ref={containerRef}>
         <svg
           viewBox={`0 0 100 ${maxY + 10}`}
           preserveAspectRatio="xMidYMid meet"
           className="w-full"
-          style={{ minWidth: "600px", minHeight: `${Math.min(maxY + 40, 500)}px` }}
+          style={{ minWidth: "600px", minHeight: `${Math.min(maxY + 40, containerHeight)}px` }}
         >
           {flameNodes.map((node) => {
             const colors = getSpanColor(node.span.log_type);

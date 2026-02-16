@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, X, Filter, ChevronDown, ChevronUp, Zap } from "lucide-react";
 
 export interface TraceFilterState {
@@ -18,6 +18,7 @@ interface TraceFiltersProps {
   filteredCount: number;
   showCriticalPath: boolean;
   onToggleCriticalPath: () => void;
+  compact?: boolean;
 }
 
 const LOG_TYPES = [
@@ -35,9 +36,11 @@ export function TraceFilters({
   filteredCount,
   showCriticalPath,
   onToggleCriticalPath,
+  compact = false,
 }: TraceFiltersProps) {
   const [searchInput, setSearchInput] = useState(filters.searchText);
-  const [expanded, setExpanded] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -47,6 +50,17 @@ export function TraceFilters({
     }, 300);
     return () => clearTimeout(timer);
   }, [searchInput, filters.searchText, onFiltersChange]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [moreOpen]);
 
   const handleLogTypeToggle = useCallback((type: string) => {
     const newLogTypes = new Set(filters.logTypes);
@@ -67,13 +81,81 @@ export function TraceFilters({
     onFiltersChange({ minDurationMs: isNaN(num) || num <= 0 ? null : num });
   }, [onFiltersChange]);
 
-  const activeFilterCount = 
+  const activeFilterCount =
     (filters.searchText ? 1 : 0) +
     (filters.logTypes.size < 4 ? 4 - filters.logTypes.size : 0) +
     (filters.errorsOnly ? 1 : 0) +
     (filters.minDurationMs !== null ? 1 : 0);
 
   const isFiltered = activeFilterCount > 0;
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search spans..."
+            className="w-36 pl-7 pr-2 py-1 border rounded text-xs bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+          />
+          {searchInput && (
+            <button
+              onClick={() => setSearchInput("")}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 hover:bg-muted rounded"
+            >
+              <X className="w-2.5 h-2.5 text-muted-foreground" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-0.5">
+          {LOG_TYPES.map((type) => {
+            const isActive = filters.logTypes.has(type.id);
+            return (
+              <button
+                key={type.id}
+                onClick={() => handleLogTypeToggle(type.id)}
+                className={`px-1.5 py-0.5 text-[10px] font-medium rounded border transition-colors ${
+                  isActive ? type.color : "bg-muted/50 text-muted-foreground border-muted"
+                }`}
+              >
+                {type.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={handleErrorsOnlyToggle}
+          className={`px-1.5 py-0.5 text-[10px] font-medium rounded border transition-colors ${
+            filters.errorsOnly
+              ? "bg-red-100 text-red-700 border-red-300"
+              : "bg-muted/50 text-muted-foreground border-muted"
+          }`}
+        >
+          Errors
+        </button>
+
+        {isFiltered && (
+          <>
+            <span className="text-[10px] text-muted-foreground">
+              {filteredCount}/{totalSpans}
+            </span>
+            <button
+              onClick={onClearFilters}
+              className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] text-red-600 hover:bg-red-50 rounded"
+            >
+              <X className="w-2.5 h-2.5" />
+              Clear
+            </button>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="border-b bg-card">
@@ -137,14 +219,32 @@ export function TraceFilters({
           Critical Path
         </button>
 
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1 px-2 py-1 text-xs border rounded hover:bg-muted"
-        >
-          <Filter className="w-3 h-3" />
-          More
-          {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-        </button>
+        <div className="relative" ref={moreRef}>
+          <button
+            onClick={() => setMoreOpen(!moreOpen)}
+            className="flex items-center gap-1 px-2 py-1 text-xs border rounded hover:bg-muted"
+          >
+            <Filter className="w-3 h-3" />
+            More
+            {moreOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+          {moreOpen && (
+            <div className="absolute top-full left-0 mt-1 p-3 bg-card border rounded-md shadow-lg z-50 w-56">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-muted-foreground">Min Duration:</label>
+                <input
+                  type="number"
+                  value={filters.minDurationMs ?? ""}
+                  onChange={(e) => handleMinDurationChange(e.target.value)}
+                  placeholder="ms"
+                  className="w-20 px-2 py-1 border rounded text-sm"
+                  min="0"
+                />
+                <span className="text-xs text-muted-foreground">ms</span>
+              </div>
+            </div>
+          )}
+        </div>
 
         {isFiltered && (
           <>
@@ -161,23 +261,6 @@ export function TraceFilters({
           </>
         )}
       </div>
-
-      {expanded && (
-        <div className="flex items-center gap-4 px-3 pb-3 border-t">
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-muted-foreground">Min Duration:</label>
-            <input
-              type="number"
-              value={filters.minDurationMs ?? ""}
-              onChange={(e) => handleMinDurationChange(e.target.value)}
-              placeholder="ms"
-              className="w-20 px-2 py-1 border rounded text-sm"
-              min="0"
-            />
-            <span className="text-xs text-muted-foreground">ms</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

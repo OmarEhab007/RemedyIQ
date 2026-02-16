@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { FixedSizeList as List } from "react-window";
 import { SpanNode } from "@/lib/api";
 import { getSpanColor, formatDuration } from "@/lib/trace-utils";
@@ -51,6 +51,20 @@ function SortHeader({ field, label, currentField, direction, onSort }: SortHeade
 export function SpanList({ spans, selectedSpanId, onSelectSpan }: SpanListProps) {
   const [sortField, setSortField] = useState<SortField>("timestamp");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = useState(400);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerHeight(entry.contentRect.height);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const sortedSpans = useMemo(() => {
     const sorted = [...spans];
@@ -142,8 +156,8 @@ export function SpanList({ spans, selectedSpanId, onSelectSpan }: SpanListProps)
         <div className="w-24 text-xs font-mono text-right px-2">
           {formatDuration(span.duration_ms)}
         </div>
-        <div className="w-24 text-xs truncate px-2">{span.user || "-"}</div>
-        <div className="w-32 text-xs truncate px-2">{span.form || "-"}</div>
+        <div className="w-28 text-xs truncate px-2">{span.user || "-"}</div>
+        <div className="w-40 text-xs truncate px-2">{span.form || "-"}</div>
         <div className="w-16 flex justify-center">
           {hasError ? (
             <AlertCircle className="w-4 h-4 text-red-500" />
@@ -158,7 +172,7 @@ export function SpanList({ spans, selectedSpanId, onSelectSpan }: SpanListProps)
   };
 
   return (
-    <div className="flex flex-col h-full border rounded-lg overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center px-3 py-2 border-b bg-muted/30 text-xs font-medium">
         <div className="w-32">
           <SortHeader field="timestamp" label="Offset" currentField={sortField} direction={sortDirection} onSort={handleSort} />
@@ -172,10 +186,10 @@ export function SpanList({ spans, selectedSpanId, onSelectSpan }: SpanListProps)
         <div className="w-24 px-2 text-right">
           <SortHeader field="duration_ms" label="Duration" currentField={sortField} direction={sortDirection} onSort={handleSort} />
         </div>
-        <div className="w-24 px-2">
+        <div className="w-28 px-2">
           <SortHeader field="user" label="User" currentField={sortField} direction={sortDirection} onSort={handleSort} />
         </div>
-        <div className="w-32 px-2">
+        <div className="w-40 px-2">
           <SortHeader field="form" label="Form" currentField={sortField} direction={sortDirection} onSort={handleSort} />
         </div>
         <div className="w-16 text-center">
@@ -183,19 +197,15 @@ export function SpanList({ spans, selectedSpanId, onSelectSpan }: SpanListProps)
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto" ref={containerRef}>
         <List
-          height={Math.min(600, sortedSpans.length * ROW_HEIGHT)}
+          height={containerHeight}
           itemCount={sortedSpans.length}
           itemSize={ROW_HEIGHT}
           width="100%"
         >
           {RowRenderer}
         </List>
-      </div>
-
-      <div className="px-3 py-1.5 border-t bg-muted/30 text-xs text-muted-foreground">
-        {sortedSpans.length} spans
       </div>
     </div>
   );

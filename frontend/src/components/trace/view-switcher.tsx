@@ -16,7 +16,7 @@ const views: { id: TraceView; label: string; icon: React.ComponentType<{ classNa
 
 export function ViewSwitcher({ activeView, onViewChange }: ViewSwitcherProps) {
   return (
-    <div className="flex items-center border rounded-lg p-0.5 bg-muted/30">
+    <div className="flex items-center border rounded-lg p-0.5 bg-muted/30 flex-shrink-0">
       {views.map((view) => {
         const Icon = view.icon;
         const isActive = activeView === view.id;

@@ -45,7 +45,7 @@ export function TimestampRuler({
   
   if (totalDurationMs <= 0) {
     return (
-      <div className="h-8 border-b bg-muted/30 flex items-center px-4">
+      <div className="h-6 border-b bg-muted/30 flex items-center px-4">
         <span className="text-xs text-muted-foreground">No duration data</span>
       </div>
     );
@@ -53,7 +53,7 @@ export function TimestampRuler({
 
   return (
     <div 
-      className="h-8 border-b bg-muted/30 relative overflow-hidden"
+      className="h-6 border-b bg-muted/30 relative overflow-hidden"
       style={{ width: "100%" }}
     >
       <div 
