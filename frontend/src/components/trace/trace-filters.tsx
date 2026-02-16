@@ -42,6 +42,11 @@ export function TraceFilters({
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
 
+  // Sync local input with external filter changes (e.g., clear filters)
+  useEffect(() => {
+    setSearchInput(filters.searchText);
+  }, [filters.searchText]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchInput !== filters.searchText) {
@@ -83,7 +88,7 @@ export function TraceFilters({
 
   const activeFilterCount =
     (filters.searchText ? 1 : 0) +
-    (filters.logTypes.size < 4 ? 4 - filters.logTypes.size : 0) +
+    (filters.logTypes.size < LOG_TYPES.length ? LOG_TYPES.length - filters.logTypes.size : 0) +
     (filters.errorsOnly ? 1 : 0) +
     (filters.minDurationMs !== null ? 1 : 0);
 

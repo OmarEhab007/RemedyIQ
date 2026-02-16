@@ -155,8 +155,12 @@ export function TraceSearch({
             )}
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-            {trace.primary_user && <span>{trace.primary_user}</span>}
-            <span>•</span>
+            {trace.primary_user && (
+              <>
+                <span>{trace.primary_user}</span>
+                <span>•</span>
+              </>
+            )}
             <span>{formatDuration(trace.total_duration_ms)}</span>
             <span>•</span>
             <span>{trace.span_count} spans</span>

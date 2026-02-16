@@ -82,7 +82,7 @@ export function Waterfall({
           rows.push({ span: node, depth, hasChildren });
         }
 
-        if (hasChildren && !collapsedSpans.has(node.id)) {
+        if (hasChildren && !collapsedSpans.has(node.id) && isVisible) {
           flatten(node.children, depth + 1);
         }
       }
@@ -130,7 +130,7 @@ export function Waterfall({
           isExpanded={!collapsedSpans.has(row.span.id)}
           onSelect={onSelectSpan}
           onToggleExpand={toggleExpand}
-          collapsed={row.span.children?.length === 0}
+          collapsed={collapsedSpans.has(row.span.id)}
           showCriticalPath={showCriticalPath}
         />
       </div>

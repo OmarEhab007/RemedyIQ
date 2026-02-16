@@ -1,9 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { WaterfallResponse } from "@/lib/api";
 import { formatDuration, getSpanColor } from "@/lib/trace-utils";
 import { Copy, Check, AlertCircle } from "lucide-react";
-import { useState } from "react";
 
 interface TraceSummaryHeaderProps {
   data: WaterfallResponse;
@@ -135,8 +135,8 @@ function MiniTimeline({ data }: MiniTimelineProps) {
           return (
             <div
               key={span.id}
-              className={`absolute h-2 top-1 rounded-sm ${colors.bg} ${
-                !span.success || span.has_error ? "bg-red-300" : ""
+              className={`absolute h-2 top-1 rounded-sm ${
+                !span.success || span.has_error ? "bg-red-300" : colors.bg
               }`}
               style={{
                 left: `${left}%`,

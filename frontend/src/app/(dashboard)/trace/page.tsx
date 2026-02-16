@@ -560,7 +560,6 @@ function TracePageContent() {
               totalDuration={waterfall.total_duration_ms}
               traceId={waterfall.trace_id}
               jobId={jobId}
-              onClose={() => setSelectedSpan(null)}
             />
           )}
         </SheetContent>

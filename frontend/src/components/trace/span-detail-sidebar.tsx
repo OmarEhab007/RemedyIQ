@@ -11,7 +11,6 @@ interface SpanDetailSidebarProps {
   totalDuration: number;
   traceId: string;
   jobId: string;
-  onClose: () => void;
 }
 
 interface CopyableFieldProps {
