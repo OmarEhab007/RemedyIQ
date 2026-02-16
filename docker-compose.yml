@@ -39,7 +39,7 @@ services:
         soft: 262144
         hard: 262144
     volumes:
-      - clickhouse_data_v2:/var/lib/clickhouse
+      - clickhouse_data:/var/lib/clickhouse
       - ./backend/migrations/clickhouse/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
@@ -128,7 +128,7 @@ services:
 volumes:
   postgres_data:
     driver: local
-  clickhouse_data_v2:
+  clickhouse_data:
     driver: local
   nats_data:
     driver: local

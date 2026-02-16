@@ -171,7 +171,7 @@ function TracePageContent() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
       console.error("Export failed:", err);
     } finally {
@@ -181,9 +181,13 @@ function TracePageContent() {
 
   const copyTraceId = useCallback(async () => {
     if (!waterfall) return;
-    await navigator.clipboard.writeText(waterfall.trace_id);
-    setCopiedTraceId(true);
-    setTimeout(() => setCopiedTraceId(false), 2000);
+    try {
+      await navigator.clipboard.writeText(waterfall.trace_id);
+      setCopiedTraceId(true);
+      setTimeout(() => setCopiedTraceId(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy to clipboard:", err);
+    }
   }, [waterfall]);
 
   // Close export dropdown on outside click

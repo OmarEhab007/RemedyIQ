@@ -1897,16 +1897,31 @@ func (c *ClickHouseClient) SearchTransactions(ctx context.Context, tenantID, job
 			where += " AND success = true"
 		}
 	}
+	// MinDuration is applied as HAVING clause after GROUP BY to filter on total transaction duration
+	var havingClause string
 	if params.MinDuration > 0 {
-		where += " AND duration_ms >= @minDuration"
+		havingClause = "HAVING dateDiff('millisecond', min(timestamp), max(timestamp)) >= @minDuration"
 		namedArgs = append(namedArgs, clickhouse.Named("minDuration", params.MinDuration))
 	}
 
-	countQuery := fmt.Sprintf(`
-		SELECT uniqExact(if(trace_id != '', trace_id, rpc_id))
-		FROM log_entries
-		WHERE %s
-	`, where)
+	var countQuery string
+	if havingClause != "" {
+		countQuery = fmt.Sprintf(`
+			SELECT count() FROM (
+				SELECT if(trace_id != '', trace_id, rpc_id) AS corr_id
+				FROM log_entries
+				WHERE %s
+				GROUP BY corr_id
+				%s
+			)
+		`, where, havingClause)
+	} else {
+		countQuery = fmt.Sprintf(`
+			SELECT uniqExact(if(trace_id != '', trace_id, rpc_id))
+			FROM log_entries
+			WHERE %s
+		`, where)
+	}
 
 	var total uint64
 	if err := c.conn.QueryRow(ctx, countQuery, namedArgs...).Scan(&total); err != nil {
@@ -1929,9 +1944,10 @@ func (c *ClickHouseClient) SearchTransactions(ctx context.Context, tenantID, job
 		FROM log_entries
 		WHERE %s
 		GROUP BY corr_id, corr_type
+		%s
 		ORDER BY first_timestamp DESC
 		LIMIT %d OFFSET %d
-	`, where, params.Limit, params.Offset)
+	`, where, havingClause, params.Limit, params.Offset)
 
 	rows, err := c.conn.Query(ctx, dataQuery, namedArgs...)
 	if err != nil {

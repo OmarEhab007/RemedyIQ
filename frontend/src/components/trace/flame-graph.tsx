@@ -69,8 +69,13 @@ export function FlameGraph({
       }
     }
 
+    let currentY = 0;
     for (const root of spans) {
-      processNode(root, 0, 0, 100);
+      processNode(root, 0, currentY, 100);
+      const treeMaxY = nodes
+        .filter((n) => n.y >= currentY)
+        .reduce((max, n) => Math.max(max, n.y), currentY);
+      currentY = treeMaxY + ROW_HEIGHT + 4;
     }
 
     return nodes;

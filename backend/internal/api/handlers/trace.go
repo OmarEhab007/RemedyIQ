@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -338,10 +339,12 @@ func (h *ExportTraceHandler) exportCSV(w http.ResponseWriter, entries []domain.L
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.csv", filename))
 
 	writer := csv.NewWriter(w)
-	defer writer.Flush()
 
 	headers := []string{"line_number", "timestamp", "log_type", "duration_ms", "rpc_id", "user", "thread_id", "api_code", "form", "filter_name", "raw_text"}
-	writer.Write(headers)
+	if err := writer.Write(headers); err != nil {
+		slog.Error("csv export header write error", "error", err)
+		return
+	}
 
 	for _, e := range entries {
 		row := []string{
@@ -357,7 +360,15 @@ func (h *ExportTraceHandler) exportCSV(w http.ResponseWriter, entries []domain.L
 			e.FilterName,
 			e.RawText,
 		}
-		writer.Write(row)
+		if err := writer.Write(row); err != nil {
+			slog.Error("csv export row write error", "error", err)
+			return
+		}
+	}
+
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		slog.Error("csv export flush error", "error", err)
 	}
 }
 
@@ -388,5 +399,7 @@ func (h *ExportTraceHandler) exportJSON(w http.ResponseWriter, entries []domain.
 
 	encoder := json.NewEncoder(w)
 	encoder.SetEscapeHTML(false)
-	encoder.Encode(export)
+	if err := encoder.Encode(export); err != nil {
+		slog.Error("json export encode error", "error", err)
+	}
 }

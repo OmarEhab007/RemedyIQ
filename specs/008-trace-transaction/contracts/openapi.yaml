@@ -4,6 +4,16 @@ info:
   description: Enhanced trace transaction endpoints for waterfall visualization, transaction search, comparison, and AI insights.
   version: 1.0.0
 
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
 paths:
   /api/v1/analysis/{job_id}/trace/{trace_id}/waterfall:
     get:
@@ -106,7 +116,7 @@ paths:
           schema:
             type: integer
             default: 50
-            maximum: 200
+            maximum: 100
         - name: offset
           in: query
           required: false
