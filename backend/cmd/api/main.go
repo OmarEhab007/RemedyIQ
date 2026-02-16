@@ -11,6 +11,7 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"github.com/OmarEhab007/RemedyIQ/backend/internal/ai"
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/api"
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/api/handlers"
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/config"
@@ -109,39 +110,54 @@ func main() {
 	entryHandler := handlers.NewEntryHandler(ch)
 	contextHandler := handlers.NewContextHandler(ch)
 	exportHandler := handlers.NewExportHandler(ch)
-	traceHandler := handlers.NewTraceHandler(ch)
+	traceHandler := handlers.NewTraceHandler(ch, redis)
+	waterfallHandler := handlers.NewWaterfallHandler(ch, redis)
+	transactionSearchHandler := handlers.NewTransactionSearchHandler(ch)
+	recentTracesHandler := handlers.NewRecentTracesHandler(redis)
+	exportTraceHandler := handlers.NewExportTraceHandler(ch)
+
+	aiRegistry := ai.NewRegistry()
+	aiHandler := handlers.NewAIHandler(aiRegistry)
+	traceAIHandler := handlers.NewTraceAnalyzeHandler(aiRegistry)
+
 	savedSearchHandler := handlers.NewSavedSearchHandler(pg)
 	deleteSavedSearchHandler := handlers.NewDeleteSavedSearchHandler(pg)
 	searchHistoryHandler := handlers.NewSearchHistoryHandler(pg)
 
 	// --- Build router ---
 	router := api.NewRouter(api.RouterConfig{
-		AllowedOrigins:           []string{"*"},
-		DevMode:                  cfg.IsDevelopment(),
-		ClerkSecretKey:           cfg.ClerkSecretKey,
-		HealthHandler:            healthHandler,
-		UploadFileHandler:        uploadHandler,
-		ListFilesHandler:         fileHandlers.ListFiles(),
-		CreateAnalysisHandler:    analysisHandlers.CreateAnalysis(),
-		ListAnalysesHandler:      analysisHandlers.ListAnalyses(),
-		GetAnalysisHandler:       analysisHandlers.GetAnalysis(),
-		GetDashboardHandler:      dashboardHandler,
-		AggregatesHandler:        handlers.NewAggregatesHandler(pg, ch, redis),
-		ExceptionsHandler:        handlers.NewExceptionsHandler(pg, ch, redis),
-		GapsHandler:              handlers.NewGapsHandler(pg, ch, redis),
-		ThreadsHandler:           handlers.NewThreadsHandler(pg, ch, redis),
-		FiltersHandler:           handlers.NewFiltersHandler(pg, ch, redis),
-		GenerateReportHandler:    reportHandler,
-		WSHandler:                streamHandler,
-		SearchLogsHandler:        searchLogsHandler,
-		AutocompleteHandler:      autocompleteHandler,
-		GetLogEntryHandler:       entryHandler,
-		GetEntryContextHandler:   contextHandler,
-		ExportHandler:            exportHandler,
-		SavedSearchHandler:       savedSearchHandler,
-		DeleteSavedSearchHandler: deleteSavedSearchHandler,
-		SearchHistoryHandler:     searchHistoryHandler,
-		GetTraceHandler:          traceHandler,
+		AllowedOrigins:            []string{"*"},
+		DevMode:                   cfg.IsDevelopment(),
+		ClerkSecretKey:            cfg.ClerkSecretKey,
+		HealthHandler:             healthHandler,
+		UploadFileHandler:         uploadHandler,
+		ListFilesHandler:          fileHandlers.ListFiles(),
+		CreateAnalysisHandler:     analysisHandlers.CreateAnalysis(),
+		ListAnalysesHandler:       analysisHandlers.ListAnalyses(),
+		GetAnalysisHandler:        analysisHandlers.GetAnalysis(),
+		GetDashboardHandler:       dashboardHandler,
+		AggregatesHandler:         handlers.NewAggregatesHandler(pg, ch, redis),
+		ExceptionsHandler:         handlers.NewExceptionsHandler(pg, ch, redis),
+		GapsHandler:               handlers.NewGapsHandler(pg, ch, redis),
+		ThreadsHandler:            handlers.NewThreadsHandler(pg, ch, redis),
+		FiltersHandler:            handlers.NewFiltersHandler(pg, ch, redis),
+		GenerateReportHandler:     reportHandler,
+		WSHandler:                 streamHandler,
+		SearchLogsHandler:         searchLogsHandler,
+		AutocompleteHandler:       autocompleteHandler,
+		GetLogEntryHandler:        entryHandler,
+		GetEntryContextHandler:    contextHandler,
+		ExportHandler:             exportHandler,
+		SavedSearchHandler:        savedSearchHandler,
+		DeleteSavedSearchHandler:  deleteSavedSearchHandler,
+		SearchHistoryHandler:      searchHistoryHandler,
+		GetTraceHandler:           traceHandler,
+		GetWaterfallHandler:       waterfallHandler,
+		SearchTransactionsHandler: transactionSearchHandler,
+		GetRecentTracesHandler:    recentTracesHandler,
+		ExportTraceHandler:        exportTraceHandler,
+		TraceAIHandler:            traceAIHandler,
+		QueryAIHandler:            aiHandler,
 	})
 
 	// --- Start HTTP server ---

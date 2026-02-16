@@ -51,6 +51,7 @@ type ClickHouseStore interface {
 	GetTraceEntries(ctx context.Context, tenantID, jobID, traceID string) ([]domain.LogEntry, error)
 	GetJobTimeRange(ctx context.Context, tenantID, jobID string) (*JobTimeRange, error)
 	GetFacets(ctx context.Context, tenantID, jobID string, q SearchQuery) (map[string][]FacetValue, error)
+	SearchTransactions(ctx context.Context, tenantID, jobID string, params domain.TransactionSearchParams) (*domain.TransactionSearchResponse, error)
 	Close() error
 }
 

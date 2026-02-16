@@ -22,7 +22,7 @@ services:
 
   # ClickHouse - Analytics database for parsed log events (time-series data)
   clickhouse:
-    image: clickhouse/clickhouse-server:24-alpine
+    image: clickhouse/clickhouse-server:24
     container_name: remedyiq-clickhouse
     ports:
       - "8123:8123"  # HTTP interface
@@ -31,8 +31,15 @@ services:
       CLICKHOUSE_DB: remedyiq
       CLICKHOUSE_USER: default
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    cap_add:
+      - SYS_NICE
+      - IPC_LOCK
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
     volumes:
-      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_data_v2:/var/lib/clickhouse
       - ./backend/migrations/clickhouse/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
@@ -121,7 +128,7 @@ services:
 volumes:
   postgres_data:
     driver: local
-  clickhouse_data:
+  clickhouse_data_v2:
     driver: local
   nats_data:
     driver: local

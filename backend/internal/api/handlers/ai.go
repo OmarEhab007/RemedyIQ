@@ -112,3 +112,81 @@ func (h *ListSkillsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"skills": skills,
 	})
 }
+
+type TraceAnalyzeHandler struct {
+	registry *ai.Registry
+}
+
+func NewTraceAnalyzeHandler(registry *ai.Registry) *TraceAnalyzeHandler {
+	return &TraceAnalyzeHandler{registry: registry}
+}
+
+type traceAnalyzeRequest struct {
+	TraceID string `json:"trace_id"`
+	Focus   string `json:"focus"`
+}
+
+func (h *TraceAnalyzeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r.Context())
+	if tenantID == "" {
+		api.Error(w, http.StatusUnauthorized, api.ErrCodeUnauthorized, "missing tenant context")
+		return
+	}
+
+	jobID := mux.Vars(r)["job_id"]
+	if jobID == "" {
+		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "job_id is required")
+		return
+	}
+
+	var req traceAnalyzeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "invalid JSON body")
+		return
+	}
+
+	if req.TraceID == "" {
+		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "trace_id is required")
+		return
+	}
+
+	if req.Focus == "" {
+		req.Focus = "bottleneck"
+	}
+
+	input := ai.SkillInput{
+		Query:    req.Focus,
+		JobID:    jobID,
+		TenantID: tenantID,
+		Context: map[string]interface{}{
+			"trace_id": req.TraceID,
+		},
+	}
+
+	output, err := h.registry.Execute(r.Context(), "trace_analyzer", input)
+	if err != nil {
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "not found") {
+			api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, errMsg)
+			return
+		}
+
+		if strings.Contains(errMsg, "is required") {
+			api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, errMsg)
+			return
+		}
+
+		slog.Error("Trace analyzer skill execution failed",
+			"skill", "trace_analyzer",
+			"job_id", jobID,
+			"trace_id", req.TraceID,
+			"tenant_id", tenantID,
+			"error", err,
+		)
+		api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError,
+			"AI analysis is temporarily unavailable. Please try again later.")
+		return
+	}
+
+	api.JSON(w, http.StatusOK, output)
+}

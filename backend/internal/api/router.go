@@ -32,22 +32,27 @@ type RouterConfig struct {
 	ListFilesHandler  http.Handler // GET  /api/v1/files
 
 	// Analysis handlers
-	CreateAnalysisHandler  http.Handler // POST /api/v1/analysis
-	ListAnalysesHandler    http.Handler // GET  /api/v1/analysis
-	GetAnalysisHandler     http.Handler // GET  /api/v1/analysis/{job_id}
-	GetDashboardHandler    http.Handler // GET  /api/v1/analysis/{job_id}/dashboard
-	AggregatesHandler      http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/aggregates
-	ExceptionsHandler      http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/exceptions
-	GapsHandler            http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/gaps
-	ThreadsHandler         http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/threads
-	FiltersHandler         http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/filters
-	SearchLogsHandler      http.Handler // GET  /api/v1/analysis/{job_id}/search
-	GetLogEntryHandler     http.Handler // GET  /api/v1/analysis/{job_id}/entries/{entry_id}
-	GetEntryContextHandler http.Handler // GET  /api/v1/analysis/{job_id}/entries/{entry_id}/context
-	GetTraceHandler        http.Handler // GET  /api/v1/analysis/{job_id}/trace/{trace_id}
-	ExportHandler          http.Handler // GET  /api/v1/analysis/{job_id}/search/export
-	QueryAIHandler         http.Handler // POST /api/v1/analysis/{job_id}/ai
-	GenerateReportHandler  http.Handler // POST /api/v1/analysis/{job_id}/report
+	CreateAnalysisHandler     http.Handler // POST /api/v1/analysis
+	ListAnalysesHandler       http.Handler // GET  /api/v1/analysis
+	GetAnalysisHandler        http.Handler // GET  /api/v1/analysis/{job_id}
+	GetDashboardHandler       http.Handler // GET  /api/v1/analysis/{job_id}/dashboard
+	AggregatesHandler         http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/aggregates
+	ExceptionsHandler         http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/exceptions
+	GapsHandler               http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/gaps
+	ThreadsHandler            http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/threads
+	FiltersHandler            http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/filters
+	SearchLogsHandler         http.Handler // GET  /api/v1/analysis/{job_id}/search
+	GetLogEntryHandler        http.Handler // GET  /api/v1/analysis/{job_id}/entries/{entry_id}
+	GetEntryContextHandler    http.Handler // GET  /api/v1/analysis/{job_id}/entries/{entry_id}/context
+	GetTraceHandler           http.Handler // GET  /api/v1/analysis/{job_id}/trace/{trace_id}
+	GetWaterfallHandler       http.Handler // GET  /api/v1/analysis/{job_id}/trace/{trace_id}/waterfall
+	SearchTransactionsHandler http.Handler // GET  /api/v1/analysis/{job_id}/transactions
+	ExportTraceHandler        http.Handler // GET  /api/v1/analysis/{job_id}/trace/{trace_id}/export
+	TraceAIHandler            http.Handler // POST /api/v1/analysis/{job_id}/trace/ai-analyze
+	GetRecentTracesHandler    http.Handler // GET  /api/v1/trace/recent
+	ExportHandler             http.Handler // GET  /api/v1/analysis/{job_id}/search/export
+	QueryAIHandler            http.Handler // POST /api/v1/analysis/{job_id}/ai
+	GenerateReportHandler     http.Handler // POST /api/v1/analysis/{job_id}/report
 
 	// Search handlers
 	AutocompleteHandler      http.Handler // GET  /api/v1/search/autocomplete
@@ -103,6 +108,11 @@ func NewRouter(cfg RouterConfig) *mux.Router {
 	auth.Handle("/analysis/{job_id}/entries/{entry_id}", handlerOrStub(cfg.GetLogEntryHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/entries/{entry_id}/context", handlerOrStub(cfg.GetEntryContextHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/trace/{trace_id}", handlerOrStub(cfg.GetTraceHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/trace/{trace_id}/waterfall", handlerOrStub(cfg.GetWaterfallHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/transactions", handlerOrStub(cfg.SearchTransactionsHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/trace/{trace_id}/export", handlerOrStub(cfg.ExportTraceHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/trace/ai-analyze", handlerOrStub(cfg.TraceAIHandler)).Methods(http.MethodPost, http.MethodOptions)
+	auth.Handle("/trace/recent", handlerOrStub(cfg.GetRecentTracesHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/ai", handlerOrStub(cfg.QueryAIHandler)).Methods(http.MethodPost, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/report", handlerOrStub(cfg.GenerateReportHandler)).Methods(http.MethodPost, http.MethodOptions)
 

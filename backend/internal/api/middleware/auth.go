@@ -99,6 +99,12 @@ func (am *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			} else {
 				devUser := r.Header.Get("X-Dev-User-ID")
 				devTenant := r.Header.Get("X-Dev-Tenant-ID")
+				// WebSocket connections cannot set custom headers, so also
+				// check query parameters for the dev bypass token.
+				if devUser == "" && devTenant == "" && r.URL.Query().Get("token") == "dev" {
+					devUser = "dev-user"
+					devTenant = "dev-tenant"
+				}
 				if devUser != "" && devTenant != "" {
 					ctx := context.WithValue(r.Context(), UserIDKey, devUser)
 					ctx = context.WithValue(ctx, TenantIDKey, devTenant)

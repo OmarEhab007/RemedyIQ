@@ -323,21 +323,21 @@ type QueueHealthSummary struct {
 
 // MostExecutedFilter represents a frequently executed filter.
 type MostExecutedFilter struct {
-	Name       string `json:"name"`
-	Count      int64  `json:"count"`
-	TotalMS    int64  `json:"total_ms"`
+	Name    string `json:"name"`
+	Count   int64  `json:"count"`
+	TotalMS int64  `json:"total_ms"`
 }
 
 // FilterPerTransaction holds filter execution metrics per transaction.
 type FilterPerTransaction struct {
-	TransactionID string  `json:"transaction_id"`
-	FilterName    string  `json:"filter_name"`
-	ExecutionCount int    `json:"execution_count"`
-	TotalMS       int64   `json:"total_ms"`
-	AvgMS         float64 `json:"avg_ms"`
-	MaxMS         int64   `json:"max_ms"`
-	Queue         string  `json:"queue,omitempty"`
-	Form          string  `json:"form,omitempty"`
+	TransactionID  string  `json:"transaction_id"`
+	FilterName     string  `json:"filter_name"`
+	ExecutionCount int     `json:"execution_count"`
+	TotalMS        int64   `json:"total_ms"`
+	AvgMS          float64 `json:"avg_ms"`
+	MaxMS          int64   `json:"max_ms"`
+	Queue          string  `json:"queue,omitempty"`
+	Form           string  `json:"form,omitempty"`
 }
 
 // FilterComplexityData holds aggregated filter complexity analysis data.
@@ -366,7 +366,7 @@ type ExceptionsResponse struct {
 
 // GapsResponse is the API response for the gaps endpoint.
 type GapsResponse struct {
-	Gaps        []GapEntry        `json:"gaps"`
+	Gaps        []GapEntry           `json:"gaps"`
 	QueueHealth []QueueHealthSummary `json:"queue_health"`
 }
 
@@ -564,4 +564,84 @@ type ParseResult struct {
 	// Supplementary data
 	APIAbbreviations []JARAPIAbbreviation `json:"api_abbreviations,omitempty"`
 	QueuedAPICalls   []TopNEntry          `json:"queued_api_calls,omitempty"`
+}
+
+// --- Trace Transaction Types (008-trace-transaction) ---
+
+// SpanNode represents a single span in the trace hierarchy tree.
+type SpanNode struct {
+	ID             string                 `json:"id"`
+	ParentID       string                 `json:"parent_id,omitempty"`
+	Depth          int                    `json:"depth"`
+	LogType        LogType                `json:"log_type"`
+	StartOffsetMS  int64                  `json:"start_offset_ms"`
+	DurationMS     int                    `json:"duration_ms"`
+	Fields         map[string]interface{} `json:"fields"`
+	Children       []SpanNode             `json:"children"`
+	OnCriticalPath bool                   `json:"on_critical_path"`
+	HasError       bool                   `json:"has_error"`
+	Timestamp      time.Time              `json:"timestamp"`
+	ThreadID       string                 `json:"thread_id"`
+	TraceID        string                 `json:"trace_id"`
+	RPCID          string                 `json:"rpc_id,omitempty"`
+	User           string                 `json:"user,omitempty"`
+	Queue          string                 `json:"queue,omitempty"`
+	Form           string                 `json:"form,omitempty"`
+	Operation      string                 `json:"operation,omitempty"`
+	LineNumber     int                    `json:"line_number"`
+	FileNumber     int                    `json:"file_number"`
+	Success        bool                   `json:"success"`
+	ErrorMessage   string                 `json:"error_message,omitempty"`
+}
+
+// WaterfallResponse is the enhanced trace endpoint response.
+type WaterfallResponse struct {
+	TraceID         string         `json:"trace_id"`
+	CorrelationType string         `json:"correlation_type"`
+	TotalDurationMS int64          `json:"total_duration_ms"`
+	SpanCount       int            `json:"span_count"`
+	ErrorCount      int            `json:"error_count"`
+	PrimaryUser     string         `json:"primary_user"`
+	PrimaryQueue    string         `json:"primary_queue"`
+	TypeBreakdown   map[string]int `json:"type_breakdown"`
+	TraceStart      string         `json:"trace_start"`
+	TraceEnd        string         `json:"trace_end"`
+	Spans           []SpanNode     `json:"spans"`
+	FlatSpans       []SpanNode     `json:"flat_spans"`
+	CriticalPath    []string       `json:"critical_path"`
+	TookMS          int            `json:"took_ms"`
+}
+
+// TransactionSummary is a single transaction in search results.
+type TransactionSummary struct {
+	TraceID          string `json:"trace_id"`
+	CorrelationType  string `json:"correlation_type"`
+	PrimaryUser      string `json:"primary_user"`
+	PrimaryForm      string `json:"primary_form"`
+	PrimaryOperation string `json:"primary_operation"`
+	TotalDurationMS  int64  `json:"total_duration_ms"`
+	SpanCount        int    `json:"span_count"`
+	ErrorCount       int    `json:"error_count"`
+	FirstTimestamp   string `json:"first_timestamp"`
+	LastTimestamp    string `json:"last_timestamp"`
+	PrimaryQueue     string `json:"primary_queue,omitempty"`
+}
+
+// TransactionSearchResponse is the response for transaction discovery.
+type TransactionSearchResponse struct {
+	Transactions []TransactionSummary `json:"transactions"`
+	Total        int                  `json:"total"`
+	TookMS       int                  `json:"took_ms"`
+}
+
+// TransactionSearchParams holds parameters for transaction search.
+type TransactionSearchParams struct {
+	User        string `json:"user,omitempty"`
+	ThreadID    string `json:"thread_id,omitempty"`
+	TraceID     string `json:"trace_id,omitempty"`
+	RPCID       string `json:"rpc_id,omitempty"`
+	HasErrors   *bool  `json:"has_errors,omitempty"`
+	MinDuration int    `json:"min_duration_ms,omitempty"`
+	Limit       int    `json:"limit,omitempty"`
+	Offset      int    `json:"offset,omitempty"`
 }

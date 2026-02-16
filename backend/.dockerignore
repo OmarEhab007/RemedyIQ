@@ -1,0 +1,33 @@
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test artifacts
+*_test.go
+**/*_test.go
+coverage/
+*.test
+*.test.log
+*.out
+
+# Environment
+.env
+.env.*
+
+# Build artifacts
+bin/
+tmp/
+
+# OS
+.DS_Store
+Thumbs.db

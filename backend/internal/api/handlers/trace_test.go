@@ -24,7 +24,7 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestTraceHandler_MissingTenantContext(t *testing.T) {
-	h := NewTraceHandler(nil)
+	h := NewTraceHandler(nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/analysis/job-1/trace/T001", nil)
 	w := httptest.NewRecorder()
@@ -39,7 +39,7 @@ func TestTraceHandler_MissingTenantContext(t *testing.T) {
 }
 
 func TestTraceHandler_InvalidJobID(t *testing.T) {
-	h := NewTraceHandler(nil)
+	h := NewTraceHandler(nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/analysis/not-a-uuid/trace/T001", nil)
 	ctx := middleware.WithTenantID(req.Context(), "test-tenant")
@@ -59,7 +59,7 @@ func TestTraceHandler_InvalidJobID(t *testing.T) {
 }
 
 func TestTraceHandler_EmptyTraceID(t *testing.T) {
-	h := NewTraceHandler(nil)
+	h := NewTraceHandler(nil, nil)
 
 	jobID := uuid.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/analysis/"+jobID.String()+"/trace/", nil)
@@ -81,7 +81,8 @@ func TestTraceHandler_EmptyTraceID(t *testing.T) {
 
 func TestTraceHandler_SearchError(t *testing.T) {
 	mockCH := new(testutil.MockClickHouseStore)
-	h := NewTraceHandler(mockCH)
+	mockRedis := new(testutil.MockRedisCache)
+	h := NewTraceHandler(mockCH, mockRedis)
 
 	jobID := uuid.New()
 	traceID := "T001"
@@ -111,7 +112,8 @@ func TestTraceHandler_SearchError(t *testing.T) {
 
 func TestTraceHandler_EmptyResults(t *testing.T) {
 	mockCH := new(testutil.MockClickHouseStore)
-	h := NewTraceHandler(mockCH)
+	mockRedis := new(testutil.MockRedisCache)
+	h := NewTraceHandler(mockCH, mockRedis)
 
 	jobID := uuid.New()
 	traceID := "T-nonexistent"
@@ -144,7 +146,8 @@ func TestTraceHandler_EmptyResults(t *testing.T) {
 
 func TestTraceHandler_SuccessWithResults(t *testing.T) {
 	mockCH := new(testutil.MockClickHouseStore)
-	h := NewTraceHandler(mockCH)
+	mockRedis := new(testutil.MockRedisCache)
+	h := NewTraceHandler(mockCH, mockRedis)
 
 	jobID := uuid.New()
 	traceID := "T001"
@@ -285,7 +288,7 @@ func TestTraceHandler_TableDriven(t *testing.T) {
 			mockCH := new(testutil.MockClickHouseStore)
 			tc.setupMock(mockCH)
 
-			handler := NewTraceHandler(mockCH)
+			handler := NewTraceHandler(mockCH, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/analysis/"+tc.jobIDStr+"/trace/"+tc.traceID, nil)
 			if tc.tenantID != "" {
