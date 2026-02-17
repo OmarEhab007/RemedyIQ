@@ -62,6 +62,12 @@ type RouterConfig struct {
 
 	// WebSocket handler
 	WSHandler http.Handler // GET /api/v1/ws
+
+	// AI handlers
+	AIStreamHandler           http.Handler // POST /api/v1/ai/stream
+	ListSkillsHandler         http.Handler // GET /api/v1/ai/skills
+	ConversationsHandler      http.Handler // GET/POST /api/v1/ai/conversations
+	ConversationDetailHandler http.Handler // GET/DELETE /api/v1/ai/conversations/{id}
 }
 
 // NewRouter builds a fully-configured *mux.Router with all routes from the
@@ -115,6 +121,14 @@ func NewRouter(cfg RouterConfig) *mux.Router {
 	auth.Handle("/trace/recent", handlerOrStub(cfg.GetRecentTracesHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/ai", handlerOrStub(cfg.QueryAIHandler)).Methods(http.MethodPost, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/report", handlerOrStub(cfg.GenerateReportHandler)).Methods(http.MethodPost, http.MethodOptions)
+
+	// AI streaming
+	auth.Handle("/ai/stream", handlerOrStub(cfg.AIStreamHandler)).Methods(http.MethodPost, http.MethodOptions)
+	auth.Handle("/ai/skills", handlerOrStub(cfg.ListSkillsHandler)).Methods(http.MethodGet, http.MethodOptions)
+
+	// Conversations
+	auth.Handle("/ai/conversations", handlerOrStub(cfg.ConversationsHandler)).Methods(http.MethodGet, http.MethodPost, http.MethodOptions)
+	auth.Handle("/ai/conversations/{id}", handlerOrStub(cfg.ConversationDetailHandler)).Methods(http.MethodGet, http.MethodDelete, http.MethodOptions)
 
 	// Search
 	auth.Handle("/search/autocomplete", handlerOrStub(cfg.AutocompleteHandler)).Methods(http.MethodGet, http.MethodOptions)

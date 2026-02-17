@@ -1,430 +1,273 @@
-<div align="center">
-
 # RemedyIQ
 
-**Enterprise Log Intelligence for BMC Remedy AR Server**
+Enterprise log intelligence platform for BMC Remedy AR Server.
 
-Turn millions of AR Server log lines into actionable insights in seconds.
+RemedyIQ ingests AR logs, parses and indexes entries, and provides dashboards, search, tracing, and AI-assisted analysis for faster troubleshooting and root-cause investigation.
 
-[![Go](https://img.shields.io/badge/Go-1.24-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://golang.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
-[![ClickHouse](https://img.shields.io/badge/ClickHouse-24-FFCC01?style=for-the-badge&logo=clickhouse&logoColor=black)](https://clickhouse.com/)
-[![License](https://img.shields.io/github/license/OmarEhab007/RemedyIQ?style=for-the-badge)](LICENSE)
+## Overview
 
-[Getting Started](#getting-started) &bull; [Features](#features) &bull; [Screenshots](#screenshots) &bull; [Architecture](#architecture) &bull; [API Reference](#api-reference) &bull; [Contributing](#contributing)
+RemedyIQ is designed for high-volume AR environments where raw log files are difficult to analyze quickly. The platform provides:
 
----
+- Structured ingestion and analysis of AR log files
+- Operational dashboard with health, exceptions, gaps, threads, and filter metrics
+- KQL-based log exploration with export support
+- Transaction tracing and waterfall visualization
+- AI assistant with skill-based routing and streaming responses (SSE)
 
-<img src="docs/screenshots/dashboard.png" alt="RemedyIQ Dashboard" width="900" />
+## Architecture
 
-</div>
+### Services
 
-## Why RemedyIQ?
+- **Frontend**: Next.js 16 + React 19 application
+- **API**: Go service exposing REST + SSE + WebSocket endpoints
+- **Worker**: Go service that processes queued analysis jobs
+- **Infrastructure**: PostgreSQL, ClickHouse, NATS JetStream, Redis, MinIO
 
-BMC Remedy AR Server generates massive log files across four categories &mdash; API, SQL, Filter, and Escalation &mdash; that are difficult to analyze with traditional tools. RemedyIQ ingests these logs, indexes every entry in ClickHouse, and gives your team a modern web interface to search, visualize, and understand what happened.
+### Data Responsibilities
 
-- **Upload once, explore endlessly.** Drag-and-drop a log file, wait for parsing, then search across millions of entries with KQL syntax.
-- **See the big picture.** A 10-section dashboard surfaces health scores, performance aggregates, exception reports, gap analysis, thread utilization, and filter complexity.
-- **Drill into the details.** The Log Explorer lets you filter by time range, sort by any column, view surrounding context, trace correlated entries, and export results.
-- **Get AI-powered answers.** Ask natural language questions and receive structured analysis backed by log evidence.
+- **PostgreSQL**: metadata (files, jobs, conversations, saved searches)
+- **ClickHouse**: parsed log events and analytics queries
+- **NATS JetStream**: job queue and async processing coordination
+- **Redis**: caching and transient query/report state
+- **MinIO (S3-compatible)**: uploaded files and generated artifacts
 
----
+## Key Features
+
+- File upload and analysis job orchestration
+- Multi-section analysis dashboard:
+  - health scoring
+  - aggregates
+  - exception insights
+  - gap analysis
+  - thread utilization
+  - filter complexity
+- KQL search with autocomplete, saved searches, and history
+- Entry context retrieval and export (CSV/JSON)
+- Trace search, waterfall, and trace export
+- AI analysis modes:
+  - `performance`
+  - `root_cause`
+  - `error_explainer`
+  - `anomaly_narrator`
+  - `summarizer`
+  - `nl_query`
+- AI conversation management and SSE streaming
+
+## Tech Stack
+
+- **Backend**: Go 1.24, `gorilla/mux`, `pgx/v5`, `clickhouse-go/v2`, `go-redis/v9`, `nats.go`, `bleve/v2`
+- **AI**:
+  - Streaming: Google Gemini (`google.golang.org/genai`)
+  - Legacy/non-stream paths: Anthropic SDK (`anthropic-sdk-go`)
+- **Frontend**: Next.js 16, React 19, TypeScript, Tailwind, Recharts, streamdown
 
 ## Getting Started
 
 ### Prerequisites
 
-| Dependency | Version |
-|-----------|---------|
-| Go | 1.24+ |
-| Node.js | 20+ |
-| Docker & Docker Compose | Latest |
+- Go `>= 1.24`
+- Node.js `>= 20`
+- Docker + Docker Compose
+- Java (optional but recommended for ARLogAnalyzer JAR path)
 
-### Setup
+### Quick Start
 
 ```bash
-# Clone
 git clone https://github.com/OmarEhab007/RemedyIQ.git
 cd RemedyIQ
 
-# Start infrastructure (PostgreSQL, ClickHouse, NATS, Redis, MinIO)
-make docker-up
+# One-time setup (checks tools, starts infra, installs deps)
+make setup
 
-# Initialize databases
-make db-setup
-
-# Install dependencies
-make deps
-
-# Start backend (API + Worker)
+# Start API + Worker (requires infrastructure up)
 make dev
 
-# In a second terminal, start the frontend
-cd frontend && npm install && npm run dev
+# Start frontend in another terminal
+make frontend
 ```
 
-Open **http://localhost:3000** in your browser.
+Open:
 
-### Service URLs
+- Frontend: `http://localhost:3000`
+- API Health: `http://localhost:8080/api/v1/health`
 
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:3000 |
-| API | http://localhost:8080/api/v1 |
-| NATS Monitor | http://localhost:8222 |
-| MinIO Console | http://localhost:9001 |
+### Alternative: Start Full Stack
 
----
+```bash
+make run
+```
 
-## Features
+This starts infrastructure plus API, Worker, and Frontend together.
 
-### Log Upload & Parsing
+## Useful Commands
 
-Upload AR Server log files through a drag-and-drop interface. RemedyIQ detects the log type automatically, parses entries using the ARLogAnalyzer engine, and stores structured results in ClickHouse. Progress streams to the browser over WebSocket.
+```bash
+# Infrastructure
+make docker-up
+make docker-down
+make check-services
 
-### Analysis Dashboard
+# Database init
+make db-setup
 
-A comprehensive dashboard with ten sections, each lazy-loaded for performance:
+# Tests
+make test
+make test-integration
+make test-frontend
+make test-all
 
-| Section | What It Shows |
-|---------|--------------|
-| **Health Score** | Composite 0&ndash;100 score factoring error rate, response time, thread saturation, and gap frequency |
-| **Statistics** | Entry counts by type, unique users/forms/tables/queues, log time span |
-| **Top-N Operations** | Slowest API calls, SQL queries, filter executions, and escalations with expandable detail rows |
-| **Time Series** | Volume over time with toggleable duration and error overlays, click-and-drag zoom |
-| **Distribution** | Donut chart by log type, horizontal bar charts by queue/form/user/table with configurable top-N |
-| **Aggregates** | Tabbed tables (API by Form, API by User, SQL by Table) with sortable columns and grand totals |
-| **Exceptions** | Error codes grouped with occurrence counts, per-log-type error rates, and sample context |
-| **Gap Analysis** | Line gaps and thread gaps ranked by duration with critical gap highlighting |
-| **Threads** | Per-thread utilization, busy percentage, and warning indicators |
-| **Filters** | Most-executed filters and per-transaction filter metrics |
+# Coverage
+make test-coverage
 
-### Log Explorer
+# Quality
+make lint
 
-A full-featured search interface for individual log entries:
+# Build
+make build
+```
 
-- **KQL Search** &mdash; Boolean operators (`AND`, `OR`, `NOT`), field-value pairs, ranges, wildcards, quoted strings
-- **Time Range Picker** &mdash; Relative presets (15m, 1h, 24h, 7d) and absolute date selection
-- **Timeline Histogram** &mdash; Visual log volume over time, color-coded by type, with click-to-zoom
-- **Faceted Filters** &mdash; Sidebar filters by log type, user, queue, form, and status
-- **Column Sorting** &mdash; Click headers to sort by timestamp, duration, type, or user
-- **Detail Panel** &mdash; Full entry view with related entries navigation via trace/RPC IDs
-- **Context View** &mdash; Show surrounding log lines for any selected entry
-- **Saved Searches** &mdash; Save and reload named queries
-- **Export** &mdash; Download results as CSV or JSON
-- **Keyboard Shortcuts** &mdash; `/` to focus search, arrow keys to navigate, `Esc` to close panels
+## Configuration
 
-### AI Insights
+The backend loads environment variables from `.env` (if present) and has sensible local defaults.
 
-Ask questions in plain English. RemedyIQ uses Claude to analyze log patterns and returns structured answers with line-number references, confidence scores, and suggested follow-up questions.
+### Core Backend Variables
 
-### Transaction Tracing
+| Variable | Description | Default |
+|---|---|---|
+| `API_PORT` | API listen port | `8080` |
+| `ENVIRONMENT` | Runtime environment | `development` |
+| `LOG_LEVEL` | Logger level (`debug`,`info`,`warn`,`error`) | `info` |
+| `POSTGRES_URL` | PostgreSQL DSN | `postgres://remedyiq:remedyiq@localhost:5432/remedyiq?sslmode=disable` |
+| `CLICKHOUSE_URL` | ClickHouse connection URL | `clickhouse://localhost:9004/remedyiq` |
+| `NATS_URL` | NATS URL | `nats://localhost:4222` |
+| `REDIS_URL` | Redis URL | `redis://localhost:6379` |
+| `S3_ENDPOINT` | MinIO/S3 endpoint | `http://localhost:9002` |
+| `S3_ACCESS_KEY` | S3 access key | `minioadmin` |
+| `S3_SECRET_KEY` | S3 secret key | `minioadmin` |
+| `S3_BUCKET` | Bucket for log objects | `remedyiq-logs` |
+| `S3_USE_SSL` | Enable TLS for S3 endpoint | `false` |
+| `S3_SKIP_BUCKET_VERIFICATION` | Skip bucket existence check | `true` |
+| `JAR_PATH` | ARLogAnalyzer JAR path | `../ARLogAnalyzer/ARLogAnalyzer-3/ARLogAnalyzer.jar` |
+| `JAR_DEFAULT_HEAP_MB` | JAR JVM heap size (MB) | `4096` |
+| `JAR_TIMEOUT_SEC` | JAR analysis timeout (sec) | `1800` |
+| `BLEVE_PATH` | Bleve index storage path | `./data/bleve` |
+| `CLERK_SECRET_KEY` | Clerk JWT signing secret | empty |
+| `ANTHROPIC_API_KEY` | Anthropic API key (legacy/non-stream) | empty |
+| `GOOGLE_API_KEY` | Gemini API key (SSE streaming) | empty |
+| `GOOGLE_MODEL` | Gemini model override | `gemini-2.5-flash` |
 
-Visualize the complete lifecycle of a request across API, Filter, SQL, and Escalation logs. Supports AR 19.x+ trace IDs with RPC ID fallback for earlier versions.
+### Frontend Variables
 
-### Report Generation
+Create `frontend/.env.local` and set:
 
-Generate HTML and JSON analysis reports on demand, cached in Redis for fast subsequent downloads.
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+```
 
----
+## Development Authentication Mode
+
+In local development (`ENVIRONMENT=development`), the API accepts dev bypass headers:
+
+- `X-Dev-User-ID`
+- `X-Dev-Tenant-ID`
+
+The frontend sends these automatically when no auth token is provided (unless `NEXT_PUBLIC_DEV_MODE=false`).
+
+## API Reference (Core Routes)
+
+All routes are under `/api/v1`.
+
+### Health
+
+- `GET /health`
+
+### Files
+
+- `POST /files/upload`
+- `GET /files`
+
+### Analysis
+
+- `POST /analysis`
+- `GET /analysis`
+- `GET /analysis/{job_id}`
+- `GET /analysis/{job_id}/dashboard`
+- `GET /analysis/{job_id}/dashboard/aggregates`
+- `GET /analysis/{job_id}/dashboard/exceptions`
+- `GET /analysis/{job_id}/dashboard/gaps`
+- `GET /analysis/{job_id}/dashboard/threads`
+- `GET /analysis/{job_id}/dashboard/filters`
+- `GET /analysis/{job_id}/search`
+- `GET /analysis/{job_id}/search/export`
+- `GET /analysis/{job_id}/entries/{entry_id}`
+- `GET /analysis/{job_id}/entries/{entry_id}/context`
+- `POST /analysis/{job_id}/report`
+
+### Trace
+
+- `GET /analysis/{job_id}/trace/{trace_id}`
+- `GET /analysis/{job_id}/trace/{trace_id}/waterfall`
+- `GET /analysis/{job_id}/trace/{trace_id}/export`
+- `POST /analysis/{job_id}/trace/ai-analyze`
+- `GET /analysis/{job_id}/transactions`
+- `GET /trace/recent`
+
+### AI
+
+- `POST /analysis/{job_id}/ai`
+- `POST /ai/stream` (SSE)
+- `GET /ai/skills`
+- `GET /ai/conversations`
+- `POST /ai/conversations`
+- `GET /ai/conversations/{id}`
+- `DELETE /ai/conversations/{id}`
+
+### Search Utilities
+
+- `GET /search/autocomplete`
+- `GET /search/saved`
+- `POST /search/saved`
+- `DELETE /search/saved/{search_id}`
+- `GET /search/history`
+
+### Streaming
+
+- `GET /ws` (WebSocket)
+
+## Repository Layout
+
+```text
+.
+├── backend/
+│   ├── cmd/                 # API and Worker entrypoints
+│   ├── internal/            # Domain, handlers, storage, worker pipeline, AI
+│   ├── migrations/          # PostgreSQL + ClickHouse schema setup
+│   └── testdata/            # Log fixtures
+├── frontend/
+│   └── src/                 # Next.js app, components, hooks, client libs
+├── docs/                    # Screenshots and architecture/design docs
+├── scripts/                 # Local setup utilities
+├── docker-compose.yml       # Local infrastructure services
+└── Makefile                 # Primary developer workflow commands
+```
 
 ## Screenshots
 
-<details>
-<summary><strong>Upload</strong></summary>
-<br />
-<img src="docs/screenshots/upload.png" alt="Upload Page" width="800" />
-</details>
-
-<details>
-<summary><strong>Analyses List</strong></summary>
-<br />
-<img src="docs/screenshots/analyses.png" alt="Analyses List" width="800" />
-</details>
-
-<details>
-<summary><strong>Dashboard</strong></summary>
-<br />
-<img src="docs/screenshots/dashboard.png" alt="Dashboard" width="800" />
-</details>
-
-<details>
-<summary><strong>Analysis Detail</strong></summary>
-<br />
-<img src="docs/screenshots/analysis-detail.png" alt="Analysis Detail" width="800" />
-</details>
-
-<details>
-<summary><strong>Log Explorer</strong></summary>
-<br />
-<img src="docs/screenshots/explorer.png" alt="Log Explorer" width="800" />
-</details>
-
-<details>
-<summary><strong>Trace Viewer</strong></summary>
-<br />
-<img src="docs/screenshots/trace.png" alt="Trace Viewer" width="800" />
-</details>
-
-<details>
-<summary><strong>AI Insights</strong></summary>
-<br />
-<img src="docs/screenshots/ai-insights.png" alt="AI Insights" width="800" />
-</details>
-
----
-
-## Architecture
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                     Frontend (Next.js 16)                     │
-│   Dashboard  ·  Explorer  ·  Upload  ·  Trace  ·  AI Chat    │
-└──────────────────────────┬───────────────────────────────────┘
-                           │ REST + WebSocket
-┌──────────────────────────┴───────────────────────────────────┐
-│                      API Server (Go)                          │
-│   gorilla/mux  ·  Auth Middleware  ·  Handlers  ·  Streaming  │
-└───────┬──────────────┬──────────────┬────────────────────────┘
-        │              │              │
-   ┌────┴────┐   ┌─────┴─────┐  ┌────┴────┐
-   │ Worker  │   │   NATS    │  │  Bleve  │
-   │  (Go)   │◄──┤ JetStream │  │ Search  │
-   └────┬────┘   └───────────┘  └─────────┘
-        │
-┌───────┴──────────────────────────────────────────────────────┐
-│                        Storage Layer                          │
-│  ┌────────────┐ ┌────────────┐ ┌─────────┐ ┌──────────────┐ │
-│  │ ClickHouse │ │ PostgreSQL │ │  Redis  │ │  MinIO / S3  │ │
-│  │  Log Data  │ │  Metadata  │ │  Cache  │ │  Raw Files   │ │
-│  │  + MVs     │ │  + RLS     │ │  5min   │ │              │ │
-│  └────────────┘ └────────────┘ └─────────┘ └──────────────┘ │
-└──────────────────────────────────────────────────────────────┘
-```
-
-**Three services, clear boundaries:**
-
-1. **API Server** &mdash; Serves REST endpoints and WebSocket connections. Stateless, horizontally scalable.
-2. **Worker** &mdash; Consumes NATS jobs for parsing, indexing, and AI analysis. Runs ARLogAnalyzer.jar as a subprocess.
-3. **Frontend** &mdash; Next.js with server-side rendering, shadcn/ui components, and Recharts visualizations.
-
-**Storage by purpose:**
-
-| Store | Role |
-|-------|------|
-| ClickHouse | Log entries, materialized views for aggregates, time-series queries |
-| PostgreSQL | Job metadata, tenant management, saved searches, RLS-based isolation |
-| Redis | Response caching (5-min TTL), autocomplete, query history |
-| MinIO / S3 | Raw uploaded log files |
-
----
-
-## Technology Stack
-
-### Backend
-
-| | Technology | Purpose |
-|-|-----------|---------|
-| | Go 1.24 | API server, worker, business logic |
-| | gorilla/mux | HTTP routing and middleware |
-| | pgx/v5 | PostgreSQL driver with connection pooling |
-| | clickhouse-go/v2 | ClickHouse native protocol driver |
-| | go-redis/v9 | Redis client |
-| | nats.go | NATS JetStream messaging |
-| | bleve/v2 | Full-text search indexing |
-| | Anthropic SDK | Claude AI integration |
-
-### Frontend
-
-| | Technology | Purpose |
-|-|-----------|---------|
-| | Next.js 16 + React 19 | App Router, SSR, streaming |
-| | TypeScript 5 | Type safety |
-| | shadcn/ui + Radix | Accessible UI primitives |
-| | Tailwind CSS 4 | Utility-first styling |
-| | Recharts | Charts and visualizations |
-| | react-window | Virtual scrolling for large datasets |
-
----
-
-## API Reference
-
-### Core Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/v1/logs/upload` | Upload a log file |
-| `GET` | `/api/v1/jobs` | List analysis jobs |
-| `GET` | `/api/v1/jobs/:id` | Get job status |
-| `GET` | `/api/v1/analysis/:id/dashboard` | Dashboard statistics and health score |
-| `GET` | `/api/v1/analysis/:id/aggregates` | Performance aggregates by form, user, table |
-| `GET` | `/api/v1/analysis/:id/exceptions` | Exception reports by error code |
-| `GET` | `/api/v1/analysis/:id/gaps` | Gap analysis (line gaps, thread gaps) |
-| `GET` | `/api/v1/analysis/:id/threads` | Thread statistics and utilization |
-| `GET` | `/api/v1/analysis/:id/filters` | Filter complexity metrics |
-| `GET` | `/api/v1/analysis/:id/search` | Search log entries (KQL) |
-| `GET` | `/api/v1/analysis/:id/search/export` | Export search results (CSV/JSON) |
-| `GET` | `/api/v1/analysis/:id/entries/:entry_id` | Fetch a single log entry |
-| `GET` | `/api/v1/analysis/:id/entries/:entry_id/context` | Surrounding log context |
-| `GET` | `/api/v1/search/autocomplete` | Field/value suggestions |
-| `GET` | `/api/v1/trace/:id` | Transaction trace |
-| `POST` | `/api/v1/ai/query` | AI-powered natural language query |
-| `GET` | `/api/v1/report/:id` | Generate analysis report |
-| `GET` | `/api/v1/health` | Health check |
-
-### Search Syntax
-
-```
-# Boolean operators
-type:API AND duration:>1000
-user:admin OR user:system
-NOT status:error
-
-# Field queries
-form:"HPD:Help Desk" queue:admin*
-trace_id:abc123
-
-# Ranges
-duration:>500 timestamp:>2024-01-01T00:00:00Z
-
-# Wildcards
-form:HPD:* user:admin*
-```
-
-### Example Requests
-
-```bash
-# Upload a log file
-curl -X POST http://localhost:8080/api/v1/logs/upload \
-  -H "Authorization: Bearer <token>" \
-  -F "file=@arapi.log" -F "log_type=api"
-
-# Search for slow API calls
-curl "http://localhost:8080/api/v1/analysis/JOB_ID/search?q=type:API+AND+duration:>1000&limit=50" \
-  -H "Authorization: Bearer <token>"
-
-# Ask AI a question
-curl -X POST http://localhost:8080/api/v1/ai/query \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "What caused the spike in errors at 3pm?"}'
-```
-
----
-
-## Project Structure
-
-```
-RemedyIQ/
-├── backend/
-│   ├── cmd/api/              # API server entrypoint
-│   ├── cmd/worker/           # Worker entrypoint
-│   ├── internal/
-│   │   ├── ai/               # AI skill orchestration
-│   │   ├── api/              # HTTP handlers, middleware, router
-│   │   ├── config/           # Configuration
-│   │   ├── domain/           # Domain models
-│   │   ├── jar/              # ARLogAnalyzer.jar wrapper
-│   │   ├── logparser/        # Native Go log parsers
-│   │   ├── search/           # KQL parser, Bleve engine
-│   │   ├── storage/          # ClickHouse + PostgreSQL repositories
-│   │   ├── streaming/        # WebSocket handlers
-│   │   └── worker/           # Job processing pipeline
-│   ├── migrations/           # Database migrations
-│   └── testdata/             # Test fixtures
-├── frontend/
-│   └── src/
-│       ├── app/              # Next.js App Router pages
-│       ├── components/       # React components (dashboard, explorer, UI)
-│       ├── hooks/            # Custom hooks (search, WebSocket)
-│       └── lib/              # API client, utilities, KQL tokenizer
-├── ARLogAnalyzer/            # BMC JAR distributions
-├── docs/                     # Documentation and screenshots
-├── specs/                    # Feature specifications
-└── docker-compose.yml        # Local infrastructure
-```
-
----
-
-## Development
-
-### Running Tests
-
-```bash
-# Backend (with race detection and coverage)
-cd backend && go test -race -coverprofile=coverage.out ./...
-
-# Frontend
-cd frontend && npm test
-
-# Lint
-cd frontend && npm run lint
-cd backend && go vet ./...
-```
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `POSTGRES_HOST` | PostgreSQL host | `localhost` |
-| `POSTGRES_PORT` | PostgreSQL port | `5432` |
-| `CLICKHOUSE_HOST` | ClickHouse host | `localhost` |
-| `CLICKHOUSE_PORT` | ClickHouse native port | `9000` |
-| `REDIS_HOST` | Redis host | `localhost` |
-| `NATS_URL` | NATS connection URL | `nats://localhost:4222` |
-| `S3_ENDPOINT` | MinIO/S3 endpoint | `http://localhost:9002` |
-| `CLAUDE_API_KEY` | Anthropic API key for AI features | &mdash; |
-| `CLERK_SECRET_KEY` | Clerk authentication secret | &mdash; |
-
----
-
-## Roadmap
-
-- [x] Log upload, parsing, and ingestion pipeline
-- [x] ClickHouse storage with materialized views
-- [x] Multi-tenant isolation (PostgreSQL RLS)
-- [x] 10-section analysis dashboard
-- [x] KQL search with Bleve full-text indexing
-- [x] Complete Log Explorer (time range, histogram, sorting, export, saved searches)
-- [x] AI-powered natural language queries
-- [x] Transaction tracing (trace ID + RPC ID)
-- [x] Report generation (HTML + JSON)
-- [ ] Anomaly detection baselines and alerts
-- [ ] Scheduled reports and notifications
-- [ ] ITSM integrations (BMC Remedy,ServiceNow, Jira, PagerDuty)
-- [ ] Kubernetes deployment with Helm charts
-- [ ] Comparative analysis across time periods
-
----
+- Dashboard: `docs/screenshots/dashboard.png`
+- Log Explorer: `docs/screenshots/explorer.png`
+- Analysis Detail: `docs/screenshots/analysis-detail.png`
+- AI Insights: `docs/screenshots/ai-insights.png`
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/my-feature`)
-3. Run tests (`make test`)
-4. Open a Pull Request
+1. Create a branch from `main`.
+2. Implement your change with tests.
+3. Run `make test` (and relevant frontend tests).
+4. Open a pull request with a concise description and validation notes.
 
-See [AGENTS.md](AGENTS.md) for coding standards and conventions.
-
----
+For development standards and conventions, see `AGENTS.md`.
 
 ## License
 
-[MIT](LICENSE)
-
----
-
-## Acknowledgments
-
-- [BMC Remedy](https://www.bmc.com/it-solutions/remedy-itsm.html) &mdash; The AR Server platform whose logs we analyze
-- [ARLogAnalyzer](https://github.com/nicholasng1998/ARLogAnalyzer) &mdash; The original CLI tool that inspired this project
-- [Anthropic Claude](https://www.anthropic.com/) &mdash; AI-powered analysis engine
-- [Clerk](https://clerk.com/) &mdash; Authentication and multi-tenant management
-
----
-
-<div align="center">
-
-Built for BMC Remedy administrators who need answers, not more log files.
-
-</div>
+MIT. See `LICENSE`.

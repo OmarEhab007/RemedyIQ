@@ -117,8 +117,19 @@ func main() {
 	exportTraceHandler := handlers.NewExportTraceHandler(ch)
 
 	aiRegistry := ai.NewRegistry()
+	aiRouter := ai.NewRouter()
 	aiHandler := handlers.NewAIHandler(aiRegistry)
 	traceAIHandler := handlers.NewTraceAnalyzeHandler(aiRegistry)
+	listSkillsHandler := handlers.NewListSkillsHandler(aiRegistry, aiRouter)
+
+	geminiClient, err := ai.NewGeminiClient(os.Getenv("GOOGLE_API_KEY"), os.Getenv("GOOGLE_MODEL"))
+	if err != nil {
+		slog.Warn("Gemini client initialization failed; AI streaming will not work", "error", err)
+	}
+
+	aiStreamHandler := handlers.NewAIStreamHandler(geminiClient, aiRegistry, aiRouter, pg, ch, redis)
+	conversationsHandler := handlers.NewConversationsHandler(pg)
+	conversationDetailHandler := handlers.NewConversationDetailHandler(pg)
 
 	savedSearchHandler := handlers.NewSavedSearchHandler(pg)
 	deleteSavedSearchHandler := handlers.NewDeleteSavedSearchHandler(pg)
@@ -158,6 +169,10 @@ func main() {
 		ExportTraceHandler:        exportTraceHandler,
 		TraceAIHandler:            traceAIHandler,
 		QueryAIHandler:            aiHandler,
+		ListSkillsHandler:         listSkillsHandler,
+		AIStreamHandler:           aiStreamHandler,
+		ConversationsHandler:      conversationsHandler,
+		ConversationDetailHandler: conversationDetailHandler,
 	})
 
 	// --- Start HTTP server ---

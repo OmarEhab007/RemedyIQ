@@ -181,3 +181,38 @@ className="grid-cols-2 lg:grid-cols-4 gap-4"
 8. **Error wrapping**: Always wrap errors with context using `fmt.Errorf("prefix: %w", err)`
 9. **Type safety**: Use TypeScript strict mode, enable all Go strict type checking
 10. **Graceful degradation**: Handle service failures gracefully (S3, AI service unavailable)
+11. **AI Assistant**: Google Gemini SDK for streaming responses (`google.golang.org/genai`)
+12. **SSE streaming**: Use Server-Sent Events for real-time AI responses (not WebSocket)
+
+---
+
+## API Routes
+
+### AI Assistant
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/ai/stream` | Stream AI response via SSE |
+| GET | `/api/v1/ai/skills` | List available AI skills |
+| GET | `/api/v1/ai/conversations` | List conversations for a job |
+| POST | `/api/v1/ai/conversations` | Create a new conversation |
+| GET | `/api/v1/ai/conversations/{id}` | Get conversation with messages |
+| DELETE | `/api/v1/ai/conversations/{id}` | Delete a conversation |
+
+### AI Skills
+- `performance`: Analyze slow operations and latency
+- `root_cause`: Find correlations and cascading failures
+- `error_explainer`: Explain error codes and exceptions
+- `anomaly_narrator`: Detect unusual patterns
+- `summarizer`: Generate overview summaries
+- `nl_query`: General natural language queries (fallback)
+
+---
+
+## Dependencies
+
+### Backend
+- `google.golang.org/genai` - Google Gemini SDK for AI streaming
+- `github.com/anthropics/anthropic-sdk-go` - Anthropic Claude SDK (legacy skills)
+
+### Frontend
+- `streamdown` - Streaming markdown renderer for AI responses

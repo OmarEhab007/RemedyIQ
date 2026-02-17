@@ -22,7 +22,7 @@ type Skill interface {
 type SkillInput struct {
 	Query    string                 `json:"query"`
 	JobID    string                 `json:"job_id"`
-	TenantID string                `json:"tenant_id"`
+	TenantID string                 `json:"tenant_id"`
 	Context  map[string]interface{} `json:"context,omitempty"`
 }
 
@@ -102,11 +102,33 @@ func (r *Registry) List() []SkillInfo {
 	return infos
 }
 
+// ListWithKeywords returns all registered skills with their routing keywords.
+func (r *Registry) ListWithKeywords(router *Router) []SkillInfo {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	infos := make([]SkillInfo, 0, len(r.skills))
+	for _, skill := range r.skills {
+		var keywords []string
+		if rule := router.GetRuleForSkill(skill.Name()); rule != nil {
+			keywords = rule.Keywords
+		}
+		infos = append(infos, SkillInfo{
+			Name:        skill.Name(),
+			Description: skill.Description(),
+			Examples:    skill.Examples(),
+			Keywords:    keywords,
+		})
+	}
+	return infos
+}
+
 // SkillInfo provides metadata about a registered skill.
 type SkillInfo struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	Examples    []string `json:"examples"`
+	Keywords    []string `json:"keywords"`
 }
 
 // Execute runs a skill by name with the given input.
