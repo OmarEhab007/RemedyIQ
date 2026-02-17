@@ -99,15 +99,13 @@ export function useConversations(jobId: string) {
       }
 
       setConversations((prev) => prev.filter((c) => c.id !== conversationId));
-      if (currentConversation?.id === conversationId) {
-        setCurrentConversation(null);
-      }
+      setCurrentConversation((prev) => (prev?.id === conversationId ? null : prev));
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete conversation");
       return false;
     }
-  }, [currentConversation]);
+  }, []);
 
   const updateConversationMessages = useCallback((conversationId: string, messages: Message[]) => {
     setCurrentConversation((prev) => {

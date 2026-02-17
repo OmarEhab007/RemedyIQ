@@ -172,7 +172,11 @@ func (h *ConversationDetailHandler) get(w http.ResponseWriter, r *http.Request, 
 
 	conv, err := h.db.GetConversationWithMessages(r.Context(), tenantID, conversationID, limit)
 	if err != nil {
-		api.Error(w, http.StatusNotFound, api.ErrCodeNotFound, "conversation not found")
+		if storage.IsNotFound(err) {
+			api.Error(w, http.StatusNotFound, api.ErrCodeNotFound, "conversation not found")
+		} else {
+			api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "failed to get conversation")
+		}
 		return
 	}
 
@@ -181,7 +185,11 @@ func (h *ConversationDetailHandler) get(w http.ResponseWriter, r *http.Request, 
 
 func (h *ConversationDetailHandler) delete(w http.ResponseWriter, r *http.Request, tenantID, conversationID uuid.UUID) {
 	if err := h.db.DeleteConversation(r.Context(), tenantID, conversationID); err != nil {
-		api.Error(w, http.StatusNotFound, api.ErrCodeNotFound, "conversation not found")
+		if storage.IsNotFound(err) {
+			api.Error(w, http.StatusNotFound, api.ErrCodeNotFound, "conversation not found")
+		} else {
+			api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "failed to delete conversation")
+		}
 		return
 	}
 

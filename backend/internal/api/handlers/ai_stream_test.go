@@ -52,6 +52,22 @@ func TestAIStreamHandler_MissingTenantContext(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
+func TestAIStreamHandler_MissingUserContext(t *testing.T) {
+	registry := ai.NewRegistry()
+	router := ai.NewRouter()
+	h := NewAIStreamHandler(nil, registry, router, nil, nil, nil)
+
+	body := `{"query":"test","job_id":"` + uuid.New().String() + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/ai/stream", bytes.NewBufferString(body))
+	ctx := middleware.WithTenantID(req.Context(), uuid.New().String())
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
 func TestAIStreamHandler_MissingJobID(t *testing.T) {
 	registry := ai.NewRegistry()
 	router := ai.NewRouter()
@@ -60,6 +76,7 @@ func TestAIStreamHandler_MissingJobID(t *testing.T) {
 	body := `{"query":"test"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/ai/stream", bytes.NewBufferString(body))
 	ctx := middleware.WithTenantID(req.Context(), uuid.New().String())
+	ctx = middleware.WithUserID(ctx, uuid.New().String())
 	req = req.WithContext(ctx)
 	req = mux.SetURLVars(req, map[string]string{"job_id": ""})
 
@@ -77,6 +94,7 @@ func TestAIStreamHandler_MissingQuery(t *testing.T) {
 	body := `{}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/ai/stream", bytes.NewBufferString(body))
 	ctx := middleware.WithTenantID(req.Context(), uuid.New().String())
+	ctx = middleware.WithUserID(ctx, uuid.New().String())
 	req = req.WithContext(ctx)
 	req = mux.SetURLVars(req, map[string]string{"job_id": uuid.New().String()})
 
@@ -95,6 +113,7 @@ func TestAIStreamHandler_QueryTooLong(t *testing.T) {
 	body := `{"query":"` + longQuery + `"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/ai/stream", bytes.NewBufferString(body))
 	ctx := middleware.WithTenantID(req.Context(), uuid.New().String())
+	ctx = middleware.WithUserID(ctx, uuid.New().String())
 	req = req.WithContext(ctx)
 	req = mux.SetURLVars(req, map[string]string{"job_id": uuid.New().String()})
 

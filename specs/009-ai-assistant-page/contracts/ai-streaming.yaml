@@ -10,6 +10,9 @@ servers:
   - url: /api/v1
     description: API v1
 
+security:
+  - BearerAuth: []
+
 paths:
   /ai/stream:
     post:
@@ -178,14 +181,14 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /ai/conversations/{conversation_id}:
+  /ai/conversations/{id}:
     get:
       summary: Get conversation with messages
       operationId: getConversation
       tags:
         - Conversations
       parameters:
-        - name: conversation_id
+        - name: id
           in: path
           required: true
           schema:
@@ -221,7 +224,7 @@ paths:
       tags:
         - Conversations
       parameters:
-        - name: conversation_id
+        - name: id
           in: path
           required: true
           schema:
@@ -236,6 +239,12 @@ paths:
           $ref: '#/components/responses/NotFound'
 
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     StreamRequest:
       type: object

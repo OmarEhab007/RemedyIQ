@@ -14,11 +14,11 @@ As an AR System administrator, I want to have a natural conversation with an AI 
 
 **Why this priority**: This is the core MVP. The conversational interface with streaming is the foundation all other features build upon.
 
-**Independent Test**: Navigate to /ai page, select an analysis job, type a question about logs, and verify streaming text appears incrementally with proper markdown formatting.
+**Independent Test**: Navigate to /ai page, select an analysis job, type a question about logs, and verify streaming text appears incrementally with proper Markdown formatting.
 
 **Acceptance Scenarios**:
 
-1. **Given** I am on the AI assistant page with a job selected, **When** I type "What were the slowest API calls?" and submit, **Then** I see the response stream in real-time with markdown formatting (bold, code blocks, lists, tables)
+1. **Given** I am on the AI assistant page with a job selected, **When** I type "What were the slowest API calls?" and submit, **Then** I see the response stream in real-time with Markdown formatting (bold, code blocks, lists, tables)
 2. **Given** the AI is streaming a response, **When** I click the stop button, **Then** the streaming stops immediately and the partial response is preserved
 3. **Given** the AI response includes a code block, **When** the content renders, **Then** it displays with syntax highlighting and a copy-to-clipboard button
 4. **Given** I receive a response with follow-up suggestions, **When** I click a suggestion chip, **Then** it sends that question and the AI responds in the same conversation

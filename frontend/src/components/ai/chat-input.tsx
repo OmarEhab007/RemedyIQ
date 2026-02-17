@@ -63,11 +63,13 @@ export function ChatInput({ onSend, onStop, disabled, isStreaming, placeholder }
 
       {isStreaming ? (
         <button
-          onClick={onStop}
+          onClick={() => onStop?.()}
+          disabled={!onStop}
           className={cn(
             "px-4 py-2 rounded-lg text-sm font-medium",
             "bg-destructive text-destructive-foreground",
-            "hover:bg-destructive/90 transition-colors"
+            "hover:bg-destructive/90 transition-colors",
+            "disabled:opacity-50 disabled:cursor-not-allowed"
           )}
         >
           Stop

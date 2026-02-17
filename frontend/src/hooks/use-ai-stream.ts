@@ -2,17 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import type { StreamState, Message } from "@/lib/ai-types";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
-
-function getApiHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {};
-  if (process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_DEV_MODE !== "false") {
-    headers["X-Dev-User-ID"] = "00000000-0000-0000-0000-000000000001";
-    headers["X-Dev-Tenant-ID"] = "00000000-0000-0000-0000-000000000001";
-  }
-  return headers;
-}
+import { API_BASE, getApiHeaders } from "@/lib/api";
 
 interface UseAIStreamOptions {
   jobId: string;
@@ -146,9 +136,6 @@ export function useAIStream({ jobId, onMessage, onError }: UseAIStreamOptions) {
           }
         }
 
-        currentState.isStreaming = false;
-        setStreamState({ ...currentState });
-
         if (currentState.content && currentState.messageId) {
           onMessage?.({
             id: currentState.messageId,
@@ -164,6 +151,9 @@ export function useAIStream({ jobId, onMessage, onError }: UseAIStreamOptions) {
           });
         }
 
+        currentState.isStreaming = false;
+        setStreamState({ ...currentState });
+
         return currentState;
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Stream failed";
@@ -176,7 +166,6 @@ export function useAIStream({ jobId, onMessage, onError }: UseAIStreamOptions) {
           error: errorMessage,
         }));
         onError?.(errorMessage);
-        throw err;
       }
     },
     [jobId, onMessage, onError]

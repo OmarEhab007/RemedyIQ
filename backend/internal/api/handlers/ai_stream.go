@@ -48,10 +48,16 @@ func (h *AIStreamHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		api.Error(w, http.StatusUnauthorized, api.ErrCodeUnauthorized, "missing tenant context")
 		return
 	}
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "invalid tenant ID")
+		return
+	}
 
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {
-		userID = "anonymous"
+		api.Error(w, http.StatusUnauthorized, api.ErrCodeUnauthorized, "missing user context")
+		return
 	}
 
 	var req ai.StreamRequest
@@ -79,6 +85,11 @@ func (h *AIStreamHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.JobID = jobID
+	jobUUID, err := uuid.Parse(req.JobID)
+	if err != nil {
+		api.Error(w, http.StatusBadRequest, api.ErrCodeInvalidRequest, "invalid job_id")
+		return
+	}
 
 	skillName := req.SkillName
 	if skillName == "" && req.AutoRoute {
@@ -87,23 +98,20 @@ func (h *AIStreamHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		skillName = "nl_query"
 	}
 
-	h.streamSSE(r.Context(), w, tenantID, userID, &req, skillName)
+	h.streamSSE(r.Context(), w, tenantID, tenantUUID, userID, jobUUID, &req, skillName)
 }
 
-func (h *AIStreamHandler) streamSSE(ctx context.Context, w http.ResponseWriter, tenantID, userID string, req *ai.StreamRequest, skillName string) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
-
+func (h *AIStreamHandler) streamSSE(ctx context.Context, w http.ResponseWriter, tenantID string, tenantUUID uuid.UUID, userID string, jobUUID uuid.UUID, req *ai.StreamRequest, skillName string) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		api.Error(w, http.StatusInternalServerError, api.ErrCodeInternalError, "streaming not supported")
 		return
 	}
 
-	tenantUUID, _ := uuid.Parse(tenantID)
-	jobUUID, _ := uuid.Parse(req.JobID)
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
 
 	var conversation *domain.Conversation
 	var err error
@@ -437,7 +445,11 @@ func (h *AIStreamHandler) findLongestEscalation(ctx context.Context, tenantID, j
 }
 
 func (h *AIStreamHandler) writeSSE(w io.Writer, flusher http.Flusher, eventType string, data interface{}) {
-	dataJSON, _ := json.Marshal(data)
+	dataJSON, err := json.Marshal(data)
+	if err != nil {
+		h.logger.Error("failed to marshal SSE data", "event_type", eventType, "error", err)
+		return
+	}
 	fmt.Fprintf(w, "event: %s\ndata: %s\n\n", eventType, string(dataJSON))
 	flusher.Flush()
 }

@@ -574,10 +574,10 @@ func (p *PostgresClient) GetConversationWithMessages(ctx context.Context, tenant
 	rows, err := p.pool.Query(ctx, `
 		SELECT id, conversation_id, tenant_id, role, content, skill_name, follow_ups, tokens_used, latency_ms, status, error_message, created_at
 		FROM messages
-		WHERE conversation_id = $1
+		WHERE conversation_id = $1 AND tenant_id = $2
 		ORDER BY created_at ASC
-		LIMIT $2
-	`, conversationID, limit)
+		LIMIT $3
+	`, conversationID, tenantID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("postgres: get conversation messages: %w", err)
 	}

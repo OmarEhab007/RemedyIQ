@@ -8,9 +8,7 @@ import { ChatPanel } from "@/components/ai/chat-panel";
 import { SkillSelector } from "@/components/ai/skill-selector";
 import { ConversationList } from "@/components/ai/conversation-list";
 import type { Message, Skill } from "@/lib/ai-types";
-import { getApiHeaders } from "@/lib/api";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
+import { API_BASE, getApiHeaders } from "@/lib/api";
 
 class ChatErrorBoundary extends Component<{ children: ReactNode; onReset: () => void }, { hasError: boolean; error: string | null }> {
   state = { hasError: false, error: null };
@@ -174,7 +172,7 @@ function AIContent() {
       const skillName = selectedSkill === "auto" ? undefined : selectedSkill;
       const convId = currentConversation?.id;
 
-      streamQuery(query, {
+      void streamQuery(query, {
         skillName,
         autoRoute: selectedSkill === "auto",
         conversationId: convId,

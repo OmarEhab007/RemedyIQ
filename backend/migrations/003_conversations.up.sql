@@ -11,13 +11,16 @@ CREATE TABLE IF NOT EXISTS conversations (
     title VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    message_count INTEGER DEFAULT 0,
+    message_count INTEGER NOT NULL DEFAULT 0,
     last_message_at TIMESTAMPTZ,
     metadata JSONB
 );
 
 CREATE INDEX IF NOT EXISTS idx_conversations_tenant_user_job ON conversations(tenant_id, user_id, job_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(tenant_id, updated_at DESC);
+UPDATE conversations SET message_count = 0 WHERE message_count IS NULL;
+ALTER TABLE conversations ALTER COLUMN message_count SET DEFAULT 0;
+ALTER TABLE conversations ALTER COLUMN message_count SET NOT NULL;
 
 ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 
@@ -70,9 +73,14 @@ BEGIN
             last_message_at = NEW.created_at,
             updated_at = NOW()
         WHERE id = NEW.conversation_id;
-    ELSIF TG_OP = 'DELETE' THEN
+ELSIF TG_OP = 'DELETE' THEN
         UPDATE conversations
         SET message_count = GREATEST(message_count - 1, 0),
+            last_message_at = (
+                SELECT MAX(created_at)
+                FROM messages
+                WHERE conversation_id = OLD.conversation_id
+            ),
             updated_at = NOW()
         WHERE id = OLD.conversation_id;
     END IF;

@@ -122,7 +122,7 @@ func main() {
 	traceAIHandler := handlers.NewTraceAnalyzeHandler(aiRegistry)
 	listSkillsHandler := handlers.NewListSkillsHandler(aiRegistry, aiRouter)
 
-	geminiClient, err := ai.NewGeminiClient(os.Getenv("GOOGLE_API_KEY"), os.Getenv("GOOGLE_MODEL"))
+	geminiClient, err := ai.NewGeminiClient(cfg.GoogleAPIKey, cfg.GoogleModel)
 	if err != nil {
 		slog.Warn("Gemini client initialization failed; AI streaming will not work", "error", err)
 	}

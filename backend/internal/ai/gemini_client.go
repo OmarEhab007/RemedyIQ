@@ -97,7 +97,7 @@ func (c *GeminiClient) StreamQuery(ctx context.Context, systemPrompt string, mes
 				return
 			}
 
-			if len(resp.Candidates) > 0 && len(resp.Candidates[0].Content.Parts) > 0 {
+			if len(resp.Candidates) > 0 && resp.Candidates[0] != nil && resp.Candidates[0].Content != nil && len(resp.Candidates[0].Content.Parts) > 0 {
 				text := resp.Candidates[0].Content.Parts[0].Text
 				if text != "" {
 					fullText.WriteString(text)

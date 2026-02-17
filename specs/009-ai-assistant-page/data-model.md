@@ -8,7 +8,7 @@
 
 A chat session scoped to a tenant, user, and analysis job.
 
-```
+```text
 Conversation {
   id: UUID (PK)
   tenant_id: UUID (FK -> tenants.id, indexed)
@@ -37,7 +37,7 @@ Conversation {
 
 A single turn in a conversation, either from user or AI assistant.
 
-```
+```text
 Message {
   id: UUID (PK)
   conversation_id: UUID (FK -> conversations.id, indexed)
@@ -68,7 +68,7 @@ Message {
 
 ### Message Status Flow
 
-```
+```text
 pending -> streaming -> complete
     |          |
     |          +---> error (stream fails mid-response)
@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS conversations (
     title VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    message_count INTEGER DEFAULT 0,
+    message_count INTEGER NOT NULL DEFAULT 0,
     last_message_at TIMESTAMPTZ,
     metadata JSONB
 );
@@ -161,6 +161,7 @@ BEGIN
     ELSIF TG_OP = 'DELETE' THEN
         UPDATE conversations
         SET message_count = GREATEST(message_count - 1, 0),
+            last_message_at = (SELECT MAX(created_at) FROM messages WHERE conversation_id = OLD.conversation_id),
             updated_at = NOW()
         WHERE id = OLD.conversation_id;
     END IF;
@@ -185,7 +186,7 @@ DROP TABLE IF EXISTS conversations;
 
 ## Entity Relationship Diagram
 
-```
+```text
 ┌─────────────┐     ┌───────────────┐
 │   Tenant    │     │ AnalysisJob   │
 └──────┬──────┘     └──────┬────────┘

@@ -33,7 +33,7 @@ func NewRouter() *Router {
 			},
 			{
 				SkillName: "error_explainer",
-				Keywords:  []string{"error", "arerr", "exception", "failed", "stack trace"},
+				Keywords:  []string{"error", "arerr", "err", "exception", "failed", "stack trace"},
 			},
 			{
 				SkillName: "anomaly_narrator",

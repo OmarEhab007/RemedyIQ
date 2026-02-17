@@ -51,7 +51,7 @@
 
 ## Phase 3: User Story 1 - Streaming Chat (P1 MVP)
 
-**Goal**: POST /ai/stream proxies Anthropic streaming via SSE to browser
+**Goal**: POST /ai/stream proxies Gemini streaming via SSE to browser
 
 ### Backend: SSE Streaming
 

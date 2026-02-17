@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Conversation } from "@/lib/ai-types";
 import { cn } from "@/lib/utils";
 
@@ -22,15 +22,32 @@ export function ConversationList({
   loading,
 }: ConversationListProps) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const clearConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (clearConfirmTimerRef.current) {
+        clearTimeout(clearConfirmTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (clearConfirmTimerRef.current) {
+      clearTimeout(clearConfirmTimerRef.current);
+      clearConfirmTimerRef.current = null;
+    }
+
     if (confirmDelete === id) {
       onDelete(id);
       setConfirmDelete(null);
     } else {
       setConfirmDelete(id);
-      setTimeout(() => setConfirmDelete(null), 3000);
+      clearConfirmTimerRef.current = setTimeout(() => {
+        setConfirmDelete(null);
+        clearConfirmTimerRef.current = null;
+      }, 3000);
     }
   };
 
