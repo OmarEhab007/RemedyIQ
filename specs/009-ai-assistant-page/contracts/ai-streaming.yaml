@@ -1,0 +1,403 @@
+openapi: 3.1.0
+info:
+  title: RemedyIQ AI Streaming API
+  description: API contracts for AI assistant with streaming and conversation management
+  version: 2.0.0
+  contact:
+    name: RemedyIQ Team
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+security:
+  - BearerAuth: []
+
+paths:
+  /ai/stream:
+    post:
+      summary: Stream AI response
+      description: |
+        Sends a query and receives a streaming response via Server-Sent Events.
+        The Go backend proxies Google Gemini streaming to the client.
+
+        SSE event types:
+        - `start`: Stream begun, includes conversation_id and message_id
+        - `token`: Text token for incremental display
+        - `skill`: Which skill is handling the query
+        - `metadata`: Token count, latency (sent once at end)
+        - `done`: Stream complete
+        - `error`: Error occurred
+
+        Client should use `fetch` with `ReadableStream` to consume the SSE stream.
+      operationId: streamAIResponse
+      tags:
+        - AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StreamRequest'
+      responses:
+        '200':
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  SSE events in format:
+                  event: <type>\ndata: <json>\n\n
+
+                  Example events:
+                  event: start\ndata: {"conversation_id":"uuid","message_id":"uuid"}\n\n
+                  event: skill\ndata: {"skill_name":"performance"}\n\n
+                  event: token\ndata: {"text":"The"}\n\n
+                  event: token\ndata: {"text":" slowest"}\n\n
+                  event: metadata\ndata: {"tokens_used":150,"latency_ms":2340}\n\n
+                  event: done\ndata: {"follow_ups":["Why is it slow?","Show details"]}\n\n
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                enum: [text/event-stream]
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-cache]
+            Connection:
+              schema:
+                type: string
+                enum: [keep-alive]
+            X-Accel-Buffering:
+              schema:
+                type: string
+                enum: ['no']
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ai/skills:
+    get:
+      summary: List available AI skills
+      description: Returns all registered AI skills with descriptions and routing keywords
+      operationId: listSkills
+      tags:
+        - AI
+      responses:
+        '200':
+          description: List of skills
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  skills:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Skill'
+
+  /ai/conversations:
+    get:
+      summary: List conversations for a job
+      description: Returns conversations for the specified analysis job, scoped by tenant and user
+      operationId: listConversations
+      tags:
+        - Conversations
+      parameters:
+        - name: job_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConversationSummary'
+                  total:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Create a new conversation
+      operationId: createConversation
+      tags:
+        - Conversations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - job_id
+              properties:
+                job_id:
+                  type: string
+                  format: uuid
+                title:
+                  type: string
+                  maxLength: 255
+      responses:
+        '201':
+          description: Conversation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /ai/conversations/{id}:
+    get:
+      summary: Get conversation with messages
+      operationId: getConversation
+      tags:
+        - Conversations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: message_limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+        - name: before
+          in: query
+          description: Cursor for pagination (message created_at timestamp)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Conversation with messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete a conversation
+      operationId: deleteConversation
+      tags:
+        - Conversations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Conversation deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    StreamRequest:
+      type: object
+      required:
+        - query
+        - job_id
+      properties:
+        query:
+          type: string
+          maxLength: 2000
+        job_id:
+          type: string
+          format: uuid
+        conversation_id:
+          type: string
+          format: uuid
+          description: If provided, appends to existing conversation. If omitted, auto-creates a new one.
+        skill_name:
+          type: string
+          description: If provided, forces use of this skill (overrides auto-routing)
+        auto_route:
+          type: boolean
+          default: true
+
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        message_count:
+          type: integer
+        last_message_at:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        metadata:
+          type: object
+
+    ConversationSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        message_count:
+          type: integer
+        last_message_at:
+          type: string
+          format: date-time
+        preview:
+          type: string
+          description: First 100 chars of last assistant message
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        conversation_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+        skill_name:
+          type: string
+        follow_ups:
+          type: array
+          items:
+            type: string
+        tokens_used:
+          type: integer
+        latency_ms:
+          type: integer
+        status:
+          type: string
+          enum: [pending, streaming, complete, error]
+        created_at:
+          type: string
+          format: date-time
+
+    Skill:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        examples:
+          type: array
+          items:
+            type: string
+        keywords:
+          type: array
+          items:
+            type: string
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+tags:
+  - name: AI
+    description: AI-powered analysis with streaming
+  - name: Conversations
+    description: Conversation management (CRUD)

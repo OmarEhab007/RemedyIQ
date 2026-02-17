@@ -43,6 +43,10 @@ type Config struct {
 	// Anthropic AI
 	AnthropicAPIKey string
 
+	// Google Gemini AI
+	GoogleAPIKey string
+	GoogleModel  string
+
 	// App
 	Environment string // development, staging, production
 	LogLevel    string
@@ -70,6 +74,8 @@ func Load() (*Config, error) {
 		JARTimeoutSec:            getEnvInt("JAR_TIMEOUT_SEC", 1800),
 		ClerkSecretKey:           getEnv("CLERK_SECRET_KEY", ""),
 		AnthropicAPIKey:          getEnv("ANTHROPIC_API_KEY", ""),
+		GoogleAPIKey:             getEnv("GOOGLE_API_KEY", ""),
+		GoogleModel:              getEnv("GOOGLE_MODEL", "gemini-2.5-flash"),
 		Environment:              getEnv("ENVIRONMENT", "development"),
 		LogLevel:                 getEnv("LOG_LEVEL", "info"),
 		BlevePath:                getEnv("BLEVE_PATH", "./data/bleve"),

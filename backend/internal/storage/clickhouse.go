@@ -229,21 +229,40 @@ func (c *ClickHouseClient) queryGeneralStats(ctx context.Context, tenantID, jobI
 		clickhouse.Named("jobID", jobID),
 	)
 
-	var logStart, logEnd time.Time
+	var (
+		totalLines   uint64
+		apiCount     uint64
+		sqlCount     uint64
+		filterCount  uint64
+		escCount     uint64
+		uniqueUsers  uint64
+		uniqueForms  uint64
+		uniqueTables uint64
+		logStart     time.Time
+		logEnd       time.Time
+	)
 	if err := row.Scan(
-		&stats.TotalLines,
-		&stats.APICount,
-		&stats.SQLCount,
-		&stats.FilterCount,
-		&stats.EscCount,
-		&stats.UniqueUsers,
-		&stats.UniqueForms,
-		&stats.UniqueTables,
+		&totalLines,
+		&apiCount,
+		&sqlCount,
+		&filterCount,
+		&escCount,
+		&uniqueUsers,
+		&uniqueForms,
+		&uniqueTables,
 		&logStart,
 		&logEnd,
 	); err != nil {
 		return fmt.Errorf("clickhouse: general stats scan: %w", err)
 	}
+	stats.TotalLines = int64(totalLines)
+	stats.APICount = int64(apiCount)
+	stats.SQLCount = int64(sqlCount)
+	stats.FilterCount = int64(filterCount)
+	stats.EscCount = int64(escCount)
+	stats.UniqueUsers = int(uniqueUsers)
+	stats.UniqueForms = int(uniqueForms)
+	stats.UniqueTables = int(uniqueTables)
 	stats.LogStart = logStart
 	stats.LogEnd = logEnd
 
@@ -302,6 +321,8 @@ func (c *ClickHouseClient) queryTopN(ctx context.Context, tenantID, jobID string
 	rank := 1
 	for rows.Next() {
 		var e domain.TopNEntry
+		var lineNumber uint32
+		var fileNumber uint16
 		var durationMS, queueTimeMS uint32
 		var threadID, rawText string
 
@@ -312,7 +333,7 @@ func (c *ClickHouseClient) queryTopN(ctx context.Context, tenantID, jobID string
 		case domain.LogTypeSQL:
 			var sqlStatement, sqlTable string
 			if err := rows.Scan(
-				&e.LineNumber, &e.FileNumber, &e.Timestamp,
+				&lineNumber, &fileNumber, &e.Timestamp,
 				&e.TraceID, &e.RPCID, &e.Queue,
 				&e.Identifier,
 				&e.Form, &e.User,
@@ -329,7 +350,7 @@ func (c *ClickHouseClient) queryTopN(ctx context.Context, tenantID, jobID string
 			var filterName string
 			var filterLevel uint8
 			if err := rows.Scan(
-				&e.LineNumber, &e.FileNumber, &e.Timestamp,
+				&lineNumber, &fileNumber, &e.Timestamp,
 				&e.TraceID, &e.RPCID, &e.Queue,
 				&e.Identifier,
 				&e.Form, &e.User,
@@ -347,7 +368,7 @@ func (c *ClickHouseClient) queryTopN(ctx context.Context, tenantID, jobID string
 			var delayMS uint32
 			var errorEncountered bool
 			if err := rows.Scan(
-				&e.LineNumber, &e.FileNumber, &e.Timestamp,
+				&lineNumber, &fileNumber, &e.Timestamp,
 				&e.TraceID, &e.RPCID, &e.Queue,
 				&e.Identifier,
 				&e.Form, &e.User,
@@ -364,7 +385,7 @@ func (c *ClickHouseClient) queryTopN(ctx context.Context, tenantID, jobID string
 
 		default:
 			if err := rows.Scan(
-				&e.LineNumber, &e.FileNumber, &e.Timestamp,
+				&lineNumber, &fileNumber, &e.Timestamp,
 				&e.TraceID, &e.RPCID, &e.Queue,
 				&e.Identifier,
 				&e.Form, &e.User,
@@ -383,6 +404,8 @@ func (c *ClickHouseClient) queryTopN(ctx context.Context, tenantID, jobID string
 		}
 
 		e.Rank = rank
+		e.LineNumber = int(lineNumber)
+		e.FileNumber = int(fileNumber)
 		e.DurationMS = int(durationMS)
 		e.QueueTimeMS = int(queueTimeMS)
 		rank++
@@ -421,15 +444,27 @@ func (c *ClickHouseClient) queryTimeSeries(ctx context.Context, tenantID, jobID 
 
 	var results []domain.TimeSeriesPoint
 	for rows.Next() {
-		var p domain.TimeSeriesPoint
+		var (
+			p          domain.TimeSeriesPoint
+			apiCount   uint64
+			sqlCount   uint64
+			filterCnt  uint64
+			escCount   uint64
+			errorCount uint64
+		)
 		if err := rows.Scan(
 			&p.Timestamp,
-			&p.APICount, &p.SQLCount, &p.FilterCount, &p.EscCount,
+			&apiCount, &sqlCount, &filterCnt, &escCount,
 			&p.AvgDurationMS,
-			&p.ErrorCount,
+			&errorCount,
 		); err != nil {
 			return nil, fmt.Errorf("clickhouse: time series scan: %w", err)
 		}
+		p.APICount = int(apiCount)
+		p.SQLCount = int(sqlCount)
+		p.FilterCount = int(filterCnt)
+		p.EscCount = int(escCount)
+		p.ErrorCount = int(errorCount)
 		results = append(results, p)
 	}
 

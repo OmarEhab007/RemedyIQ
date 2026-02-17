@@ -523,3 +523,204 @@ func (p *PostgresClient) GetSearchHistory(ctx context.Context, tenantID uuid.UUI
 	}
 	return entries, rows.Err()
 }
+
+func (p *PostgresClient) CreateConversation(ctx context.Context, c *domain.Conversation) error {
+	if c.ID == uuid.Nil {
+		c.ID = uuid.New()
+	}
+	now := time.Now().UTC()
+	c.CreatedAt = now
+	c.UpdatedAt = now
+
+	_, err := p.pool.Exec(ctx, `
+		INSERT INTO conversations (id, tenant_id, user_id, job_id, title, created_at, updated_at, message_count, last_message_at, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`, c.ID, c.TenantID, c.UserID, c.JobID, c.Title, c.CreatedAt, c.UpdatedAt, c.MessageCount, c.LastMessageAt, c.Metadata)
+	if err != nil {
+		return fmt.Errorf("postgres: create conversation: %w", err)
+	}
+	return nil
+}
+
+func (p *PostgresClient) GetConversation(ctx context.Context, tenantID, conversationID uuid.UUID) (*domain.Conversation, error) {
+	var c domain.Conversation
+	err := p.pool.QueryRow(ctx, `
+		SELECT id, tenant_id, user_id, job_id, title, created_at, updated_at, message_count, last_message_at, metadata
+		FROM conversations
+		WHERE id = $1 AND tenant_id = $2
+	`, conversationID, tenantID).Scan(
+		&c.ID, &c.TenantID, &c.UserID, &c.JobID, &c.Title,
+		&c.CreatedAt, &c.UpdatedAt, &c.MessageCount, &c.LastMessageAt, &c.Metadata,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("postgres: conversation not found: %s", conversationID)
+		}
+		return nil, fmt.Errorf("postgres: get conversation: %w", err)
+	}
+	return &c, nil
+}
+
+func (p *PostgresClient) GetConversationWithMessages(ctx context.Context, tenantID, conversationID uuid.UUID, limit int) (*domain.Conversation, error) {
+	c, err := p.GetConversation(ctx, tenantID, conversationID)
+	if err != nil {
+		return nil, err
+	}
+
+	if limit <= 0 {
+		limit = 50
+	}
+
+	rows, err := p.pool.Query(ctx, `
+		SELECT id, conversation_id, tenant_id, role, content, skill_name, follow_ups, tokens_used, latency_ms, status, error_message, created_at
+		FROM messages
+		WHERE conversation_id = $1 AND tenant_id = $2
+		ORDER BY created_at ASC
+		LIMIT $3
+	`, conversationID, tenantID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("postgres: get conversation messages: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var m domain.Message
+		if err := rows.Scan(
+			&m.ID, &m.ConversationID, &m.TenantID, &m.Role, &m.Content,
+			&m.SkillName, &m.FollowUps, &m.TokensUsed, &m.LatencyMS,
+			&m.Status, &m.ErrorMessage, &m.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("postgres: scan message: %w", err)
+		}
+		c.Messages = append(c.Messages, m)
+	}
+	return c, rows.Err()
+}
+
+func (p *PostgresClient) ListConversations(ctx context.Context, tenantID uuid.UUID, userID string, jobID uuid.UUID, limit int) ([]domain.Conversation, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+
+	rows, err := p.pool.Query(ctx, `
+		SELECT id, tenant_id, user_id, job_id, title, created_at, updated_at, message_count, last_message_at, metadata
+		FROM conversations
+		WHERE tenant_id = $1 AND user_id = $2 AND job_id = $3
+		ORDER BY updated_at DESC
+		LIMIT $4
+	`, tenantID, userID, jobID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("postgres: list conversations: %w", err)
+	}
+	defer rows.Close()
+
+	var conversations []domain.Conversation
+	for rows.Next() {
+		var c domain.Conversation
+		if err := rows.Scan(
+			&c.ID, &c.TenantID, &c.UserID, &c.JobID, &c.Title,
+			&c.CreatedAt, &c.UpdatedAt, &c.MessageCount, &c.LastMessageAt, &c.Metadata,
+		); err != nil {
+			return nil, fmt.Errorf("postgres: scan conversation: %w", err)
+		}
+		conversations = append(conversations, c)
+	}
+	return conversations, rows.Err()
+}
+
+func (p *PostgresClient) DeleteConversation(ctx context.Context, tenantID, conversationID uuid.UUID) error {
+	tag, err := p.pool.Exec(ctx, `
+		DELETE FROM conversations
+		WHERE id = $1 AND tenant_id = $2
+	`, conversationID, tenantID)
+	if err != nil {
+		return fmt.Errorf("postgres: delete conversation: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("postgres: conversation not found: %s", conversationID)
+	}
+	return nil
+}
+
+func (p *PostgresClient) AddMessage(ctx context.Context, m *domain.Message) error {
+	if m.ID == uuid.Nil {
+		m.ID = uuid.New()
+	}
+	m.CreatedAt = time.Now().UTC()
+	if m.Status == "" {
+		m.Status = domain.MessageStatusPending
+	}
+
+	_, err := p.pool.Exec(ctx, `
+		INSERT INTO messages (id, conversation_id, tenant_id, role, content, skill_name, follow_ups, tokens_used, latency_ms, status, error_message, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+	`, m.ID, m.ConversationID, m.TenantID, m.Role, m.Content,
+		m.SkillName, m.FollowUps, m.TokensUsed, m.LatencyMS,
+		m.Status, m.ErrorMessage, m.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("postgres: add message: %w", err)
+	}
+	return nil
+}
+
+func (p *PostgresClient) GetMessages(ctx context.Context, tenantID, conversationID uuid.UUID, limit int) ([]domain.Message, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	rows, err := p.pool.Query(ctx, `
+		SELECT id, conversation_id, tenant_id, role, content, skill_name, follow_ups, tokens_used, latency_ms, status, error_message, created_at
+		FROM messages
+		WHERE conversation_id = $1 AND tenant_id = $2
+		ORDER BY created_at ASC
+		LIMIT $3
+	`, conversationID, tenantID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("postgres: get messages: %w", err)
+	}
+	defer rows.Close()
+
+	var messages []domain.Message
+	for rows.Next() {
+		var m domain.Message
+		if err := rows.Scan(
+			&m.ID, &m.ConversationID, &m.TenantID, &m.Role, &m.Content,
+			&m.SkillName, &m.FollowUps, &m.TokensUsed, &m.LatencyMS,
+			&m.Status, &m.ErrorMessage, &m.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("postgres: scan message: %w", err)
+		}
+		messages = append(messages, m)
+	}
+	return messages, rows.Err()
+}
+
+func (p *PostgresClient) UpdateMessageStatus(ctx context.Context, tenantID, messageID uuid.UUID, status domain.MessageStatus, errorMessage string) error {
+	tag, err := p.pool.Exec(ctx, `
+		UPDATE messages
+		SET status = $1, error_message = $2
+		WHERE id = $3 AND tenant_id = $4
+	`, status, errorMessage, messageID, tenantID)
+	if err != nil {
+		return fmt.Errorf("postgres: update message status: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("postgres: message not found: %s", messageID)
+	}
+	return nil
+}
+
+func (p *PostgresClient) UpdateMessageContent(ctx context.Context, tenantID, messageID uuid.UUID, content string, tokensUsed, latencyMS int, status domain.MessageStatus, followUps []string) error {
+	tag, err := p.pool.Exec(ctx, `
+		UPDATE messages
+		SET content = $1, tokens_used = $2, latency_ms = $3, status = $4, follow_ups = $5
+		WHERE id = $6 AND tenant_id = $7
+	`, content, tokensUsed, latencyMS, status, followUps, messageID, tenantID)
+	if err != nil {
+		return fmt.Errorf("postgres: update message content: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("postgres: message not found: %s", messageID)
+	}
+	return nil
+}

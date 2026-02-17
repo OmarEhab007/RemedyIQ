@@ -1,0 +1,252 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]: DEV MODE — Authentication disabled
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - heading "RemedyIQ" [level=2] [ref=e6]
+        - paragraph [ref=e7]: AR Server Log Analysis
+      - navigation [ref=e8]:
+        - link "Dashboard" [ref=e9] [cursor=pointer]:
+          - /url: /
+          - img [ref=e10]
+          - text: Dashboard
+        - link "Upload" [ref=e12] [cursor=pointer]:
+          - /url: /upload
+          - img [ref=e13]
+          - text: Upload
+        - link "Analyses" [ref=e15] [cursor=pointer]:
+          - /url: /analysis
+          - img [ref=e16]
+          - text: Analyses
+        - link "Log Explorer" [ref=e18] [cursor=pointer]:
+          - /url: /explorer
+          - img [ref=e19]
+          - text: Log Explorer
+        - link "Trace" [ref=e21] [cursor=pointer]:
+          - /url: /trace
+          - img [ref=e22]
+          - text: Trace
+        - link "AI Assistant" [ref=e24] [cursor=pointer]:
+          - /url: /ai
+          - img [ref=e25]
+          - text: AI Assistant
+      - generic [ref=e28]:
+        - img [ref=e30]
+        - generic [ref=e32]: Dev User
+    - main [ref=e33]:
+      - generic [ref=e3310]:
+        - generic [ref=e3311]:
+          - navigation [ref=e3312]:
+            - link [ref=e3313] [cursor=pointer]:
+              - /url: /
+              - img [ref=e3314]
+            - generic [ref=e3317]:
+              - img [ref=e3318]
+              - link "Analysis" [ref=e3320] [cursor=pointer]:
+                - /url: /analysis
+            - generic [ref=e3321]:
+              - img [ref=e3322]
+              - link "Job 128f7767..." [ref=e3324] [cursor=pointer]:
+                - /url: /analysis/128f7767-e1dc-4af1-8afc-0c00f30203a1
+            - generic [ref=e3325]:
+              - img [ref=e3326]
+              - generic [ref=e3328]: Trace w3l5c8su...
+          - generic [ref=e3331]:
+            - img [ref=e3332]
+            - textbox "Enter Trace ID, RPC ID, Thread ID, or User..." [ref=e3335]
+          - button "Export" [ref=e3337]:
+            - img [ref=e3338]
+            - text: Export
+        - generic [ref=e3341]:
+          - button "w3l5c8suTBi-..." [ref=e3342]:
+            - text: w3l5c8suTBi-...
+            - img [ref=e3343]
+          - button "Clear" [ref=e3346]
+          - generic [ref=e3348]: 12.29s · 2975 spans
+          - generic [ref=e3350]:
+            - generic [ref=e3351]:
+              - img [ref=e3352]
+              - textbox "Search spans..." [ref=e3355]
+            - generic [ref=e3356]:
+              - button "API" [ref=e3357]
+              - button "SQL" [ref=e3358]
+              - button "Filter" [ref=e3359]
+              - button "Escalation" [ref=e3360]
+            - button "Errors" [ref=e3361]
+            - button "Critical" [ref=e3362]:
+              - img [ref=e3363]
+              - text: Critical
+            - button "More" [ref=e3366]:
+              - img [ref=e3367]
+              - text: More
+          - button "Analyze with AI" [ref=e3369]:
+            - img [ref=e3370]
+            - text: Analyze with AI
+          - button "Compare" [ref=e3373]:
+            - img [ref=e3374]
+            - text: Compare
+          - generic [ref=e3379]:
+            - button "Waterfall" [ref=e3380]:
+              - img [ref=e3381]
+              - text: Waterfall
+            - button "Flame Graph" [ref=e3383]:
+              - img [ref=e3384]
+              - text: Flame Graph
+            - button "Span List" [ref=e3388]:
+              - img [ref=e3389]
+              - text: Span List
+        - generic [ref=e3391]:
+          - generic [ref=e3392]:
+            - generic [ref=e3393]:
+              - generic [ref=e3396]: 0µs
+              - generic [ref=e3401]: 3.07s
+              - generic [ref=e3406]: 6.14s
+              - generic [ref=e3411]: 9.22s
+              - generic [ref=e3416]: 12.29s
+            - generic [ref=e3417]: 12.29s total
+          - generic [ref=e3421]:
+            - generic [ref=e3423] [cursor=pointer]:
+              - generic [ref=e3424]:
+                - generic [ref=e3425]: ESCL
+                - generic "SLA_Rule Event Occurred" [ref=e3426]
+              - 'generic "SLA_Rule Event Occurred: 0µs (Critical Path)" [ref=e3428]'
+              - generic [ref=e3429]: 0µs
+            - generic [ref=e3431] [cursor=pointer]:
+              - generic [ref=e3432]:
+                - generic [ref=e3433]: FLTR
+                - generic "Filter" [ref=e3434]
+              - 'generic "Filter: 0µs (Critical Path)" [ref=e3436]'
+              - generic [ref=e3437]: 0µs
+            - generic [ref=e3439] [cursor=pointer]:
+              - generic [ref=e3440]:
+                - generic [ref=e3441]: ESCL
+                - generic "Escalation" [ref=e3442]
+              - 'generic "Escalation: 0µs (Critical Path)" [ref=e3444]'
+              - generic [ref=e3445]: 0µs
+            - generic [ref=e3447] [cursor=pointer]:
+              - generic [ref=e3448]:
+                - button [ref=e3449]:
+                  - img [ref=e3450]
+                - generic [ref=e3452]: FLTR
+                - 'generic "SLM:SHR:DL:ByPassFilterOnUDMPromote`!" [ref=e3453]'
+              - 'generic "SLM:SHR:DL:ByPassFilterOnUDMPromote`!: 0µs (Critical Path)" [ref=e3455]'
+              - generic [ref=e3456]: 0µs
+            - generic [ref=e3458] [cursor=pointer]:
+              - generic [ref=e3459]:
+                - generic [ref=e3460]: SQL
+                - generic "T3821" [ref=e3461]
+              - 'generic "T3821: 0µs (Critical Path)" [ref=e3463]'
+              - generic [ref=e3464]: 0µs
+            - generic [ref=e3466] [cursor=pointer]:
+              - generic [ref=e3467]:
+                - generic [ref=e3468]: FLTR
+                - generic "Filter" [ref=e3469]
+              - 'generic "Filter: 0µs (Critical Path)" [ref=e3471]'
+              - generic [ref=e3472]: 0µs
+            - generic [ref=e3474] [cursor=pointer]:
+              - generic [ref=e3475]:
+                - generic [ref=e3476]: FLTR
+                - generic "INT:CHGSLM::EventSchedule:CHGInfrastructureChangeUpdateSLMStatus" [ref=e3477]
+              - 'generic "INT:CHGSLM::EventSchedule:CHGInfrastructureChangeUpdateSLMStatus: 0µs (Critical Path)" [ref=e3479]'
+              - generic [ref=e3480]: 0µs
+            - generic [ref=e3482] [cursor=pointer]:
+              - generic [ref=e3483]:
+                - generic [ref=e3484]: SQL
+                - generic "SQL Query" [ref=e3485]
+              - 'generic "SQL Query: 0µs (Critical Path)" [ref=e3487]'
+              - generic [ref=e3488]: 0µs
+            - generic [ref=e3490] [cursor=pointer]:
+              - generic [ref=e3491]:
+                - generic [ref=e3492]: SQL
+                - generic "SQL Query" [ref=e3493]
+              - 'generic "SQL Query: 0µs (Critical Path)" [ref=e3495]'
+              - generic [ref=e3496]: 0µs
+            - generic [ref=e3498] [cursor=pointer]:
+              - generic [ref=e3499]:
+                - generic [ref=e3500]: FLTR
+                - generic "Filter" [ref=e3501]
+              - 'generic "Filter: 0µs (Critical Path)" [ref=e3503]'
+              - generic [ref=e3504]: 0µs
+            - generic [ref=e3506] [cursor=pointer]:
+              - generic [ref=e3507]:
+                - generic [ref=e3508]: FLTR
+                - generic "INT:RMSSLM::EventSchedule:RMSReleaseUpdateSLMStatus" [ref=e3509]
+              - 'generic "INT:RMSSLM::EventSchedule:RMSReleaseUpdateSLMStatus: 0µs (Critical Path)" [ref=e3511]'
+              - generic [ref=e3512]: 0µs
+            - generic [ref=e3514] [cursor=pointer]:
+              - generic [ref=e3515]:
+                - generic [ref=e3516]: FLTR
+                - generic "Filter" [ref=e3517]
+              - 'generic "Filter: 0µs (Critical Path)" [ref=e3519]'
+              - generic [ref=e3520]: 0µs
+            - generic [ref=e3522] [cursor=pointer]:
+              - generic [ref=e3523]:
+                - generic [ref=e3524]: FLTR
+                - generic "INT:HPDSLM::EventSchedule:HPDHelpDeskUpdateSLMStatus" [ref=e3525]
+              - 'generic "INT:HPDSLM::EventSchedule:HPDHelpDeskUpdateSLMStatus: 0µs (Critical Path)" [ref=e3527]'
+              - generic [ref=e3528]: 0µs
+            - generic [ref=e3530] [cursor=pointer]:
+              - generic [ref=e3531]:
+                - generic [ref=e3532]: FLTR
+                - generic "Filter" [ref=e3533]
+              - 'generic "Filter: 0µs (Critical Path)" [ref=e3535]'
+              - generic [ref=e3536]: 0µs
+            - generic [ref=e3538] [cursor=pointer]:
+              - generic [ref=e3539]:
+                - generic [ref=e3540]: FLTR
+                - generic "INT:SLMSRM:HotFIX:EventSchedule:SRMRequestUpdateSLMStatus" [ref=e3541]
+              - 'generic "INT:SLMSRM:HotFIX:EventSchedule:SRMRequestUpdateSLMStatus: 0µs (Critical Path)" [ref=e3543]'
+              - generic [ref=e3544]: 0µs
+            - generic [ref=e3546] [cursor=pointer]:
+              - generic [ref=e3547]:
+                - generic [ref=e3548]: FLTR
+                - generic "Filter" [ref=e3549]
+              - 'generic "Filter: 0µs (Critical Path)" [ref=e3551]'
+              - generic [ref=e3552]: 0µs
+            - generic [ref=e3554] [cursor=pointer]:
+              - generic [ref=e3555]:
+                - generic [ref=e3556]: FLTR
+                - generic "INT:WOISLM::EventSchedule:WOIWorkOrderUpdateSLMStatus" [ref=e3557]
+              - 'generic "INT:WOISLM::EventSchedule:WOIWorkOrderUpdateSLMStatus: 0µs (Critical Path)" [ref=e3559]'
+              - generic [ref=e3560]: 0µs
+            - generic [ref=e3562] [cursor=pointer]:
+              - generic [ref=e3563]:
+                - generic [ref=e3564]: FLTR
+                - generic "Filter" [ref=e3565]
+              - 'generic "Filter: 0µs (Critical Path)" [ref=e3567]'
+              - generic [ref=e3568]: 0µs
+            - generic [ref=e3570] [cursor=pointer]:
+              - generic [ref=e3571]:
+                - generic [ref=e3572]: FLTR
+                - generic "SLM:EventSchedule:AvailabilityLifecycleCALLGUIDE" [ref=e3573]
+              - 'generic "SLM:EventSchedule:AvailabilityLifecycleCALLGUIDE: 0µs (Critical Path)" [ref=e3575]'
+              - generic [ref=e3576]: 0µs
+            - generic [ref=e3578] [cursor=pointer]:
+              - generic [ref=e3579]:
+                - generic [ref=e3580]: FLTR
+                - generic "Filter" [ref=e3581]
+              - 'generic "Filter: 0µs (Critical Path)" [ref=e3583]'
+              - generic [ref=e3584]: 0µs
+            - generic [ref=e3586] [cursor=pointer]:
+              - generic [ref=e3587]:
+                - generic [ref=e3588]: FLTR
+                - generic "SLM:EventSchedule:ERD:UpdateHPDFlag" [ref=e3589]
+              - 'generic "SLM:EventSchedule:ERD:UpdateHPDFlag: 0µs (Critical Path)" [ref=e3591]'
+              - generic [ref=e3592]: 0µs
+            - generic [ref=e3594] [cursor=pointer]:
+              - generic [ref=e3595]:
+                - generic [ref=e3596]: FLTR
+                - generic "Filter" [ref=e3597]
+              - 'generic "Filter: 0µs (Critical Path)" [ref=e3599]'
+              - generic [ref=e3600]: 0µs
+          - generic [ref=e3601]:
+            - button "Zoom out" [ref=e3602]:
+              - img [ref=e3603]
+            - generic [ref=e3606]: 100%
+            - button "Zoom in" [ref=e3607]:
+              - img [ref=e3608]
+            - button "Reset zoom" [ref=e3611]:
+              - img [ref=e3612]
+  - button "Open Next.js Dev Tools" [ref=e76] [cursor=pointer]:
+    - img [ref=e77]
+  - alert [ref=e80]

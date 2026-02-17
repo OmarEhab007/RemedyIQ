@@ -99,15 +99,21 @@ func (h *AIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // ListSkillsHandler serves GET /api/v1/ai/skills.
 type ListSkillsHandler struct {
 	registry *ai.Registry
+	router   *ai.Router
 }
 
 // NewListSkillsHandler creates a new list skills handler.
-func NewListSkillsHandler(registry *ai.Registry) *ListSkillsHandler {
-	return &ListSkillsHandler{registry: registry}
+func NewListSkillsHandler(registry *ai.Registry, router *ai.Router) *ListSkillsHandler {
+	return &ListSkillsHandler{registry: registry, router: router}
 }
 
 func (h *ListSkillsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	skills := h.registry.List()
+	var skills []ai.SkillInfo
+	if h.router != nil {
+		skills = h.registry.ListWithKeywords(h.router)
+	} else {
+		skills = h.registry.List()
+	}
 	api.JSON(w, http.StatusOK, map[string]interface{}{
 		"skills": skills,
 	})

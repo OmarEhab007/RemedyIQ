@@ -27,7 +27,7 @@ import { ThreadsSection } from "@/components/dashboard/threads-section";
 import { FiltersSection } from "@/components/dashboard/filters-section";
 import { CollapsibleSection } from "@/components/dashboard/collapsible-section";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { Search, MessageSquare } from "lucide-react";
 
 interface Anomaly {
   id: string;
@@ -103,6 +103,12 @@ export default function AnalysisPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link href={`/ai?job_id=${params.id}`}>
+            <Button variant="outline">
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Ask AI
+            </Button>
+          </Link>
           <Link href={`/analysis/${params.id}/explorer`}>
             <Button variant="outline">
               <Search className="h-4 w-4 mr-2" />

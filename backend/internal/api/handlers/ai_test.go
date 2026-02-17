@@ -388,7 +388,7 @@ func TestAIHandler_PassesCorrectInputToSkill(t *testing.T) {
 
 func TestListSkillsHandler_EmptyRegistry(t *testing.T) {
 	registry := ai.NewRegistry()
-	h := NewListSkillsHandler(registry)
+	h := NewListSkillsHandler(registry, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/ai/skills", nil)
 	w := httptest.NewRecorder()
@@ -404,7 +404,7 @@ func TestListSkillsHandler_EmptyRegistry(t *testing.T) {
 func TestListSkillsHandler_SingleSkill(t *testing.T) {
 	registry := ai.NewRegistry()
 	_ = registry.Register(newMockSkill("test"))
-	h := NewListSkillsHandler(registry)
+	h := NewListSkillsHandler(registry, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/ai/skills", nil)
 	w := httptest.NewRecorder()
@@ -425,7 +425,7 @@ func TestListSkillsHandler_MultipleSkills(t *testing.T) {
 	_ = registry.Register(newMockSkill("nl_query"))
 	_ = registry.Register(newMockSkill("summarizer"))
 	_ = registry.Register(newMockSkill("anomaly"))
-	h := NewListSkillsHandler(registry)
+	h := NewListSkillsHandler(registry, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/ai/skills", nil)
 	w := httptest.NewRecorder()
@@ -449,7 +449,7 @@ func TestListSkillsHandler_MultipleSkills(t *testing.T) {
 
 func TestListSkillsHandler_ReturnsJSONContentType(t *testing.T) {
 	registry := ai.NewRegistry()
-	h := NewListSkillsHandler(registry)
+	h := NewListSkillsHandler(registry, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/ai/skills", nil)
 	w := httptest.NewRecorder()

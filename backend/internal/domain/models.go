@@ -178,6 +178,55 @@ type SavedSearch struct {
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
 
+// MessageRole represents the sender of a message in a conversation.
+type MessageRole string
+
+const (
+	MessageRoleUser      MessageRole = "user"
+	MessageRoleAssistant MessageRole = "assistant"
+)
+
+// MessageStatus represents the state of a message.
+type MessageStatus string
+
+const (
+	MessageStatusPending   MessageStatus = "pending"
+	MessageStatusStreaming MessageStatus = "streaming"
+	MessageStatusComplete  MessageStatus = "complete"
+	MessageStatusError     MessageStatus = "error"
+)
+
+// Conversation represents a chat session scoped to a tenant, user, and analysis job.
+type Conversation struct {
+	ID            uuid.UUID              `json:"id" db:"id"`
+	TenantID      uuid.UUID              `json:"tenant_id" db:"tenant_id"`
+	UserID        string                 `json:"user_id" db:"user_id"`
+	JobID         uuid.UUID              `json:"job_id" db:"job_id"`
+	Title         string                 `json:"title" db:"title"`
+	CreatedAt     time.Time              `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time              `json:"updated_at" db:"updated_at"`
+	MessageCount  int                    `json:"message_count" db:"message_count"`
+	LastMessageAt *time.Time             `json:"last_message_at,omitempty" db:"last_message_at"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty" db:"metadata"`
+	Messages      []Message              `json:"messages,omitempty" db:"-"`
+}
+
+// Message represents a single turn in a conversation.
+type Message struct {
+	ID             uuid.UUID     `json:"id" db:"id"`
+	ConversationID uuid.UUID     `json:"conversation_id" db:"conversation_id"`
+	TenantID       uuid.UUID     `json:"tenant_id" db:"tenant_id"`
+	Role           MessageRole   `json:"role" db:"role"`
+	Content        string        `json:"content" db:"content"`
+	SkillName      string        `json:"skill_name,omitempty" db:"skill_name"`
+	FollowUps      []string      `json:"follow_ups,omitempty" db:"follow_ups"`
+	TokensUsed     int           `json:"tokens_used,omitempty" db:"tokens_used"`
+	LatencyMS      int           `json:"latency_ms,omitempty" db:"latency_ms"`
+	Status         MessageStatus `json:"status" db:"status"`
+	ErrorMessage   string        `json:"error_message,omitempty" db:"error_message"`
+	CreatedAt      time.Time     `json:"created_at" db:"created_at"`
+}
+
 // GeneralStatistics holds the top-level statistics from an analysis.
 type GeneralStatistics struct {
 	TotalLines   int64     `json:"total_lines"`

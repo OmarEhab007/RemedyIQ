@@ -349,3 +349,231 @@ func TestPostgres_SavedSearchCRUD(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
+
+func TestPostgres_ConversationCRUD(t *testing.T) {
+	client := setupPostgres(t)
+	ctx := context.Background()
+
+	tenant := &domain.Tenant{
+		ClerkOrgID:     "clerk_org_conv_" + uuid.New().String()[:8],
+		Name:           "Conversation Test Org",
+		Plan:           "pro",
+		StorageLimitGB: 50,
+	}
+	require.NoError(t, client.CreateTenant(ctx, tenant))
+
+	logFile := &domain.LogFile{
+		TenantID:    tenant.ID,
+		Filename:    "test.log",
+		SizeBytes:   1024,
+		S3Key:       "test/test.log",
+		S3Bucket:    "test-bucket",
+		ContentType: "text/plain",
+	}
+	require.NoError(t, client.CreateLogFile(ctx, logFile))
+
+	job := &domain.AnalysisJob{
+		TenantID:       tenant.ID,
+		Status:         domain.JobStatusComplete,
+		FileID:         logFile.ID,
+		JARFlags:       domain.JARFlags{},
+		JVMHeapMB:      4096,
+		TimeoutSeconds: 1800,
+	}
+	require.NoError(t, client.CreateJob(ctx, job))
+
+	userID := "user_conv_001"
+
+	conv := &domain.Conversation{
+		TenantID: tenant.ID,
+		UserID:   userID,
+		JobID:    job.ID,
+		Title:    "Test Chat",
+	}
+
+	err := client.CreateConversation(ctx, conv)
+	require.NoError(t, err)
+	assert.NotEqual(t, uuid.Nil, conv.ID)
+	assert.False(t, conv.CreatedAt.IsZero())
+
+	fetched, err := client.GetConversation(ctx, tenant.ID, conv.ID)
+	require.NoError(t, err)
+	assert.Equal(t, conv.ID, fetched.ID)
+	assert.Equal(t, "Test Chat", fetched.Title)
+	assert.Equal(t, userID, fetched.UserID)
+
+	conv2 := &domain.Conversation{
+		TenantID: tenant.ID,
+		UserID:   userID,
+		JobID:    job.ID,
+		Title:    "Second Chat",
+	}
+	require.NoError(t, client.CreateConversation(ctx, conv2))
+
+	list, err := client.ListConversations(ctx, tenant.ID, userID, job.ID, 10)
+	require.NoError(t, err)
+	assert.Len(t, list, 2)
+	assert.Equal(t, conv2.ID, list[0].ID, "should be ordered by updated_at DESC")
+
+	_, err = client.GetConversation(ctx, uuid.New(), conv.ID)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestPostgres_MessageCRUD(t *testing.T) {
+	client := setupPostgres(t)
+	ctx := context.Background()
+
+	tenant := &domain.Tenant{
+		ClerkOrgID:     "clerk_org_msg_" + uuid.New().String()[:8],
+		Name:           "Message Test Org",
+		Plan:           "pro",
+		StorageLimitGB: 50,
+	}
+	require.NoError(t, client.CreateTenant(ctx, tenant))
+
+	logFile := &domain.LogFile{
+		TenantID:    tenant.ID,
+		Filename:    "test.log",
+		SizeBytes:   1024,
+		S3Key:       "test/test.log",
+		S3Bucket:    "test-bucket",
+		ContentType: "text/plain",
+	}
+	require.NoError(t, client.CreateLogFile(ctx, logFile))
+
+	job := &domain.AnalysisJob{
+		TenantID:       tenant.ID,
+		Status:         domain.JobStatusComplete,
+		FileID:         logFile.ID,
+		JARFlags:       domain.JARFlags{},
+		JVMHeapMB:      4096,
+		TimeoutSeconds: 1800,
+	}
+	require.NoError(t, client.CreateJob(ctx, job))
+
+	conv := &domain.Conversation{
+		TenantID: tenant.ID,
+		UserID:   "user_msg_001",
+		JobID:    job.ID,
+		Title:    "Message Test",
+	}
+	require.NoError(t, client.CreateConversation(ctx, conv))
+
+	userMsg := &domain.Message{
+		ConversationID: conv.ID,
+		TenantID:       tenant.ID,
+		Role:           domain.MessageRoleUser,
+		Content:        "What is the slowest API?",
+		Status:         domain.MessageStatusComplete,
+	}
+	err := client.AddMessage(ctx, userMsg)
+	require.NoError(t, err)
+	assert.NotEqual(t, uuid.Nil, userMsg.ID)
+
+	assistantMsg := &domain.Message{
+		ConversationID: conv.ID,
+		TenantID:       tenant.ID,
+		Role:           domain.MessageRoleAssistant,
+		Content:        "The slowest API is GetEntry with 2500ms.",
+		SkillName:      "performance",
+		FollowUps:      []string{"Show more details", "Why is it slow?"},
+		TokensUsed:     150,
+		LatencyMS:      1200,
+		Status:         domain.MessageStatusComplete,
+	}
+	require.NoError(t, client.AddMessage(ctx, assistantMsg))
+
+	fetched, err := client.GetConversationWithMessages(ctx, tenant.ID, conv.ID, 50)
+	require.NoError(t, err)
+	assert.Len(t, fetched.Messages, 2)
+	assert.Equal(t, domain.MessageRoleUser, fetched.Messages[0].Role)
+	assert.Equal(t, domain.MessageRoleAssistant, fetched.Messages[1].Role)
+	assert.Equal(t, "performance", fetched.Messages[1].SkillName)
+	assert.Equal(t, 2, fetched.MessageCount, "trigger should update message_count")
+
+	messages, err := client.GetMessages(ctx, tenant.ID, conv.ID, 50)
+	require.NoError(t, err)
+	assert.Len(t, messages, 2)
+
+	streamingMsg := &domain.Message{
+		ConversationID: conv.ID,
+		TenantID:       tenant.ID,
+		Role:           domain.MessageRoleAssistant,
+		Content:        "Starting...",
+		Status:         domain.MessageStatusStreaming,
+	}
+	require.NoError(t, client.AddMessage(ctx, streamingMsg))
+
+	err = client.UpdateMessageStatus(ctx, tenant.ID, streamingMsg.ID, domain.MessageStatusComplete, "")
+	require.NoError(t, err)
+
+	err = client.UpdateMessageStatus(ctx, tenant.ID, uuid.New(), domain.MessageStatusComplete, "")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestPostgres_DeleteConversation(t *testing.T) {
+	client := setupPostgres(t)
+	ctx := context.Background()
+
+	tenant := &domain.Tenant{
+		ClerkOrgID:     "clerk_org_del_" + uuid.New().String()[:8],
+		Name:           "Delete Test Org",
+		Plan:           "pro",
+		StorageLimitGB: 50,
+	}
+	require.NoError(t, client.CreateTenant(ctx, tenant))
+
+	logFile := &domain.LogFile{
+		TenantID:    tenant.ID,
+		Filename:    "test.log",
+		SizeBytes:   1024,
+		S3Key:       "test/test.log",
+		S3Bucket:    "test-bucket",
+		ContentType: "text/plain",
+	}
+	require.NoError(t, client.CreateLogFile(ctx, logFile))
+
+	job := &domain.AnalysisJob{
+		TenantID:       tenant.ID,
+		Status:         domain.JobStatusComplete,
+		FileID:         logFile.ID,
+		JARFlags:       domain.JARFlags{},
+		JVMHeapMB:      4096,
+		TimeoutSeconds: 1800,
+	}
+	require.NoError(t, client.CreateJob(ctx, job))
+
+	conv := &domain.Conversation{
+		TenantID: tenant.ID,
+		UserID:   "user_del_001",
+		JobID:    job.ID,
+		Title:    "To Delete",
+	}
+	require.NoError(t, client.CreateConversation(ctx, conv))
+
+	msg := &domain.Message{
+		ConversationID: conv.ID,
+		TenantID:       tenant.ID,
+		Role:           domain.MessageRoleUser,
+		Content:        "Test",
+		Status:         domain.MessageStatusComplete,
+	}
+	require.NoError(t, client.AddMessage(ctx, msg))
+
+	err := client.DeleteConversation(ctx, tenant.ID, conv.ID)
+	require.NoError(t, err)
+
+	_, err = client.GetConversation(ctx, tenant.ID, conv.ID)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+
+	messages, err := client.GetMessages(ctx, tenant.ID, conv.ID, 50)
+	require.NoError(t, err)
+	assert.Len(t, messages, 0, "messages should be cascade deleted")
+
+	err = client.DeleteConversation(ctx, uuid.New(), uuid.New())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
