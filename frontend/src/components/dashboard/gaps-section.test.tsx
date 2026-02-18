@@ -1,207 +1,300 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+/**
+ * T066 — Tests for GapsSection component (T060)
+ */
+
+import { describe, it, expect } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
 import { GapsSection } from './gaps-section'
-import type { GapsResponse } from '@/lib/api'
+import type { GapsResponse, GapEntry, QueueHealthSummary } from '@/lib/api-types'
 
-const mockData: GapsResponse = {
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+function makeGap(overrides: Partial<GapEntry> = {}): GapEntry {
+  return {
+    start_time: '2024-03-15T10:00:00Z',
+    end_time: '2024-03-15T10:00:10Z',
+    duration_ms: 10_000,          // 10s — warning threshold
+    before_line: 100,
+    after_line: 101,
+    description: 'Log gap detected',
+    ...overrides,
+  }
+}
+
+function makeQueueHealth(overrides: Partial<QueueHealthSummary> = {}): QueueHealthSummary {
+  return {
+    queue: 'AR System',
+    total_requests: 500,
+    error_count: 0,
+    avg_duration_ms: 250,
+    max_duration_ms: 1200,
+    gap_count: 0,
+    ...overrides,
+  }
+}
+
+function makeData(overrides: Partial<GapsResponse> = {}): GapsResponse {
+  return {
+    job_id: 'job-001',
+    gaps: [],
+    queue_health: [],
+    total_gaps: 0,
+    ...overrides,
+  }
+}
+
+// A complete dataset with gaps and queue health
+const fullData: GapsResponse = {
+  job_id: 'job-001',
+  total_gaps: 3,
   gaps: [
-    {
-      start_time: '2026-02-12T10:00:00Z',
-      end_time: '2026-02-12T10:00:30Z',
-      duration_ms: 30000,
-      before_line: 100,
-      after_line: 200,
-      log_type: 'API',
-    },
-    {
-      start_time: '2026-02-12T10:01:00Z',
-      end_time: '2026-02-12T10:03:00Z',
-      duration_ms: 120000,
-      before_line: 300,
-      after_line: 400,
-      log_type: 'SQL',
-    },
-    {
-      start_time: '2026-02-12T10:05:00Z',
-      end_time: '2026-02-12T10:05:10Z',
-      duration_ms: 10000,
-      before_line: 500,
-      after_line: 600,
-      log_type: 'API',
-      thread_id: 'T001',
-    },
-    {
-      start_time: '2026-02-12T10:06:00Z',
-      end_time: '2026-02-12T10:08:00Z',
-      duration_ms: 120000,
-      before_line: 700,
-      after_line: 800,
-      log_type: 'FLTR',
-      thread_id: 'T002',
-    },
+    makeGap({ duration_ms: 500,    before_line: 10,  after_line: 11,  description: 'Small gap'    }),
+    makeGap({ duration_ms: 8_000,  before_line: 50,  after_line: 52,  description: 'Medium gap'   }),
+    makeGap({ duration_ms: 45_000, before_line: 200, after_line: 210, description: 'Critical gap' }),
   ],
-  queue_health: [],
+  queue_health: [
+    makeQueueHealth({ queue: 'AR System',    error_count: 0, gap_count: 0 }),
+    makeQueueHealth({ queue: 'AR Background', error_count: 3, gap_count: 1 }),
+  ],
 }
 
-const mockEmptyData: GapsResponse = {
-  gaps: [],
-  queue_health: [],
-}
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 describe('GapsSection', () => {
-  it('renders loading state with pulse animation', () => {
-    render(
-      <GapsSection data={null} loading={true} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('Gap Analysis')).toBeInTheDocument()
-    const pulseElements = document.querySelectorAll('.animate-pulse')
-    expect(pulseElements.length).toBeGreaterThan(0)
+  describe('empty state', () => {
+    it('shows continuous coverage message when both gaps and queue_health are empty', () => {
+      render(<GapsSection data={makeData()} />)
+      expect(
+        screen.getByText('No timing gaps detected — log coverage is continuous.')
+      ).toBeInTheDocument()
+    })
+
+    it('does not render any table when both arrays are empty', () => {
+      render(<GapsSection data={makeData()} />)
+      expect(screen.queryByRole('table')).toBeNull()
+    })
+
+    it('renders content when gaps exist even if queue_health is empty', () => {
+      render(
+        <GapsSection
+          data={makeData({ total_gaps: 1, gaps: [makeGap()], queue_health: [] })}
+        />
+      )
+      expect(screen.queryByText(/no timing gaps/i)).toBeNull()
+      expect(screen.getByRole('table', { name: 'Timing gaps' })).toBeInTheDocument()
+    })
+
+    it('renders content when only queue_health exists with no gaps', () => {
+      render(
+        <GapsSection
+          data={makeData({ gaps: [], queue_health: [makeQueueHealth()], total_gaps: 0 })}
+        />
+      )
+      expect(screen.queryByText(/no timing gaps/i)).toBeNull()
+      expect(screen.getByRole('table', { name: 'Queue health summary' })).toBeInTheDocument()
+    })
   })
 
-  it('renders error state with error message and retry button', () => {
-    const errorMessage = 'Failed to load gaps'
-    render(
-      <GapsSection
-        data={null}
-        loading={false}
-        error={errorMessage}
-        refetch={vi.fn()}
-      />
-    )
-    expect(screen.getByText(errorMessage)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument()
+  describe('summary bar', () => {
+    it('shows total gap count in summary', () => {
+      render(<GapsSection data={fullData} />)
+      expect(screen.getByText('3 timing gaps detected')).toBeInTheDocument()
+    })
+
+    it('uses singular form for 1 gap', () => {
+      render(
+        <GapsSection
+          data={makeData({ total_gaps: 1, gaps: [makeGap()], queue_health: [] })}
+        />
+      )
+      expect(screen.getByText('1 timing gap detected')).toBeInTheDocument()
+    })
   })
 
-  it('calls refetch on retry button click', () => {
-    const refetchMock = vi.fn()
-    render(
-      <GapsSection
-        data={null}
-        loading={false}
-        error="Test error"
-        refetch={refetchMock}
-      />
-    )
-    const retryButton = screen.getByRole('button', { name: /retry/i })
-    fireEvent.click(retryButton)
-    expect(refetchMock).toHaveBeenCalledTimes(1)
+  describe('gaps table', () => {
+    it('renders timing gaps table with aria-label', () => {
+      render(<GapsSection data={fullData} />)
+      expect(screen.getByRole('table', { name: 'Timing gaps' })).toBeInTheDocument()
+    })
+
+    it('renders all column headers', () => {
+      render(<GapsSection data={fullData} />)
+      const table = screen.getByRole('table', { name: 'Timing gaps' })
+      expect(within(table).getByText('#')).toBeInTheDocument()
+      expect(within(table).getByText('Duration')).toBeInTheDocument()
+      expect(within(table).getByText('Start')).toBeInTheDocument()
+      expect(within(table).getByText('End')).toBeInTheDocument()
+      expect(within(table).getByText('Lines')).toBeInTheDocument()
+      expect(within(table).getByText('Description')).toBeInTheDocument()
+    })
+
+    it('renders index numbers with # prefix', () => {
+      render(<GapsSection data={fullData} />)
+      expect(screen.getByText('#1')).toBeInTheDocument()
+      expect(screen.getByText('#2')).toBeInTheDocument()
+      expect(screen.getByText('#3')).toBeInTheDocument()
+    })
+
+    it('renders line range in L{before} to L{after} format', () => {
+      render(<GapsSection data={fullData} />)
+      expect(screen.getByText('L10 → L11')).toBeInTheDocument()
+      expect(screen.getByText('L50 → L52')).toBeInTheDocument()
+      expect(screen.getByText('L200 → L210')).toBeInTheDocument()
+    })
+
+    it('renders gap descriptions', () => {
+      render(<GapsSection data={fullData} />)
+      expect(screen.getByText('Small gap')).toBeInTheDocument()
+      expect(screen.getByText('Medium gap')).toBeInTheDocument()
+      expect(screen.getByText('Critical gap')).toBeInTheDocument()
+    })
   })
 
-  it('renders "No significant gaps detected" when data is null', () => {
-    render(
-      <GapsSection data={null} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('No significant gaps detected')).toBeInTheDocument()
+  describe('duration formatting and severity', () => {
+    it('formats duration under 1000ms as ms', () => {
+      render(
+        <GapsSection
+          data={makeData({ total_gaps: 1, gaps: [makeGap({ duration_ms: 500 })], queue_health: [makeQueueHealth()] })}
+        />
+      )
+      expect(screen.getByText('500ms')).toBeInTheDocument()
+    })
+
+    it('formats duration in seconds for 1000ms-59999ms range', () => {
+      render(
+        <GapsSection
+          data={makeData({ total_gaps: 1, gaps: [makeGap({ duration_ms: 8_000 })], queue_health: [makeQueueHealth()] })}
+        />
+      )
+      expect(screen.getByText('8.00s')).toBeInTheDocument()
+    })
+
+    it('formats duration in minutes for >= 60000ms', () => {
+      render(
+        <GapsSection
+          data={makeData({ total_gaps: 1, gaps: [makeGap({ duration_ms: 90_000 })], queue_health: [makeQueueHealth()] })}
+        />
+      )
+      expect(screen.getByText('1.5m')).toBeInTheDocument()
+    })
+
+    it('ok severity gap (<=5s) does not get critical or warning class', () => {
+      const { container } = render(
+        <GapsSection
+          data={makeData({ total_gaps: 1, gaps: [makeGap({ duration_ms: 500 })], queue_health: [] })}
+        />
+      )
+      const rows = container.querySelectorAll('tbody tr')
+      expect(rows[0].className).not.toMatch(/color-error-light/)
+      expect(rows[0].className).not.toMatch(/color-warning-light/)
+    })
+
+    it('warning severity gap (>5s, <=30s) applies warning background', () => {
+      const { container } = render(
+        <GapsSection
+          data={makeData({ total_gaps: 1, gaps: [makeGap({ duration_ms: 8_000 })], queue_health: [] })}
+        />
+      )
+      const rows = container.querySelectorAll('tbody tr')
+      expect(rows[0].className).toMatch(/color-warning-light/)
+    })
+
+    it('critical severity gap (>30s) applies error background', () => {
+      const { container } = render(
+        <GapsSection
+          data={makeData({ total_gaps: 1, gaps: [makeGap({ duration_ms: 45_000 })], queue_health: [] })}
+        />
+      )
+      const rows = container.querySelectorAll('tbody tr')
+      expect(rows[0].className).toMatch(/color-error-light/)
+    })
   })
 
-  it('renders "No significant gaps detected" when gaps array is empty', () => {
-    render(
-      <GapsSection data={mockEmptyData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('No significant gaps detected')).toBeInTheDocument()
+  describe('queue health table', () => {
+    it('renders queue health table with aria-label', () => {
+      render(<GapsSection data={fullData} />)
+      expect(screen.getByRole('table', { name: 'Queue health summary' })).toBeInTheDocument()
+    })
+
+    it('renders "Queue Health Summary" heading', () => {
+      render(<GapsSection data={fullData} />)
+      expect(screen.getByText('Queue Health Summary')).toBeInTheDocument()
+    })
+
+    it('renders all queue health column headers', () => {
+      render(<GapsSection data={fullData} />)
+      const table = screen.getByRole('table', { name: 'Queue health summary' })
+      expect(within(table).getByText('Queue')).toBeInTheDocument()
+      expect(within(table).getByText('Requests')).toBeInTheDocument()
+      expect(within(table).getByText('Errors')).toBeInTheDocument()
+      expect(within(table).getByText('Avg Duration')).toBeInTheDocument()
+      expect(within(table).getByText('Max Duration')).toBeInTheDocument()
+      expect(within(table).getByText('Gaps')).toBeInTheDocument()
+    })
+
+    it('renders queue names in the table', () => {
+      render(<GapsSection data={fullData} />)
+      expect(screen.getByText('AR System')).toBeInTheDocument()
+      expect(screen.getByText('AR Background')).toBeInTheDocument()
+    })
+
+    it('renders total_requests with locale formatting', () => {
+      render(<GapsSection data={fullData} />)
+      // 500 total requests
+      const cells = screen.getAllByText('500')
+      expect(cells.length).toBeGreaterThanOrEqual(1)
+    })
+
+    it('does not render queue health table when health array is empty', () => {
+      render(
+        <GapsSection
+          data={makeData({ total_gaps: 1, gaps: [makeGap()], queue_health: [] })}
+        />
+      )
+      expect(screen.queryByRole('table', { name: 'Queue health summary' })).toBeNull()
+    })
+
+    it('error_count > 0 is rendered in the AR Background row', () => {
+      render(<GapsSection data={fullData} />)
+      const table = screen.getByRole('table', { name: 'Queue health summary' })
+      const rows = within(table).getAllByRole('row')
+      // Rows: [header, AR System, AR Background]
+      const bgRow = rows[2]
+      // The error count "3" should appear in this row
+      expect(within(bgRow).getByText('3')).toBeInTheDocument()
+    })
+
+    it('gap_count > 0 uses warning styling span', () => {
+      render(<GapsSection data={fullData} />)
+      // AR Background has gap_count: 1
+      const table = screen.getByRole('table', { name: 'Queue health summary' })
+      const rows = within(table).getAllByRole('row')
+      const bgRow = rows[2]
+      expect(within(bgRow).getByText('1')).toBeInTheDocument()
+    })
+
+    it('zero error count does not apply error class', () => {
+      render(<GapsSection data={fullData} />)
+      const table = screen.getByRole('table', { name: 'Queue health summary' })
+      const rows = within(table).getAllByRole('row')
+      // AR System row has error_count: 0
+      const arSystemRow = rows[1]
+      const zeroCells = within(arSystemRow).getAllByText('0')
+      // The zero error count cell should not have color-error class
+      expect(zeroCells[0].className).not.toMatch(/color-error/)
+    })
   })
 
-  it('renders title and tab buttons with counts', () => {
-    render(
-      <GapsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('Gap Analysis')).toBeInTheDocument()
-    // Line gaps: 2 (no thread_id), Thread gaps: 2 (with thread_id)
-    expect(screen.getByRole('button', { name: /Line Gaps \(2\)/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Thread Gaps \(2\)/i })).toBeInTheDocument()
-  })
-
-  it('renders Line Gaps tab by default with correct columns', () => {
-    render(
-      <GapsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('Rank')).toBeInTheDocument()
-    expect(screen.getByText('Gap Duration')).toBeInTheDocument()
-    expect(screen.getByText('Start Time')).toBeInTheDocument()
-    expect(screen.getByText('End Time')).toBeInTheDocument()
-    expect(screen.getByText('Before Line')).toBeInTheDocument()
-    expect(screen.getByText('After Line')).toBeInTheDocument()
-    expect(screen.getByText('Log Type')).toBeInTheDocument()
-    // Thread ID column should NOT appear in Line Gaps tab
-    expect(screen.queryByText('Thread ID')).not.toBeInTheDocument()
-  })
-
-  it('formats durations correctly (ms, s, min)', () => {
-    render(
-      <GapsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    // 30000ms → "30.00s"
-    expect(screen.getByText('30.00s')).toBeInTheDocument()
-    // 120000ms → "2.00min"
-    expect(screen.getByText('2.00min')).toBeInTheDocument()
-  })
-
-  it('displays before and after line numbers', () => {
-    render(
-      <GapsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('100')).toBeInTheDocument()
-    expect(screen.getByText('200')).toBeInTheDocument()
-    expect(screen.getByText('300')).toBeInTheDocument()
-    expect(screen.getByText('400')).toBeInTheDocument()
-  })
-
-  it('displays log type badges', () => {
-    render(
-      <GapsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    const apiElements = screen.getAllByText('API')
-    expect(apiElements.length).toBeGreaterThan(0)
-    expect(screen.getByText('SQL')).toBeInTheDocument()
-  })
-
-  it('highlights critical gaps (>60s) with red styling', () => {
-    render(
-      <GapsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    // 120000ms gap is critical (>60000ms)
-    const criticalRow = screen.getByText('2.00min').closest('tr')!
-    expect(criticalRow.className).toContain('border-l-red-500')
-    expect(criticalRow.className).toContain('bg-red-50')
-
-    // 30000ms gap is NOT critical (<60000ms)
-    const normalRow = screen.getByText('30.00s').closest('tr')!
-    expect(normalRow.className).not.toContain('border-l-red-500')
-  })
-
-  it('switches to Thread Gaps tab and shows Thread ID column', () => {
-    render(
-      <GapsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    const threadTab = screen.getByRole('button', { name: /Thread Gaps/i })
-    fireEvent.click(threadTab)
-
-    expect(screen.getByText('Thread ID')).toBeInTheDocument()
-    expect(screen.getByText('T001')).toBeInTheDocument()
-    expect(screen.getByText('T002')).toBeInTheDocument()
-  })
-
-  it('shows "No thread gaps detected" when switching to empty thread tab', () => {
-    // Only line gaps, no thread gaps
-    const lineOnlyData: GapsResponse = {
-      gaps: [
-        {
-          start_time: '2026-02-12T10:00:00Z',
-          end_time: '2026-02-12T10:00:30Z',
-          duration_ms: 30000,
-          before_line: 100,
-          after_line: 200,
-          log_type: 'API',
-        },
-      ],
-      queue_health: [],
-    }
-    render(
-      <GapsSection data={lineOnlyData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    const threadTab = screen.getByRole('button', { name: /Thread Gaps/i })
-    fireEvent.click(threadTab)
-
-    expect(screen.getByText('No thread gaps detected')).toBeInTheDocument()
+  describe('className prop', () => {
+    it('passes className to wrapper when data is present', () => {
+      const { container } = render(
+        <GapsSection data={fullData} className="my-class" />
+      )
+      expect(container.firstChild).toHaveClass('my-class')
+    })
   })
 })

@@ -1,746 +1,1041 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
+/**
+ * API client for the RemedyIQ backend.
+ *
+ * All requests target `NEXT_PUBLIC_API_URL` (default: http://localhost:8080/api/v1).
+ * In dev mode (`NEXT_PUBLIC_DEV_MODE=true`) auth headers are injected automatically.
+ * In production a Clerk Bearer token must be supplied per-call.
+ *
+ * @module api
+ */
 
-// --- Types matching backend domain models ---
+import type {
+  AnalysisJob,
+  AggregatesResponse,
+  AIQueryResponse,
+  AISkill,
+  AIStreamRequest,
+  AutocompleteResponse,
+  Conversation,
+  CreateAnalysisRequest,
+  CreateConversationRequest,
+  CreateSavedSearchRequest,
+  DashboardData,
+  ExceptionsResponse,
+  FilterComplexityResponse,
+  GapsResponse,
+  HealthResponse,
+  ListAnalysesResponse,
+  ListConversationsResponse,
+  ListFilesResponse,
+  ListSavedSearchesResponse,
+  LogFile,
+  ListSkillsResponse,
+  LogEntry,
+  LogEntryContext,
+  LogType,
+  Pagination,
+  RecentTracesResponse,
+  ReportFormat,
+  ReportResponse,
+  SavedSearch,
+  SearchHistoryResponse,
+  SearchLogsParams,
+  SearchLogsResponse,
+  SpanNode,
+  ThreadStatsResponse,
+  TraceAIAnalyzeResponse,
+  TransactionSearchParams,
+  TransactionSearchResponse,
+  TransactionSummary,
+  TypeBreakdown,
+  WaterfallResponse,
+} from "./api-types";
 
-export interface LogFile {
-  id: string;
-  filename: string;
-  size_bytes: number;
-  detected_types: string[];
-  uploaded_at: string;
-}
+// ---------------------------------------------------------------------------
+// Configuration
+// ---------------------------------------------------------------------------
 
-export interface JARFlags {
-  top_n?: number;
-  group_by?: string[];
-  sort_by?: string;
-  user_filter?: string;
-  exclude_users?: string[];
-  skip_api?: boolean;
-  skip_sql?: boolean;
-  skip_esc?: boolean;
-  skip_fltr?: boolean;
-  include_fts?: boolean;
-}
+export const API_BASE: string =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api/v1";
 
-export interface AnalysisJob {
-  id: string;
-  file_id: string;
-  status:
-    | "queued"
-    | "parsing"
-    | "analyzing"
-    | "storing"
-    | "complete"
-    | "failed";
-  progress_pct: number;
-  api_count?: number;
-  sql_count?: number;
-  filter_count?: number;
-  esc_count?: number;
-  log_start?: string;
-  log_end?: string;
-  log_duration?: string;
-  error_message?: string;
-  created_at: string;
-  completed_at?: string;
-}
+const IS_DEV_MODE: boolean =
+  process.env.NEXT_PUBLIC_DEV_MODE === "true";
 
-export interface TopNEntry {
-  rank: number;
-  line_number: number;
-  file_number: number;
-  timestamp: string;
-  trace_id: string;
-  rpc_id: string;
-  queue: string;
-  identifier: string;
-  form?: string;
-  user?: string;
-  duration_ms: number;
-  queue_time_ms?: number;
-  success: boolean;
-  details?: string;
-}
+const DEV_USER_ID: string =
+  process.env.NEXT_PUBLIC_DEV_USER_ID ?? "00000000-0000-0000-0000-000000000001";
 
-export interface TimeSeriesPoint {
-  timestamp: string;
-  api_count: number;
-  sql_count: number;
-  filter_count: number;
-  esc_count: number;
-  avg_duration_ms: number;
-  error_count: number;
-}
+const DEV_TENANT_ID: string =
+  process.env.NEXT_PUBLIC_DEV_TENANT_ID ?? "00000000-0000-0000-0000-000000000001";
 
-export interface GeneralStats {
-  total_lines: number;
-  api_count: number;
-  sql_count: number;
-  filter_count: number;
-  esc_count: number;
-  unique_users: number;
-  unique_forms: number;
-  unique_tables: number;
-  log_start: string;
-  log_end: string;
-  log_duration: string;
-}
+// ---------------------------------------------------------------------------
+// Error class
+// ---------------------------------------------------------------------------
 
-export interface DashboardData {
-  general_stats: GeneralStats;
-  top_api_calls: TopNEntry[];
-  top_sql_statements: TopNEntry[];
-  top_filters: TopNEntry[];
-  top_escalations: TopNEntry[];
-  time_series: TimeSeriesPoint[];
-  distribution: Record<string, Record<string, number>>;
-  health_score?: HealthScore | null;
-}
-
-// --- Enhanced Analysis Dashboard Types ---
-
-export interface AggregateGroup {
-  name: string;
-  count: number;
-  total_ms: number;
-  avg_ms: number;
-  min_ms: number;
-  max_ms: number;
-  error_count: number;
-  error_rate: number;
-  unique_traces: number;
-}
-
-export interface AggregateSection {
-  groups: AggregateGroup[];
-  grand_total?: AggregateGroup;
-}
-
-export interface AggregatesResponse {
-  api?: AggregateSection;
-  sql?: AggregateSection;
-  filter?: AggregateSection;
-}
-
-export interface GapEntry {
-  start_time: string;
-  end_time: string;
-  duration_ms: number;
-  before_line: number;
-  after_line: number;
-  log_type: string;
-  queue?: string;
-  thread_id?: string;
-}
-
-export interface QueueHealthSummary {
-  queue: string;
-  total_calls: number;
-  avg_ms: number;
-  error_rate: number;
-  p95_ms: number;
-}
-
-export interface GapsResponse {
-  gaps: GapEntry[];
-  queue_health: QueueHealthSummary[];
-}
-
-export interface ThreadStatsEntry {
-  thread_id: string;
-  total_calls: number;
-  total_ms: number;
-  avg_ms: number;
-  max_ms: number;
-  error_count: number;
-  busy_pct: number;
-  active_start?: string;
-  active_end?: string;
-}
-
-export interface ThreadStatsResponse {
-  threads: ThreadStatsEntry[];
-  total_threads: number;
-}
-
-export interface ExceptionEntry {
-  error_code: string;
-  message: string;
-  count: number;
-  first_seen: string;
-  last_seen: string;
-  log_type: string;
-  queue?: string;
-  form?: string;
-  user?: string;
-  sample_line: number;
-  sample_trace?: string;
-}
-
-export interface ExceptionsResponse {
-  exceptions: ExceptionEntry[];
-  total_count: number;
-  error_rates: Record<string, number>;
-  top_codes: string[];
-}
-
-export interface MostExecutedFilter {
-  name: string;
-  count: number;
-  total_ms: number;
-}
-
-export interface FilterPerTransaction {
-  transaction_id: string;
-  filter_name: string;
-  execution_count: number;
-  total_ms: number;
-  avg_ms: number;
-  max_ms: number;
-  queue?: string;
-  form?: string;
-}
-
-export interface FilterComplexityResponse {
-  most_executed: MostExecutedFilter[];
-  per_transaction: FilterPerTransaction[];
-  total_filter_time_ms: number;
-}
-
-// --- JAR-Native Types (source: "jar_parsed") ---
-
-export interface JARGapEntry {
-  gap_duration: number;
-  line_number: number;
-  trace_id: string;
-  timestamp: string;
-  details: string;
-}
-
-export interface JARGapsResponse {
-  line_gaps: JARGapEntry[];
-  thread_gaps: JARGapEntry[];
-  queue_health: QueueHealthSummary[];
-  source: "jar_parsed" | "computed";
-}
-
-export interface JARAggregateRow {
-  operation_type: string;
-  ok: number;
-  fail: number;
-  total: number;
-  min_time: number;
-  max_time: number;
-  avg_time: number;
-  sum_time: number;
-  min_line: number;
-  max_line: number;
-}
-
-export interface JARAggregateGroup {
-  entity_name: string;
-  rows: JARAggregateRow[];
-  subtotal?: JARAggregateRow;
-}
-
-export interface JARAggregateTable {
-  grouped_by: string;
-  sorted_by: string;
-  groups: JARAggregateGroup[];
-  grand_total?: JARAggregateRow;
-}
-
-export interface JARAggregatesResponse {
-  api_by_form?: JARAggregateTable;
-  api_by_client?: JARAggregateTable;
-  api_by_client_ip?: JARAggregateTable;
-  sql_by_table?: JARAggregateTable;
-  esc_by_form?: JARAggregateTable;
-  esc_by_pool?: JARAggregateTable;
-  source: "jar_parsed" | "computed";
-}
-
-export interface JARThreadStat {
-  queue: string;
-  thread_id: string;
-  first_time: string;
-  last_time: string;
-  count: number;
-  q_count: number;
-  q_time: number;
-  total_time: number;
-  busy_pct: number;
-}
-
-export interface JARThreadStatsResponse {
-  api_threads: JARThreadStat[];
-  sql_threads: JARThreadStat[];
-  source: "jar_parsed" | "computed";
-}
-
-export interface JARAPIError {
-  end_line: number;
-  trace_id: string;
-  queue: string;
-  api_type: string;
-  form: string;
-  user: string;
-  start_time: string;
-  error_message: string;
-}
-
-export interface JARExceptionEntry {
-  line_number: number;
-  trace_id: string;
-  exception_type: string;
-  message: string;
-  sql_statement: string;
-}
-
-export interface JARExceptionsResponse {
-  api_errors: JARAPIError[];
-  api_exceptions: JARExceptionEntry[];
-  sql_exceptions: JARExceptionEntry[];
-  source: "jar_parsed" | "computed";
-}
-
-export interface JARFilterMostExecuted {
-  filter_name: string;
-  pass_count: number;
-  fail_count: number;
-}
-
-export interface JARFilterPerTransaction {
-  line_number: number;
-  trace_id: string;
-  filter_count: number;
-  operation: string;
-  form: string;
-  request_id: string;
-  filters_per_sec: number;
-}
-
-export interface JARFilterExecutedPerTxn {
-  line_number: number;
-  trace_id: string;
-  filter_name: string;
-  pass_count: number;
-  fail_count: number;
-}
-
-export interface JARFilterLevel {
-  line_number: number;
-  trace_id: string;
-  filter_level: number;
-  operation: string;
-  form: string;
-  request_id: string;
-}
-
-export interface JARFilterComplexityResponse {
-  longest_running: TopNEntry[];
-  most_executed: JARFilterMostExecuted[];
-  per_transaction: JARFilterPerTransaction[];
-  executed_per_txn: JARFilterExecutedPerTxn[];
-  filter_levels: JARFilterLevel[];
-  source: "jar_parsed" | "computed";
-}
-
-export interface JARAPIAbbreviation {
-  abbreviation: string;
-  full_name: string;
-}
-
-// --- Health Score ---
-
-export interface HealthScoreFactor {
-  name: string;
-  score: number;
-  max_score: number;
-  weight: number;
-  description: string;
-  severity: string;
-}
-
-export interface HealthScore {
-  score: number;
-  status: string;
-  factors: HealthScoreFactor[];
-}
-
-export interface Pagination {
-  page: number;
-  page_size: number;
-  total_count: number;
-  total_pages: number;
-}
-
-export interface SpanNode {
-  id: string;
-  parent_id?: string;
-  depth: number;
-  log_type: "API" | "SQL" | "FLTR" | "ESCL";
-  start_offset_ms: number;
-  duration_ms: number;
-  fields: Record<string, unknown>;
-  children: SpanNode[];
-  on_critical_path: boolean;
-  has_error: boolean;
-  timestamp: string;
-  thread_id: string;
-  trace_id: string;
-  rpc_id?: string;
-  user?: string;
-  queue?: string;
-  form?: string;
-  operation?: string;
-  line_number: number;
-  file_number: number;
-  success: boolean;
-  error_message?: string;
-}
-
-export interface WaterfallResponse {
-  trace_id: string;
-  correlation_type: string;
-  total_duration_ms: number;
-  span_count: number;
-  error_count: number;
-  primary_user: string;
-  primary_queue: string;
-  type_breakdown: Record<string, number>;
-  trace_start: string;
-  trace_end: string;
-  spans: SpanNode[];
-  flat_spans: SpanNode[];
-  critical_path: string[];
-  took_ms: number;
-}
-
-export interface TransactionSummary {
-  trace_id: string;
-  correlation_type: string;
-  primary_user: string;
-  primary_form: string;
-  primary_operation: string;
-  total_duration_ms: number;
-  span_count: number;
-  error_count: number;
-  first_timestamp: string;
-  last_timestamp: string;
-  primary_queue?: string;
-}
-
-export interface TransactionSearchResponse {
-  transactions: TransactionSummary[];
-  total: number;
-  took_ms: number;
-}
-
-export interface TransactionSearchParams {
-  user?: string;
-  thread_id?: string;
-  trace_id?: string;
-  rpc_id?: string;
-  has_errors?: boolean;
-  min_duration_ms?: number;
-  limit?: number;
-  offset?: number;
-}
-
-// --- API Error ---
-
+/** Typed API error with HTTP status, backend error code, and message. */
 export class ApiError extends Error {
   constructor(
-    public status: number,
-    public code: string,
+    public readonly status: number,
+    public readonly code: string,
     message: string,
   ) {
     super(message);
     this.name = "ApiError";
+    // Restore prototype chain (required when extending built-ins in ES5 targets)
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
-// --- Shared headers helper ---
+// ---------------------------------------------------------------------------
+// Auth headers
+// ---------------------------------------------------------------------------
 
-export function getApiHeaders(additionalHeaders?: Record<string, string>): Record<string, string> {
-  const headers: Record<string, string> = { ...additionalHeaders };
-
-  // In development, use dev bypass headers
-  if (process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_DEV_MODE !== "false") {
-    headers["X-Dev-User-ID"] = "00000000-0000-0000-0000-000000000001";
-    headers["X-Dev-Tenant-ID"] = "00000000-0000-0000-0000-000000000001";
+/**
+ * Returns auth headers appropriate for the current environment.
+ *
+ * - Dev mode: X-Dev-User-Id + X-Dev-Tenant-Id (no token required)
+ * - Production: empty object (caller must provide Bearer token)
+ */
+export function getAuthHeaders(): Record<string, string> {
+  if (IS_DEV_MODE) {
+    return {
+      "X-Dev-User-Id": DEV_USER_ID,
+      "X-Dev-Tenant-Id": DEV_TENANT_ID,
+    };
   }
-
-  return headers;
+  return {};
 }
 
-// --- Base fetch helper ---
+/** Builds Authorization header when a token is provided. */
+function bearerHeader(token?: string): Record<string, string> {
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+  return {};
+}
 
-async function apiFetch<T>(
+// ---------------------------------------------------------------------------
+// Base fetch wrapper
+// ---------------------------------------------------------------------------
+
+/**
+ * Performs an authenticated fetch request against the API.
+ *
+ * @param path    - Path relative to `API_BASE` (must begin with `/`).
+ * @param options - Standard `RequestInit` options (method, body, headers, etc.).
+ * @param token   - Optional Clerk Bearer token; used in production.
+ * @returns       Parsed JSON response of type `T`.
+ * @throws        `ApiError` on non-2xx responses.
+ */
+export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
   token?: string,
 ): Promise<T> {
+  const url = `${API_BASE}${path}`;
+
   const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string>),
+    "Content-Type": "application/json",
+    ...getAuthHeaders(),
+    ...bearerHeader(token),
+    ...(options.headers as Record<string, string> | undefined),
   };
 
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  } else {
-    // Apply dev headers if no token
-    Object.assign(headers, getApiHeaders());
-  }
-
-  const res = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(url, {
     ...options,
     headers,
   });
 
-  if (!res.ok) {
-    // Check content-type before parsing JSON
-    const contentType = res.headers.get("content-type");
-    let body: { code?: string; message?: string } = { code: "unknown", message: res.statusText };
-
-    if (contentType && contentType.includes("application/json")) {
-      try {
-        body = await res.json();
-      } catch {
-        // Fall back to default error
-      }
+  if (!response.ok) {
+    let code = "UNKNOWN_ERROR";
+    let message = response.statusText;
+    try {
+      const body = (await response.json()) as {
+        code?: string;
+        error?: string;
+        message?: string;
+      };
+      code = body.code ?? code;
+      message = body.error ?? body.message ?? message;
+    } catch {
+      // Body was not JSON — keep statusText
     }
-
-    throw new ApiError(res.status, body.code || "unknown", body.message || res.statusText);
+    throw new ApiError(response.status, code, message);
   }
 
-  return res.json();
+  // 204 No Content — return empty object cast to T
+  if (response.status === 204) {
+    return {} as T;
+  }
+
+  return response.json() as Promise<T>;
 }
 
-// --- API functions ---
+// ---------------------------------------------------------------------------
+// Query-string helper
+// ---------------------------------------------------------------------------
 
-export async function uploadFile(
+function toQueryString(params: Record<string, unknown>): string {
+  const entries = Object.entries(params).filter(
+    ([, v]) => v !== undefined && v !== null && v !== "",
+  );
+  if (entries.length === 0) return "";
+  const qs = entries
+    .map(
+      ([k, v]) =>
+        `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`,
+    )
+    .join("&");
+  return `?${qs}`;
+}
+
+// ---------------------------------------------------------------------------
+// Health
+// ---------------------------------------------------------------------------
+
+/** GET /health */
+export async function checkHealth(token?: string): Promise<HealthResponse> {
+  return apiFetch<HealthResponse>("/health", {}, token);
+}
+
+// ---------------------------------------------------------------------------
+// Files
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /files/upload — uploads a log file with optional progress tracking.
+ *
+ * Uses XMLHttpRequest so that upload progress events are available.
+ *
+ * @param file         - File selected by the user.
+ * @param onProgress   - Callback receiving upload percentage (0–100).
+ * @param token        - Optional Bearer token.
+ */
+export function uploadFile(
   file: File,
-  token?: string,
   onProgress?: (pct: number) => void,
-): Promise<LogFile> {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  // Use XMLHttpRequest for upload progress tracking (fetch API doesn't support it)
-  return new Promise<LogFile>((resolve, reject) => {
+  token?: string,
+): Promise<{ file: LogFile }> {
+  return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${API_BASE}/files/upload`);
+    const url = `${API_BASE}/files/upload`;
 
-    // Apply auth headers
-    if (token) {
-      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-    } else {
-      const headers = getApiHeaders();
-      Object.entries(headers).forEach(([key, value]) => {
-        xhr.setRequestHeader(key, value);
+    xhr.open("POST", url);
+
+    // Auth headers
+    const authHeaders: Record<string, string> = {
+      ...getAuthHeaders(),
+      ...bearerHeader(token),
+    };
+    Object.entries(authHeaders).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+
+    if (onProgress) {
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
       });
     }
 
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable && onProgress) {
-        const pct = Math.round((event.loaded / event.total) * 100);
-        onProgress(pct);
-      }
-    };
-
-    xhr.onload = () => {
+    xhr.addEventListener("load", () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
-          resolve(JSON.parse(xhr.responseText));
+          const parsed = JSON.parse(xhr.responseText);
+          // Backend returns flat LogFile JSON — wrap to match expected shape
+          resolve(parsed.file ? (parsed as { file: LogFile }) : { file: parsed as LogFile });
         } catch {
-          reject(new ApiError(xhr.status, "parse_error", "Failed to parse response"));
+          reject(new ApiError(xhr.status, "PARSE_ERROR", "Failed to parse upload response"));
         }
       } else {
-        let body: { code?: string; message?: string } = { code: "unknown", message: xhr.statusText };
+        let code = "UPLOAD_ERROR";
+        let message = xhr.statusText;
         try {
-          body = JSON.parse(xhr.responseText);
+          const body = JSON.parse(xhr.responseText) as {
+            code?: string;
+            error?: string;
+            message?: string;
+          };
+          code = body.code ?? code;
+          message = body.error ?? body.message ?? message;
         } catch {
-          // use default
+          // keep defaults
         }
-        reject(new ApiError(xhr.status, body.code || "unknown", body.message || xhr.statusText));
+        reject(new ApiError(xhr.status, code, message));
       }
-    };
+    });
 
-    xhr.onerror = () => {
-      reject(new ApiError(0, "network_error", "Network error during upload"));
-    };
+    xhr.addEventListener("error", () =>
+      reject(new ApiError(0, "NETWORK_ERROR", "Network error during file upload")),
+    );
+    xhr.addEventListener("abort", () =>
+      reject(new ApiError(0, "ABORTED", "File upload was aborted")),
+    );
 
-    xhr.onabort = () => {
-      reject(new ApiError(0, "aborted", "Upload was cancelled"));
-    };
-
-    xhr.send(formData);
+    const form = new FormData();
+    form.append("file", file);
+    xhr.send(form);
   });
 }
 
+/** GET /files */
 export async function listFiles(
   page = 1,
   pageSize = 20,
   token?: string,
-): Promise<{ files: LogFile[]; pagination: Pagination }> {
-  return apiFetch(`/files?page=${page}&page_size=${pageSize}`, {}, token);
+): Promise<ListFilesResponse> {
+  const qs = toQueryString({ page, page_size: pageSize });
+  return apiFetch<ListFilesResponse>(`/files${qs}`, {}, token);
 }
 
+// ---------------------------------------------------------------------------
+// Analysis jobs
+// ---------------------------------------------------------------------------
+
+/** POST /analysis */
 export async function createAnalysis(
   fileId: string,
-  flags?: JARFlags,
+  flags?: Record<string, string>,
   token?: string,
 ): Promise<AnalysisJob> {
-  return apiFetch<AnalysisJob>("/analysis", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ file_id: fileId, jar_flags: flags }),
-  }, token);
+  const body: CreateAnalysisRequest = { file_id: fileId, flags };
+  return apiFetch<AnalysisJob>(
+    "/analysis",
+    { method: "POST", body: JSON.stringify(body) },
+    token,
+  );
 }
 
+/** GET /analysis */
 export async function listAnalyses(
+  page = 1,
+  pageSize = 20,
   token?: string,
-): Promise<{ jobs: AnalysisJob[]; pagination: Pagination }> {
-  return apiFetch("/analysis", {}, token);
+): Promise<ListAnalysesResponse> {
+  const qs = toQueryString({ page, page_size: pageSize });
+  return apiFetch<ListAnalysesResponse>(`/analysis${qs}`, {}, token);
 }
 
+/** GET /analysis/{job_id} */
 export async function getAnalysis(
   jobId: string,
   token?: string,
 ): Promise<AnalysisJob> {
-  const id = encodeURIComponent(jobId);
-  return apiFetch<AnalysisJob>(`/analysis/${id}`, {}, token);
+  return apiFetch<AnalysisJob>(`/analysis/${encodeURIComponent(jobId)}`, {}, token);
 }
 
+// ---------------------------------------------------------------------------
+// Dashboard
+// ---------------------------------------------------------------------------
+
+/** GET /analysis/{job_id}/dashboard */
 export async function getDashboard(
   jobId: string,
   token?: string,
 ): Promise<DashboardData> {
-  const id = encodeURIComponent(jobId);
-  return apiFetch<DashboardData>(`/analysis/${id}/dashboard`, {}, token);
+  return apiFetch<DashboardData>(
+    `/analysis/${encodeURIComponent(jobId)}/dashboard`,
+    {},
+    token,
+  );
 }
 
+/** GET /analysis/{job_id}/dashboard/aggregates */
 export async function getDashboardAggregates(
   jobId: string,
   type?: string,
   token?: string,
-): Promise<AggregatesResponse | JARAggregatesResponse> {
-  const params = type ? `?${new URLSearchParams({ type }).toString()}` : "";
-  const id = encodeURIComponent(jobId);
-  return apiFetch<AggregatesResponse | JARAggregatesResponse>(`/analysis/${id}/dashboard/aggregates${params}`, {}, token);
+): Promise<AggregatesResponse> {
+  const qs = type ? toQueryString({ type }) : "";
+  return apiFetch<AggregatesResponse>(
+    `/analysis/${encodeURIComponent(jobId)}/dashboard/aggregates${qs}`,
+    {},
+    token,
+  );
 }
 
+/** GET /analysis/{job_id}/dashboard/exceptions */
 export async function getDashboardExceptions(
   jobId: string,
   token?: string,
-): Promise<ExceptionsResponse | JARExceptionsResponse> {
-  const id = encodeURIComponent(jobId);
-  return apiFetch<ExceptionsResponse | JARExceptionsResponse>(`/analysis/${id}/dashboard/exceptions`, {}, token);
+): Promise<ExceptionsResponse> {
+  return apiFetch<ExceptionsResponse>(
+    `/analysis/${encodeURIComponent(jobId)}/dashboard/exceptions`,
+    {},
+    token,
+  );
 }
 
+/** GET /analysis/{job_id}/dashboard/gaps */
 export async function getDashboardGaps(
   jobId: string,
   token?: string,
-): Promise<GapsResponse | JARGapsResponse> {
-  const id = encodeURIComponent(jobId);
-  return apiFetch<GapsResponse | JARGapsResponse>(`/analysis/${id}/dashboard/gaps`, {}, token);
+): Promise<GapsResponse> {
+  return apiFetch<GapsResponse>(
+    `/analysis/${encodeURIComponent(jobId)}/dashboard/gaps`,
+    {},
+    token,
+  );
 }
 
+/** GET /analysis/{job_id}/dashboard/threads */
 export async function getDashboardThreads(
   jobId: string,
   token?: string,
-): Promise<ThreadStatsResponse | JARThreadStatsResponse> {
-  const id = encodeURIComponent(jobId);
-  return apiFetch<ThreadStatsResponse | JARThreadStatsResponse>(`/analysis/${id}/dashboard/threads`, {}, token);
+): Promise<ThreadStatsResponse> {
+  return apiFetch<ThreadStatsResponse>(
+    `/analysis/${encodeURIComponent(jobId)}/dashboard/threads`,
+    {},
+    token,
+  );
 }
 
+/** GET /analysis/{job_id}/dashboard/filters */
 export async function getDashboardFilters(
   jobId: string,
   token?: string,
-): Promise<FilterComplexityResponse | JARFilterComplexityResponse> {
-  const id = encodeURIComponent(jobId);
-  return apiFetch<FilterComplexityResponse | JARFilterComplexityResponse>(`/analysis/${id}/dashboard/filters`, {}, token);
+): Promise<FilterComplexityResponse> {
+  return apiFetch<FilterComplexityResponse>(
+    `/analysis/${encodeURIComponent(jobId)}/dashboard/filters`,
+    {},
+    token,
+  );
 }
 
-export interface ReportResponse {
-  job_id: string;
-  format: string;
-  content: string;
-  generated_at: string;
-  skill_used: string;
-}
+// ---------------------------------------------------------------------------
+// Reports
+// ---------------------------------------------------------------------------
 
+/** POST /analysis/{job_id}/report */
 export async function generateReport(
   jobId: string,
-  format: string = "html",
+  format: ReportFormat = "html",
   token?: string,
 ): Promise<ReportResponse> {
-  const id = encodeURIComponent(jobId);
-  return apiFetch<ReportResponse>(`/analysis/${id}/report`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ format }),
-  }, token);
+  return apiFetch<ReportResponse>(
+    `/analysis/${encodeURIComponent(jobId)}/report`,
+    { method: "POST", body: JSON.stringify({ format }) },
+    token,
+  );
 }
 
+// ---------------------------------------------------------------------------
+// Log search
+// ---------------------------------------------------------------------------
+
+/** GET /analysis/{job_id}/search */
+export async function searchLogs(
+  jobId: string,
+  params: SearchLogsParams,
+  token?: string,
+): Promise<SearchLogsResponse> {
+  const qs = toQueryString(params as Record<string, unknown>);
+  // Backend returns { results: [{id, score, fields: {...}}], total, page, page_size, total_pages }
+  // Transform to the frontend-expected shape { entries: LogEntry[], total, pagination }
+  const raw = await apiFetch<{
+    results?: Array<{ id: string; score: number; fields: Record<string, unknown> }>;
+    total?: number;
+    page?: number;
+    page_size?: number;
+    total_pages?: number;
+  }>(
+    `/analysis/${encodeURIComponent(jobId)}/search${qs}`,
+    {},
+    token,
+  );
+
+  const entries: import("./api-types").LogEntry[] = (raw.results ?? [])
+    .filter((r): r is typeof r & { fields: Record<string, unknown> } => r != null && r.fields != null)
+    .map((r) => ({
+      tenant_id: "",
+      job_id: jobId,
+      entry_id: (r.fields.entry_id as string) ?? r.id,
+      line_number: (r.fields.line_number as number) ?? 0,
+      timestamp: (r.fields.timestamp as string) ?? "",
+      log_type: (r.fields.log_type as import("./api-types").LogType) ?? "API",
+      trace_id: (r.fields.trace_id as string) ?? "",
+      rpc_id: (r.fields.rpc_id as string) ?? "",
+      thread_id: (r.fields.thread_id as string) ?? "",
+      queue: (r.fields.queue as string) ?? "",
+      user: (r.fields.user as string) ?? "",
+      duration_ms: (r.fields.duration_ms as number) ?? null,
+      success: (r.fields.success as boolean) ?? null,
+      form: (r.fields.form as string) ?? null,
+      sql_table: (r.fields.sql_table as string) ?? null,
+      filter_name: (r.fields.filter_name as string) ?? null,
+      esc_name: (r.fields.esc_name as string) ?? null,
+      raw_text: (r.fields.raw_text as string) ?? "",
+      error_message: (r.fields.error_message as string) ?? null,
+    }));
+
+  return {
+    entries,
+    total: raw.total ?? entries.length,
+    pagination: {
+      page: raw.page ?? 1,
+      page_size: raw.page_size ?? entries.length,
+      total_pages: raw.total_pages ?? 1,
+      total: raw.total ?? entries.length,
+    },
+  };
+}
+
+/**
+ * GET /analysis/{job_id}/search/export — returns raw Blob (CSV or JSON).
+ *
+ * @param format - "csv" | "json"
+ */
+export async function exportSearchResults(
+  jobId: string,
+  params: SearchLogsParams,
+  format: "csv" | "json" = "csv",
+  token?: string,
+): Promise<Blob> {
+  const qs = toQueryString({ ...params, format } as Record<string, unknown>);
+  const url = `${API_BASE}/analysis/${encodeURIComponent(jobId)}/search/export${qs}`;
+
+  const headers: Record<string, string> = {
+    ...getAuthHeaders(),
+    ...bearerHeader(token),
+  };
+
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    throw new ApiError(response.status, "EXPORT_ERROR", response.statusText);
+  }
+  return response.blob();
+}
+
+// ---------------------------------------------------------------------------
+// Log entries
+// ---------------------------------------------------------------------------
+
+/** GET /analysis/{job_id}/entries/{entry_id} */
+export async function getLogEntry(
+  jobId: string,
+  entryId: string,
+  token?: string,
+): Promise<LogEntry> {
+  return apiFetch<LogEntry>(
+    `/analysis/${encodeURIComponent(jobId)}/entries/${encodeURIComponent(entryId)}`,
+    {},
+    token,
+  );
+}
+
+/** GET /analysis/{job_id}/entries/{entry_id}/context */
+export async function getEntryContext(
+  jobId: string,
+  entryId: string,
+  token?: string,
+): Promise<LogEntryContext> {
+  return apiFetch<LogEntryContext>(
+    `/analysis/${encodeURIComponent(jobId)}/entries/${encodeURIComponent(entryId)}/context`,
+    {},
+    token,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Trace / waterfall
+// ---------------------------------------------------------------------------
+
+/** GET /analysis/{job_id}/trace/{trace_id} */
+export async function getTrace(
+  jobId: string,
+  traceId: string,
+  token?: string,
+): Promise<WaterfallResponse> {
+  return apiFetch<WaterfallResponse>(
+    `/analysis/${encodeURIComponent(jobId)}/trace/${encodeURIComponent(traceId)}`,
+    {},
+    token,
+  );
+}
+
+/** GET /analysis/{job_id}/trace/{trace_id}/waterfall */
 export async function getWaterfall(
   jobId: string,
   traceId: string,
   token?: string,
 ): Promise<WaterfallResponse> {
-  const jid = encodeURIComponent(jobId);
-  const tid = encodeURIComponent(traceId);
-  return apiFetch<WaterfallResponse>(`/analysis/${jid}/trace/${tid}/waterfall`, {}, token);
+  // Backend returns type_breakdown as Record<string, number> (e.g. {"API": 4, "SQL": 161})
+  // and spans have `has_error` (boolean) instead of `has_errors`.
+  // Transform to match the frontend WaterfallResponse type.
+  interface BackendTypeBreakdown {
+    API?: number;
+    SQL?: number;
+    FLTR?: number;
+    ESCL?: number;
+    // also accept frontend field names
+    api_count?: number;
+    sql_count?: number;
+    filter_count?: number;
+    esc_count?: number;
+  }
+
+  const raw = await apiFetch<
+    Omit<WaterfallResponse, "type_breakdown"> & {
+      type_breakdown: BackendTypeBreakdown;
+    }
+  >(
+    `/analysis/${encodeURIComponent(jobId)}/trace/${encodeURIComponent(traceId)}/waterfall`,
+    {},
+    token,
+  );
+
+  // Normalize type_breakdown
+  const tb = raw.type_breakdown ?? {};
+  const typeBreakdown: TypeBreakdown = {
+    api_count: tb.api_count ?? tb.API ?? 0,
+    sql_count: tb.sql_count ?? tb.SQL ?? 0,
+    filter_count: tb.filter_count ?? tb.FLTR ?? 0,
+    esc_count: tb.esc_count ?? tb.ESCL ?? 0,
+  };
+
+  // Normalize spans: ensure has_error -> has_error (already correct), add defaults
+  function normalizeSpan(s: SpanNode & { has_error?: boolean }): SpanNode {
+    return {
+      ...s,
+      has_error: s.has_error ?? false,
+      operation: s.operation ?? (s.fields?.api_code as string) ?? "",
+      error_message: s.error_message ?? null,
+      form: s.form ?? null,
+      children: (s.children ?? []).map(normalizeSpan),
+    };
+  }
+
+  return {
+    ...raw,
+    type_breakdown: typeBreakdown,
+    spans: (raw.spans ?? []).map(normalizeSpan),
+    flat_spans: (raw.flat_spans ?? []).map(normalizeSpan),
+    critical_path: raw.critical_path ?? [],
+  };
 }
 
+/**
+ * GET /analysis/{job_id}/trace/{trace_id}/export — returns raw Blob.
+ *
+ * @param format - "csv" | "json" | "har"
+ */
+export async function exportTrace(
+  jobId: string,
+  traceId: string,
+  format: "csv" | "json" | "har" = "json",
+  token?: string,
+): Promise<Blob> {
+  const qs = toQueryString({ format });
+  const url = `${API_BASE}/analysis/${encodeURIComponent(jobId)}/trace/${encodeURIComponent(traceId)}/export${qs}`;
+
+  const headers: Record<string, string> = {
+    ...getAuthHeaders(),
+    ...bearerHeader(token),
+  };
+
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    throw new ApiError(response.status, "EXPORT_ERROR", response.statusText);
+  }
+  return response.blob();
+}
+
+// ---------------------------------------------------------------------------
+// Transactions
+// ---------------------------------------------------------------------------
+
+/** GET /analysis/{job_id}/transactions */
 export async function searchTransactions(
   jobId: string,
   params: TransactionSearchParams,
   token?: string,
 ): Promise<TransactionSearchResponse> {
-  const id = encodeURIComponent(jobId);
-  const searchParams = new URLSearchParams();
-  if (params.user) searchParams.set("user", params.user);
-  if (params.thread_id) searchParams.set("thread_id", params.thread_id);
-  if (params.trace_id) searchParams.set("trace_id", params.trace_id);
-  if (params.rpc_id) searchParams.set("rpc_id", params.rpc_id);
-  if (params.has_errors !== undefined) searchParams.set("has_errors", String(params.has_errors));
-  if (params.min_duration_ms) searchParams.set("min_duration_ms", String(params.min_duration_ms));
-  if (params.limit) searchParams.set("limit", String(params.limit));
-  if (params.offset) searchParams.set("offset", String(params.offset));
-  
-  const query = searchParams.toString();
-  return apiFetch<TransactionSearchResponse>(`/analysis/${id}/transactions${query ? `?${query}` : ""}`, {}, token);
+  const qs = toQueryString(params as Record<string, unknown>);
+  // Backend returns a different shape than the frontend types expect.
+  // Transform the response to match TransactionSummary.
+  interface BackendTxn {
+    trace_id: string;
+    correlation_type?: string;
+    primary_user?: string;
+    primary_form?: string;
+    primary_operation?: string;
+    primary_queue?: string;
+    total_duration_ms?: number;
+    span_count?: number;
+    error_count?: number;
+    first_timestamp?: string;
+    last_timestamp?: string;
+    // Also accept frontend field names if they happen to match
+    user?: string;
+    queue?: string;
+    form?: string;
+    duration_ms?: number;
+    start_time?: string;
+    end_time?: string;
+    rpc_id?: string;
+    thread_id?: string;
+    has_errors?: boolean;
+    log_types?: LogType[];
+  }
+
+  const raw = await apiFetch<{
+    transactions?: BackendTxn[];
+    total?: number;
+    took_ms?: number;
+    pagination?: Pagination;
+  }>(
+    `/analysis/${encodeURIComponent(jobId)}/transactions${qs}`,
+    {},
+    token,
+  );
+
+  const transactions: TransactionSummary[] = (raw.transactions ?? []).map(
+    (t) => ({
+      trace_id: t.trace_id,
+      rpc_id: t.rpc_id ?? "",
+      thread_id: t.thread_id ?? "",
+      queue: t.primary_queue ?? t.queue ?? "",
+      user: t.primary_user ?? t.user ?? "",
+      start_time: t.first_timestamp ?? t.start_time ?? "",
+      end_time: t.last_timestamp ?? t.end_time ?? "",
+      duration_ms: t.total_duration_ms ?? t.duration_ms ?? 0,
+      span_count: t.span_count ?? 0,
+      error_count: t.error_count ?? 0,
+      has_errors: (t.error_count ?? 0) > 0,
+      log_types: t.log_types ?? [],
+      form: t.primary_form ?? t.form ?? null,
+    }),
+  );
+
+  return {
+    transactions,
+    total: raw.total ?? transactions.length,
+    pagination: raw.pagination ?? {
+      page: 1,
+      page_size: transactions.length,
+      total: raw.total ?? transactions.length,
+      total_pages: 1,
+    },
+  };
 }
 
-export async function getRecentTraces(
-  userId: string,
-  token?: string,
-): Promise<TransactionSummary[]> {
-  return apiFetch<TransactionSummary[]>(`/trace/recent?user_id=${encodeURIComponent(userId)}`, {}, token);
-}
+// ---------------------------------------------------------------------------
+// AI — trace analysis
+// ---------------------------------------------------------------------------
 
-export async function exportTrace(
+/** POST /analysis/{job_id}/trace/ai-analyze */
+export async function analyzeTraceAI(
   jobId: string,
   traceId: string,
-  format: "json" | "csv" = "json",
+  question: string,
   token?: string,
-): Promise<Blob> {
-  const jid = encodeURIComponent(jobId);
-  const tid = encodeURIComponent(traceId);
-  const headers: Record<string, string> = {};
-  
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  } else {
-    Object.assign(headers, getApiHeaders());
+): Promise<TraceAIAnalyzeResponse> {
+  return apiFetch<TraceAIAnalyzeResponse>(
+    `/analysis/${encodeURIComponent(jobId)}/trace/ai-analyze`,
+    {
+      method: "POST",
+      body: JSON.stringify({ trace_id: traceId, question }),
+    },
+    token,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AI — non-streaming query
+// ---------------------------------------------------------------------------
+
+/** POST /analysis/{job_id}/ai */
+export async function queryAI(
+  jobId: string,
+  question: string,
+  skill?: string,
+  token?: string,
+): Promise<AIQueryResponse> {
+  return apiFetch<AIQueryResponse>(
+    `/analysis/${encodeURIComponent(jobId)}/ai`,
+    {
+      method: "POST",
+      body: JSON.stringify({ job_id: jobId, question, skill }),
+    },
+    token,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Recent traces
+// ---------------------------------------------------------------------------
+
+/** GET /trace/recent */
+export async function getRecentTraces(
+  userId?: string,
+  token?: string,
+): Promise<RecentTracesResponse> {
+  const qs = userId ? toQueryString({ user_id: userId }) : "";
+  return apiFetch<RecentTracesResponse>(`/trace/recent${qs}`, {}, token);
+}
+
+// ---------------------------------------------------------------------------
+// Autocomplete
+// ---------------------------------------------------------------------------
+
+/** GET /search/autocomplete */
+export async function getAutocomplete(
+  field: string,
+  prefix: string,
+  jobId?: string,
+  token?: string,
+): Promise<AutocompleteResponse> {
+  const qs = toQueryString({
+    field,
+    prefix,
+    ...(jobId ? { job_id: jobId } : {}),
+  });
+  return apiFetch<AutocompleteResponse>(`/search/autocomplete${qs}`, {}, token);
+}
+
+// ---------------------------------------------------------------------------
+// Saved searches
+// ---------------------------------------------------------------------------
+
+/** GET /search/saved */
+export async function listSavedSearches(
+  token?: string,
+): Promise<ListSavedSearchesResponse> {
+  return apiFetch<ListSavedSearchesResponse>("/search/saved", {}, token);
+}
+
+/** POST /search/saved */
+export async function createSavedSearch(
+  name: string,
+  query: string,
+  filters?: Record<string, string>,
+  token?: string,
+): Promise<SavedSearch> {
+  const body: CreateSavedSearchRequest = {
+    name,
+    kql_query: query,
+    filters,
+  };
+  return apiFetch<SavedSearch>(
+    "/search/saved",
+    { method: "POST", body: JSON.stringify(body) },
+    token,
+  );
+}
+
+/** DELETE /search/saved/{search_id} */
+export async function deleteSavedSearch(
+  searchId: string,
+  token?: string,
+): Promise<void> {
+  await apiFetch<void>(
+    `/search/saved/${encodeURIComponent(searchId)}`,
+    { method: "DELETE" },
+    token,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Search history
+// ---------------------------------------------------------------------------
+
+/** GET /search/history */
+export async function getSearchHistory(
+  token?: string,
+): Promise<SearchHistoryResponse> {
+  return apiFetch<SearchHistoryResponse>("/search/history", {}, token);
+}
+
+// ---------------------------------------------------------------------------
+// AI — streaming (SSE via POST /ai/stream)
+// ---------------------------------------------------------------------------
+
+/**
+ * Initiates a streaming AI response via SSE.
+ *
+ * Returns an `AsyncGenerator<AIStreamEvent>` that yields parsed SSE events
+ * until the stream closes or an error occurs.
+ *
+ * @example
+ * ```ts
+ * const gen = streamAI(jobId, conversationId, "Why are these queries slow?");
+ * for await (const event of gen) {
+ *   if (event.type === "token") appendText(event.content ?? "");
+ * }
+ * ```
+ */
+export async function* streamAI(
+  jobId: string,
+  conversationId: string,
+  message: string,
+  skill?: string,
+  token?: string,
+): AsyncGenerator<import("./api-types").AIStreamEvent, void, unknown> {
+  const url = `${API_BASE}/ai/stream`;
+
+  const body: AIStreamRequest = {
+    job_id: jobId,
+    conversation_id: conversationId,
+    query: message,
+    skill,
+  };
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "text/event-stream",
+    ...getAuthHeaders(),
+    ...bearerHeader(token),
+  };
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    let code = "STREAM_ERROR";
+    let errMsg = response.statusText;
+    try {
+      const b = (await response.json()) as { code?: string; error?: string; message?: string };
+      code = b.code ?? code;
+      errMsg = b.error ?? b.message ?? errMsg;
+    } catch {
+      // non-JSON error body
+    }
+    throw new ApiError(response.status, code, errMsg);
   }
-  
-  const res = await fetch(`${API_BASE}/analysis/${jid}/trace/${tid}/export?format=${format}`, { headers });
-  if (!res.ok) {
-    throw new ApiError(res.status, "export_error", "Failed to export trace");
+
+  if (!response.body) {
+    throw new ApiError(0, "NO_BODY", "SSE response had no body");
   }
-  return res.blob();
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // SSE messages are separated by double newlines
+      const parts = buffer.split("\n\n");
+      // The last element may be an incomplete message; keep it in the buffer
+      buffer = parts.pop() ?? "";
+
+      for (const part of parts) {
+        const lines = part.split("\n");
+        let eventType = "";
+        let dataLine = "";
+
+        for (const line of lines) {
+          if (line.startsWith("event:")) {
+            eventType = line.slice(6).trim();
+          } else if (line.startsWith("data:")) {
+            dataLine = line.slice(5).trim();
+          }
+        }
+
+        if (!dataLine || dataLine === "[DONE]") {
+          if (dataLine === "[DONE]") return;
+          continue;
+        }
+
+        try {
+          const raw = JSON.parse(dataLine) as Record<string, unknown>;
+
+          // Map backend SSE event format to AIStreamEvent
+          const mapped: import("./api-types").AIStreamEvent = (() => {
+            switch (eventType) {
+              case "token":
+                return { type: "token" as const, content: (raw.text as string) ?? "" };
+              case "done":
+                return { type: "done" as const, follow_ups: raw.follow_ups as string[] | undefined };
+              case "error":
+                return { type: "error" as const, error: (raw.message as string) ?? (raw.error as string) ?? "Unknown error" };
+              case "start":
+                return { type: "start" as const, conversation_id: raw.conversation_id as string, message_id: raw.message_id as string };
+              case "skill":
+                return { type: "skill" as const, skill_name: raw.skill_name as string };
+              case "metadata":
+                return { type: "metadata" as const, tokens_used: raw.tokens_used as number, latency_ms: raw.latency_ms as number, skill_name: raw.skill_name as string };
+              case "follow_ups":
+                return { type: "follow_ups" as const, follow_ups: raw.follow_ups as string[] };
+              default:
+                // Fallback: try to use raw as-is (supports both old and new format)
+                return (raw.type ? raw : { type: eventType || "token", ...raw }) as unknown as import("./api-types").AIStreamEvent;
+            }
+          })();
+
+          yield mapped;
+        } catch {
+          // Malformed event — skip
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// AI skills
+// ---------------------------------------------------------------------------
+
+/** GET /ai/skills */
+export async function listAISkills(token?: string): Promise<AISkill[]> {
+  const resp = await apiFetch<ListSkillsResponse>("/ai/skills", {}, token);
+  return resp.skills;
+}
+
+// ---------------------------------------------------------------------------
+// AI conversations
+// ---------------------------------------------------------------------------
+
+/** GET /ai/conversations */
+export async function listConversations(
+  jobId?: string,
+  token?: string,
+): Promise<ListConversationsResponse> {
+  const qs = jobId ? toQueryString({ job_id: jobId }) : "";
+  return apiFetch<ListConversationsResponse>(`/ai/conversations${qs}`, {}, token);
+}
+
+/** POST /ai/conversations */
+export async function createConversation(
+  jobId?: string,
+  title?: string,
+  token?: string,
+): Promise<Conversation> {
+  const body: CreateConversationRequest = { job_id: jobId, title };
+  return apiFetch<Conversation>(
+    "/ai/conversations",
+    { method: "POST", body: JSON.stringify(body) },
+    token,
+  );
+}
+
+/** GET /ai/conversations/{id} */
+export async function getConversation(
+  conversationId: string,
+  token?: string,
+): Promise<Conversation> {
+  return apiFetch<Conversation>(
+    `/ai/conversations/${encodeURIComponent(conversationId)}`,
+    {},
+    token,
+  );
+}
+
+/** DELETE /ai/conversations/{id} */
+export async function deleteConversation(
+  conversationId: string,
+  token?: string,
+): Promise<void> {
+  await apiFetch<void>(
+    `/ai/conversations/${encodeURIComponent(conversationId)}`,
+    { method: "DELETE" },
+    token,
+  );
 }

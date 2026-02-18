@@ -1,174 +1,410 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+/**
+ * T066 — Tests for FiltersSection component (T062)
+ */
+
+import { describe, it, expect } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
 import { FiltersSection } from './filters-section'
-import type { FilterComplexityResponse } from '@/lib/api'
+import type {
+  FilterComplexityResponse,
+  MostExecutedFilter,
+  FilterPerTransaction,
+} from '@/lib/api-types'
 
-const mockData: FilterComplexityResponse = {
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+function makeMostExecuted(overrides: Partial<MostExecutedFilter> = {}): MostExecutedFilter {
+  return {
+    filter_name: 'SYS:ValidateFields',
+    execution_count: 150,
+    avg_duration_ms: 200,
+    max_duration_ms: 800,
+    total_duration_ms: 30_000,
+    error_count: 0,
+    form: 'HPD:Help Desk',
+    ...overrides,
+  }
+}
+
+function makePerTxn(overrides: Partial<FilterPerTransaction> = {}): FilterPerTransaction {
+  return {
+    trace_id: 'trace-001',
+    rpc_id: 'rpc-1',
+    timestamp: '2024-03-15T10:00:00Z',
+    filter_count: 5,
+    total_filter_duration_ms: 1200,
+    user: 'admin',
+    queue: 'AR System',
+    ...overrides,
+  }
+}
+
+function makeData(overrides: Partial<FilterComplexityResponse> = {}): FilterComplexityResponse {
+  return {
+    job_id: 'job-001',
+    most_executed: [],
+    filters_per_transaction: [],
+    avg_filters_per_transaction: 0,
+    max_filters_per_transaction: 0,
+    ...overrides,
+  }
+}
+
+const fullData: FilterComplexityResponse = {
+  job_id: 'job-001',
+  avg_filters_per_transaction: 7.4,
+  max_filters_per_transaction: 25,
   most_executed: [
-    { name: 'ValidateForm', count: 500, total_ms: 1250.5 },
-    { name: 'SetDefaults', count: 200, total_ms: 800.75 },
+    makeMostExecuted({
+      filter_name: 'SYS:ValidateFields',
+      execution_count: 500,
+      avg_duration_ms: 250,
+      max_duration_ms: 800,
+      error_count: 0,
+      form: 'HPD:Help Desk',
+    }),
+    makeMostExecuted({
+      filter_name: 'SYS:SetDefaults',
+      execution_count: 300,
+      avg_duration_ms: 120,
+      max_duration_ms: 1500,
+      error_count: 2,
+      form: null,
+    }),
+    makeMostExecuted({
+      filter_name: 'SYS:SlowFilter',
+      execution_count: 10,
+      avg_duration_ms: 3000,
+      max_duration_ms: 7000,
+      error_count: 0,
+      form: 'CHG:Change Request',
+    }),
   ],
-  per_transaction: [
-    {
-      transaction_id: 'TXN-001',
-      filter_name: 'ValidateForm',
-      execution_count: 150,
-      total_ms: 450.25,
-      avg_ms: 3.0,
-      max_ms: 25.5,
-    },
-    {
-      transaction_id: 'TXN-002',
-      filter_name: 'SetDefaults',
-      execution_count: 50,
-      total_ms: 200.0,
-      avg_ms: 4.0,
-      max_ms: 15.0,
-    },
+  filters_per_transaction: [
+    makePerTxn({ trace_id: 'trace-alpha', filter_count: 30, total_filter_duration_ms: 5000, user: 'admin', queue: 'AR System' }),
+    makePerTxn({ trace_id: 'trace-beta',  filter_count: 12, total_filter_duration_ms: 800,  user: 'sysadmin', queue: '' }),
   ],
-  total_filter_time_ms: 2051.25,
 }
 
-const mockEmptyData: FilterComplexityResponse = {
-  most_executed: [],
-  per_transaction: [],
-  total_filter_time_ms: 0,
-}
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 describe('FiltersSection', () => {
-  it('renders loading state with pulse animation', () => {
-    render(
-      <FiltersSection data={null} loading={true} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('Filter Complexity')).toBeInTheDocument()
-    const pulseElements = document.querySelectorAll('.animate-pulse')
-    expect(pulseElements.length).toBeGreaterThan(0)
+  describe('empty state', () => {
+    it('shows empty message when both arrays are empty', () => {
+      render(<FiltersSection data={makeData()} />)
+      expect(
+        screen.getByText('No filter complexity data available for this job.')
+      ).toBeInTheDocument()
+    })
+
+    it('does not render any table when both arrays are empty', () => {
+      render(<FiltersSection data={makeData()} />)
+      expect(screen.queryByRole('table')).toBeNull()
+    })
+
+    it('renders content when only most_executed has data', () => {
+      render(
+        <FiltersSection
+          data={makeData({
+            most_executed: [makeMostExecuted()],
+            filters_per_transaction: [],
+            avg_filters_per_transaction: 1,
+            max_filters_per_transaction: 1,
+          })}
+        />
+      )
+      expect(screen.queryByText(/no filter complexity/i)).toBeNull()
+      expect(screen.getByRole('table', { name: 'Most executed filters' })).toBeInTheDocument()
+    })
+
+    it('renders content when only filters_per_transaction has data', () => {
+      render(
+        <FiltersSection
+          data={makeData({
+            most_executed: [],
+            filters_per_transaction: [makePerTxn()],
+            avg_filters_per_transaction: 5,
+            max_filters_per_transaction: 5,
+          })}
+        />
+      )
+      expect(screen.queryByText(/no filter complexity/i)).toBeNull()
+      expect(screen.getByRole('table', { name: 'Filters per transaction' })).toBeInTheDocument()
+    })
   })
 
-  it('renders error state with error message and retry button', () => {
-    const errorMessage = 'Failed to load filters'
-    render(
-      <FiltersSection
-        data={null}
-        loading={false}
-        error={errorMessage}
-        refetch={vi.fn()}
-      />
-    )
-    expect(screen.getByText(errorMessage)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument()
+  describe('summary stats', () => {
+    it('renders avg filters per transaction label', () => {
+      render(<FiltersSection data={fullData} />)
+      expect(screen.getByText('Avg Filters/Transaction')).toBeInTheDocument()
+    })
+
+    it('renders avg filters per transaction value with one decimal', () => {
+      render(<FiltersSection data={fullData} />)
+      expect(screen.getByText('7.4')).toBeInTheDocument()
+    })
+
+    it('renders max filters per transaction label', () => {
+      render(<FiltersSection data={fullData} />)
+      expect(screen.getByText('Max Filters/Transaction')).toBeInTheDocument()
+    })
+
+    it('renders max filters per transaction value', () => {
+      render(<FiltersSection data={fullData} />)
+      expect(screen.getByText('25')).toBeInTheDocument()
+    })
+
+    it('max > 50 applies error color class to value', () => {
+      render(
+        <FiltersSection
+          data={makeData({
+            most_executed: [makeMostExecuted()],
+            avg_filters_per_transaction: 10,
+            max_filters_per_transaction: 55,
+          })}
+        />
+      )
+      const maxValue = screen.getByText('55')
+      expect(maxValue.className).toMatch(/color-error/)
+    })
+
+    it('max > 20 and <= 50 applies warning color class to value', () => {
+      render(
+        <FiltersSection
+          data={makeData({
+            most_executed: [makeMostExecuted()],
+            avg_filters_per_transaction: 10,
+            max_filters_per_transaction: 30,
+          })}
+        />
+      )
+      const maxValue = screen.getByText('30')
+      expect(maxValue.className).toMatch(/color-warning/)
+    })
+
+    it('max value 25 (> 20) applies warning color', () => {
+      render(<FiltersSection data={fullData} />)
+      const maxValue = screen.getByText('25')
+      expect(maxValue.className).toMatch(/color-warning/)
+    })
+
+    it('max <= 20 applies no error or warning', () => {
+      render(
+        <FiltersSection
+          data={makeData({
+            most_executed: [makeMostExecuted()],
+            avg_filters_per_transaction: 3,
+            max_filters_per_transaction: 10,
+          })}
+        />
+      )
+      const maxValue = screen.getByText('10')
+      expect(maxValue.className).not.toMatch(/color-error/)
+      expect(maxValue.className).not.toMatch(/color-warning/)
+    })
   })
 
-  it('calls refetch on retry button click', () => {
-    const refetchMock = vi.fn()
-    render(
-      <FiltersSection
-        data={null}
-        loading={false}
-        error="Test error"
-        refetch={refetchMock}
-      />
-    )
-    const retryButton = screen.getByRole('button', { name: /retry/i })
-    fireEvent.click(retryButton)
-    expect(refetchMock).toHaveBeenCalledTimes(1)
+  describe('most executed filters table', () => {
+    it('renders table with aria-label', () => {
+      render(<FiltersSection data={fullData} />)
+      expect(screen.getByRole('table', { name: 'Most executed filters' })).toBeInTheDocument()
+    })
+
+    it('renders section heading', () => {
+      render(<FiltersSection data={fullData} />)
+      expect(screen.getByText('Most Executed Filters')).toBeInTheDocument()
+    })
+
+    it('renders all column headers', () => {
+      render(<FiltersSection data={fullData} />)
+      const table = screen.getByRole('table', { name: 'Most executed filters' })
+      expect(within(table).getByText('Filter Name')).toBeInTheDocument()
+      expect(within(table).getByText('Executions')).toBeInTheDocument()
+      expect(within(table).getByText('Avg Duration')).toBeInTheDocument()
+      expect(within(table).getByText('Max Duration')).toBeInTheDocument()
+      expect(within(table).getByText('Errors')).toBeInTheDocument()
+      expect(within(table).getByText('Form')).toBeInTheDocument()
+    })
+
+    it('renders filter names', () => {
+      render(<FiltersSection data={fullData} />)
+      expect(screen.getByText('SYS:ValidateFields')).toBeInTheDocument()
+      expect(screen.getByText('SYS:SetDefaults')).toBeInTheDocument()
+      expect(screen.getByText('SYS:SlowFilter')).toBeInTheDocument()
+    })
+
+    it('renders execution counts in the most-executed table', () => {
+      render(<FiltersSection data={fullData} />)
+      const table = screen.getByRole('table', { name: 'Most executed filters' })
+      expect(within(table).getByText('500')).toBeInTheDocument()
+      expect(within(table).getByText('300')).toBeInTheDocument()
+    })
+
+    it('renders form name or em dash when null', () => {
+      render(<FiltersSection data={fullData} />)
+      expect(screen.getByText('HPD:Help Desk')).toBeInTheDocument()
+      // SYS:SetDefaults has form: null -> rendered as '—'
+      const dashes = screen.getAllByText('—')
+      expect(dashes.length).toBeGreaterThanOrEqual(1)
+    })
   })
 
-  it('renders "No filter activity detected" when data is null', () => {
-    render(
-      <FiltersSection data={null} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('No filter activity detected')).toBeInTheDocument()
+  describe('most executed filters duration color coding', () => {
+    it('max_duration_ms > 5000 renders max duration with error color', () => {
+      render(<FiltersSection data={fullData} />)
+      // SYS:SlowFilter max: 7000ms -> 7.00s
+      const maxDuration = screen.getByText('7.00s')
+      expect(maxDuration.className).toMatch(/color-error/)
+    })
+
+    it('max_duration_ms > 1000 and <= 5000 renders max duration with warning color', () => {
+      render(<FiltersSection data={fullData} />)
+      // SYS:SetDefaults max: 1500ms -> 1.50s
+      const maxDuration = screen.getByText('1.50s')
+      expect(maxDuration.className).toMatch(/color-warning/)
+    })
+
+    it('max_duration_ms <= 1000 renders max duration without error or warning color', () => {
+      render(<FiltersSection data={fullData} />)
+      // SYS:ValidateFields max: 800ms — may appear in both tables; check all
+      const allDurations = screen.getAllByText('800ms')
+      const hasNeutral = allDurations.some(
+        (el) => !el.className.match(/color-error/) && !el.className.match(/color-warning/)
+      )
+      expect(hasNeutral).toBe(true)
+    })
+
+    it('duration values format correctly for sub-second values', () => {
+      render(<FiltersSection data={fullData} />)
+      // SYS:ValidateFields avg: 250ms
+      const table = screen.getByRole('table', { name: 'Most executed filters' })
+      expect(within(table).getByText('250ms')).toBeInTheDocument()
+    })
+
+    it('duration values format correctly for multi-second values', () => {
+      render(<FiltersSection data={fullData} />)
+      // SYS:SlowFilter avg: 3000ms -> 3.00s
+      expect(screen.getByText('3.00s')).toBeInTheDocument()
+    })
   })
 
-  it('renders "No filter activity detected" when both lists are empty', () => {
-    render(
-      <FiltersSection data={mockEmptyData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('No filter activity detected')).toBeInTheDocument()
+  describe('most executed filters error count styling', () => {
+    it('error_count > 0 renders error count with error color', () => {
+      render(<FiltersSection data={fullData} />)
+      // SYS:SetDefaults has error_count: 2
+      const errorSpan = screen.getByText('2')
+      expect(errorSpan.className).toMatch(/color-error/)
+    })
+
+    it('zero error count does not get error color', () => {
+      render(<FiltersSection data={fullData} />)
+      const table = screen.getByRole('table', { name: 'Most executed filters' })
+      const rows = within(table).getAllByRole('row')
+      // SYS:ValidateFields row (index 1) has error_count: 0
+      const validateRow = rows[1]
+      const zeroSpan = within(validateRow).getByText('0')
+      expect(zeroSpan.className).not.toMatch(/color-error/)
+    })
+
+    it('row with error_count > 0 gets error-light background class', () => {
+      render(<FiltersSection data={fullData} />)
+      const table = screen.getByRole('table', { name: 'Most executed filters' })
+      const rows = within(table).getAllByRole('row')
+      // SYS:SetDefaults is index 2 (has error_count: 2)
+      const setDefaultsRow = rows[2]
+      expect(setDefaultsRow.className).toMatch(/color-error-light/)
+    })
   })
 
-  it('renders title and total filter time badge', () => {
-    render(
-      <FiltersSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('Filter Complexity')).toBeInTheDocument()
-    expect(screen.getByText('Total: 2051.25 ms')).toBeInTheDocument()
+  describe('filters per transaction table', () => {
+    it('renders table with aria-label', () => {
+      render(<FiltersSection data={fullData} />)
+      expect(screen.getByRole('table', { name: 'Filters per transaction' })).toBeInTheDocument()
+    })
+
+    it('renders "Filters Per Transaction" section heading with item count', () => {
+      render(<FiltersSection data={fullData} />)
+      expect(screen.getByText(/Filters Per Transaction \(Top 2\)/i)).toBeInTheDocument()
+    })
+
+    it('renders all column headers', () => {
+      render(<FiltersSection data={fullData} />)
+      const table = screen.getByRole('table', { name: 'Filters per transaction' })
+      expect(within(table).getByText('Trace ID')).toBeInTheDocument()
+      expect(within(table).getByText('Filter Count')).toBeInTheDocument()
+      expect(within(table).getByText('Total Duration')).toBeInTheDocument()
+      expect(within(table).getByText('User')).toBeInTheDocument()
+      expect(within(table).getByText('Queue')).toBeInTheDocument()
+    })
+
+    it('renders trace IDs', () => {
+      render(<FiltersSection data={fullData} />)
+      expect(screen.getByText('trace-alpha')).toBeInTheDocument()
+      expect(screen.getByText('trace-beta')).toBeInTheDocument()
+    })
+
+    it('renders filter counts scoped to per-transaction table', () => {
+      render(<FiltersSection data={fullData} />)
+      const table = screen.getByRole('table', { name: 'Filters per transaction' })
+      expect(within(table).getByText('30')).toBeInTheDocument()
+      expect(within(table).getByText('12')).toBeInTheDocument()
+    })
+
+    it('renders total duration scoped to per-transaction table', () => {
+      render(<FiltersSection data={fullData} />)
+      const table = screen.getByRole('table', { name: 'Filters per transaction' })
+      // trace-alpha: 5000ms -> 5.00s
+      expect(within(table).getByText('5.00s')).toBeInTheDocument()
+      // trace-beta: 800ms -> 800ms
+      expect(within(table).getByText('800ms')).toBeInTheDocument()
+    })
+
+    it('renders user values', () => {
+      render(<FiltersSection data={fullData} />)
+      expect(screen.getByText('admin')).toBeInTheDocument()
+      expect(screen.getByText('sysadmin')).toBeInTheDocument()
+    })
+
+    it('renders em dash for empty queue string', () => {
+      render(<FiltersSection data={fullData} />)
+      // trace-beta has queue: '' -> rendered as '—'
+      const dashes = screen.getAllByText('—')
+      expect(dashes.length).toBeGreaterThanOrEqual(1)
+    })
+
+    it('limits per-transaction table to 20 rows', () => {
+      // Create 25 transactions
+      const manyTxns = Array.from({ length: 25 }, (_, i) =>
+        makePerTxn({ trace_id: `trace-${i}` })
+      )
+      render(
+        <FiltersSection
+          data={makeData({
+            filters_per_transaction: manyTxns,
+            most_executed: [],
+            avg_filters_per_transaction: 5,
+            max_filters_per_transaction: 10,
+          })}
+        />
+      )
+      const table = screen.getByRole('table', { name: 'Filters per transaction' })
+      const rows = within(table).getAllByRole('row')
+      // 1 header + 20 data rows (capped at 20)
+      expect(rows).toHaveLength(21)
+      expect(screen.getByText(/Top 20/i)).toBeInTheDocument()
+    })
   })
 
-  it('renders tab buttons: Most Executed and Per Transaction', () => {
-    render(
-      <FiltersSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByRole('button', { name: /Most Executed/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Per Transaction/i })).toBeInTheDocument()
-  })
-
-  it('renders Most Executed tab by default with rank, filter name, count, total time', () => {
-    render(
-      <FiltersSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    // Column headers
-    expect(screen.getByText('Rank')).toBeInTheDocument()
-    expect(screen.getByText('Filter Name')).toBeInTheDocument()
-    expect(screen.getByText('Count')).toBeInTheDocument()
-    expect(screen.getByText('Total Time(ms)')).toBeInTheDocument()
-
-    // Data
-    expect(screen.getByText('ValidateForm')).toBeInTheDocument()
-    expect(screen.getByText('SetDefaults')).toBeInTheDocument()
-    expect(screen.getByText('500')).toBeInTheDocument()
-    expect(screen.getByText('1250.50')).toBeInTheDocument()
-  })
-
-  it('switches to Per Transaction tab on click', () => {
-    render(
-      <FiltersSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    const perTxnTab = screen.getByRole('button', { name: /Per Transaction/i })
-    fireEvent.click(perTxnTab)
-
-    // Per Transaction column headers
-    expect(screen.getByText('Transaction ID')).toBeInTheDocument()
-    expect(screen.getByText('Avg(ms)')).toBeInTheDocument()
-    expect(screen.getByText('Max(ms)')).toBeInTheDocument()
-
-    // Data
-    expect(screen.getByText('TXN-001')).toBeInTheDocument()
-    expect(screen.getByText('TXN-002')).toBeInTheDocument()
-    expect(screen.getByText('450.25')).toBeInTheDocument()
-  })
-
-  it('highlights high execution count rows (> 100) with amber background', () => {
-    render(
-      <FiltersSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    const perTxnTab = screen.getByRole('button', { name: /Per Transaction/i })
-    fireEvent.click(perTxnTab)
-
-    // TXN-001 has execution_count=150 (>100), should have amber background
-    const highRow = screen.getByText('TXN-001').closest('tr')!
-    expect(highRow.className).toContain('bg-amber-50')
-
-    // TXN-002 has execution_count=50 (<=100), should not
-    const normalRow = screen.getByText('TXN-002').closest('tr')!
-    expect(normalRow.className).not.toContain('bg-amber-50')
-  })
-
-  it('formats count with toLocaleString', () => {
-    render(
-      <FiltersSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    // count 500 renders as "500" (no comma needed)
-    expect(screen.getByText('500')).toBeInTheDocument()
-    expect(screen.getByText('200')).toBeInTheDocument()
-  })
-
-  it('formats total_ms with toFixed(2)', () => {
-    render(
-      <FiltersSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('1250.50')).toBeInTheDocument()
-    expect(screen.getByText('800.75')).toBeInTheDocument()
+  describe('className prop', () => {
+    it('passes className to wrapper when data is present', () => {
+      const { container } = render(
+        <FiltersSection data={fullData} className="filters-wrapper" />
+      )
+      expect(container.firstChild).toHaveClass('filters-wrapper')
+    })
   })
 })

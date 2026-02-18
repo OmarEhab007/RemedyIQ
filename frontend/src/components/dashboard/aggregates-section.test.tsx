@@ -1,248 +1,212 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { AggregatesSection } from './aggregates-section';
-import type { AggregatesResponse, AggregateGroup } from '@/lib/api';
+/**
+ * T066 — Tests for AggregatesSection component (T058)
+ */
 
-vi.mock('next/link', () => ({
-  default: ({ children, ...props }: any) => <a {...props}>{children}</a>,
-}));
+import { describe, it, expect } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
+import { AggregatesSection } from './aggregates-section'
+import type { AggregatesResponse } from '@/lib/api-types'
 
-vi.mock('lucide-react', () => ({
-  AlertCircle: (props: any) => <span data-testid="alert-circle" {...props} />,
-  TrendingUp: (props: any) => <span data-testid="trending-up" {...props} />,
-}));
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
 
-const mockData: AggregatesResponse = {
-  api: {
-    groups: [
-      {
-        name: 'HPD:Help Desk',
-        count: 100,
-        error_count: 5,
-        min_ms: 10,
-        max_ms: 500,
-        avg_ms: 150.5,
-        total_ms: 15050,
-        error_rate: 5,
-        unique_traces: 90,
-      },
-      {
-        name: 'CHG:Infrastructure',
-        count: 50,
-        error_count: 2,
-        min_ms: 5,
-        max_ms: 300,
-        avg_ms: 100.25,
-        total_ms: 5012.5,
-        error_rate: 4,
-        unique_traces: 48,
-      },
-    ],
-    grand_total: {
-      name: 'Total',
-      count: 150,
-      error_count: 7,
-      min_ms: 5,
-      max_ms: 500,
-      avg_ms: 133.75,
-      total_ms: 20062.5,
-      error_rate: 4.67,
-      unique_traces: 138,
+function makeData(overrides: Partial<AggregatesResponse> = {}): AggregatesResponse {
+  return {
+    job_id: 'job-001',
+    sections: [],
+    ...overrides,
+  }
+}
+
+const fullData: AggregatesResponse = {
+  job_id: 'job-001',
+  sections: [
+    {
+      title: 'API Summary',
+      groups: [
+        {
+          name: 'Request Counts',
+          headers: ['Total', 'Success', 'Errors'],
+          rows: [
+            { label: 'GET /api/v1/jobs', values: [120, 115, 5] },
+            { label: 'POST /api/v1/upload', values: [30, 30, 0] },
+          ],
+        },
+        {
+          name: 'Empty Group',
+          headers: ['Col'],
+          rows: [],
+        },
+      ],
     },
-  },
-  sql: {
-    groups: [
-      {
-        name: 'HPD_Entry',
-        count: 80,
-        error_count: 3,
-        min_ms: 1,
-        max_ms: 200,
-        avg_ms: 50,
-        total_ms: 4000,
-        error_rate: 3.75,
-        unique_traces: 77,
-      },
-    ],
-    grand_total: {
-      name: 'Total',
-      count: 80,
-      error_count: 3,
-      min_ms: 1,
-      max_ms: 200,
-      avg_ms: 50,
-      total_ms: 4000,
-      error_rate: 3.75,
-      unique_traces: 77,
+    {
+      title: 'SQL Summary',
+      groups: [
+        {
+          name: '',
+          headers: ['Count', 'Avg Duration'],
+          rows: [
+            { label: 'SELECT queries', values: [500, null] },
+          ],
+        },
+      ],
     },
-  },
-  filter: {
-    groups: [],
-    grand_total: {
-      name: 'Total',
-      count: 0,
-      error_count: 0,
-      min_ms: 0,
-      max_ms: 0,
-      avg_ms: 0,
-      total_ms: 0,
-      error_rate: 0,
-      unique_traces: 0,
-    },
-  },
-};
+  ],
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 describe('AggregatesSection', () => {
-  it('renders loading state with pulse animation', () => {
-    render(
-      <AggregatesSection data={null} loading={true} error={null} refetch={vi.fn()} />
-    );
-    expect(screen.getByText('Aggregates')).toBeInTheDocument();
-    const pulseElements = document.querySelectorAll('.animate-pulse');
-    expect(pulseElements.length).toBeGreaterThan(0);
-  });
+  describe('empty state', () => {
+    it('shows empty message when sections array is empty', () => {
+      render(<AggregatesSection data={makeData({ sections: [] })} />)
+      expect(
+        screen.getByText('No aggregates data available for this job.')
+      ).toBeInTheDocument()
+    })
 
-  it('renders error state with error message and retry button', () => {
-    const errorMessage = 'Failed to load aggregates';
-    render(
-      <AggregatesSection
-        data={null}
-        loading={false}
-        error={errorMessage}
-        refetch={vi.fn()}
-      />
-    );
-    expect(screen.getByText(errorMessage)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
-  });
+    it('does not render any table when empty', () => {
+      render(<AggregatesSection data={makeData({ sections: [] })} />)
+      expect(screen.queryByRole('table')).toBeNull()
+    })
+  })
 
-  it('calls refetch on retry button click', () => {
-    const refetchMock = vi.fn();
-    render(
-      <AggregatesSection
-        data={null}
-        loading={false}
-        error="Test error"
-        refetch={refetchMock}
-      />
-    );
-    const retryButton = screen.getByRole('button', { name: /retry/i });
-    fireEvent.click(retryButton);
-    expect(refetchMock).toHaveBeenCalledTimes(1);
-  });
+  describe('section rendering', () => {
+    it('renders all section titles as headings', () => {
+      render(<AggregatesSection data={fullData} />)
+      expect(screen.getByText('API Summary')).toBeInTheDocument()
+      expect(screen.getByText('SQL Summary')).toBeInTheDocument()
+    })
 
-  it('renders no data message when data is null', () => {
-    render(
-      <AggregatesSection data={null} loading={false} error={null} refetch={vi.fn()} />
-    );
-    expect(screen.getByText('No data available')).toBeInTheDocument();
-  });
+    it('renders group names as subheadings', () => {
+      render(<AggregatesSection data={fullData} />)
+      expect(screen.getByText('Request Counts')).toBeInTheDocument()
+    })
 
-  it('renders title "Aggregates"', () => {
-    render(
-      <AggregatesSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    );
-    expect(screen.getByText('Aggregates')).toBeInTheDocument();
-  });
+    it('does not render a subheading element for groups with empty name', () => {
+      render(<AggregatesSection data={fullData} />)
+      const h4s = document.querySelectorAll('h4')
+      const texts = Array.from(h4s).map((el) => el.textContent?.trim())
+      expect(texts).not.toContain('')
+    })
+  })
 
-  it('renders tab buttons: "API (by Form)", "SQL (by Table)", "Filters (by Name)"', () => {
-    render(
-      <AggregatesSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    );
-    expect(screen.getByRole('button', { name: /API \(by Form\)/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /SQL \(by Table\)/i })).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /Filters \(by Name\)/i })
-    ).toBeInTheDocument();
-  });
+  describe('table rendering', () => {
+    it('renders table column headers', () => {
+      render(<AggregatesSection data={fullData} />)
+      expect(screen.getByText('Total')).toBeInTheDocument()
+      expect(screen.getByText('Success')).toBeInTheDocument()
+      expect(screen.getByText('Errors')).toBeInTheDocument()
+    })
 
-  it('renders API groups by default with name, count, errors', () => {
-    render(
-      <AggregatesSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    );
-    expect(screen.getByText('HPD:Help Desk')).toBeInTheDocument();
-    expect(screen.getByText('CHG:Infrastructure')).toBeInTheDocument();
-    expect(screen.getByText('100')).toBeInTheDocument();
-    expect(screen.getByText('5')).toBeInTheDocument();
-  });
+    it('always renders a "Label" column header when headers exist', () => {
+      render(<AggregatesSection data={fullData} />)
+      const labelHeaders = screen.getAllByText('Label')
+      expect(labelHeaders.length).toBeGreaterThanOrEqual(1)
+    })
 
-  it('displays grand total row', () => {
-    render(
-      <AggregatesSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    );
-    expect(screen.getByText('Grand Total')).toBeInTheDocument();
-    expect(screen.getByText('150')).toBeInTheDocument();
-  });
+    it('renders row labels in the first cell', () => {
+      render(<AggregatesSection data={fullData} />)
+      expect(screen.getByText('GET /api/v1/jobs')).toBeInTheDocument()
+      expect(screen.getByText('POST /api/v1/upload')).toBeInTheDocument()
+    })
 
-  it('switches to SQL tab on click', () => {
-    render(
-      <AggregatesSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    );
-    const sqlTab = screen.getByRole('button', { name: /SQL \(by Table\)/i });
-    fireEvent.click(sqlTab);
-    expect(screen.getByText('HPD_Entry')).toBeInTheDocument();
-    // 80 appears in both the data row and grand total, so use getAllByText
-    const countElements = screen.getAllByText('80');
-    expect(countElements.length).toBeGreaterThanOrEqual(1);
-  });
+    it('renders numeric values as strings', () => {
+      render(<AggregatesSection data={fullData} />)
+      expect(screen.getByText('120')).toBeInTheDocument()
+      expect(screen.getByText('115')).toBeInTheDocument()
+    })
 
-  it('switches to Filters tab and shows empty state "No filter data available"', () => {
-    render(
-      <AggregatesSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    );
-    const filterTab = screen.getByRole('button', { name: /Filters \(by Name\)/i });
-    fireEvent.click(filterTab);
-    expect(screen.getByText('No filter data available')).toBeInTheDocument();
-  });
+    it('renders null values as em dash', () => {
+      render(<AggregatesSection data={fullData} />)
+      const cells = screen.getAllByText('—')
+      expect(cells.length).toBeGreaterThanOrEqual(1)
+    })
 
-  it('sorts by clicking column headers (e.g., click "Name" sorts alphabetically)', () => {
-    render(
-      <AggregatesSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    );
-    const nameHeader = screen.getByText('Name');
-    fireEvent.click(nameHeader);
+    it('renders tables with correct aria-label from group name', () => {
+      render(<AggregatesSection data={fullData} />)
+      expect(screen.getByRole('table', { name: 'Request Counts' })).toBeInTheDocument()
+    })
 
-    // After clicking Name, should sort alphabetically (desc first, then asc)
-    // Default sort is by count desc, so first Name click should sort by name desc
-    const rows = screen.getAllByRole('row');
-    // Check that CHG:Infrastructure comes before HPD:Help Desk when sorted desc
-    expect(rows[1]).toHaveTextContent('HPD:Help Desk');
-  });
+    it('renders table rows for each data row', () => {
+      render(<AggregatesSection data={fullData} />)
+      const table = screen.getByRole('table', { name: 'Request Counts' })
+      const rows = within(table).getAllByRole('row')
+      // 1 header row + 2 data rows
+      expect(rows).toHaveLength(3)
+    })
+  })
 
-  it('clicking same sort column toggles direction', () => {
-    render(
-      <AggregatesSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    );
-    const countHeader = screen.getByText('Count');
+  describe('empty group rows', () => {
+    it('shows "No data" text for groups with empty rows array', () => {
+      render(<AggregatesSection data={fullData} />)
+      expect(screen.getByText('No data')).toBeInTheDocument()
+    })
 
-    // Default sort is count desc, arrow already shows ↓
-    // First click on same column toggles to asc → ↑
-    fireEvent.click(countHeader);
-    expect(screen.getByText('↑')).toBeInTheDocument();
+    it('does not render a table for groups with no rows', () => {
+      render(<AggregatesSection data={fullData} />)
+      const tables = screen.getAllByRole('table')
+      // Request Counts table + SQL unnamed group table = 2 tables (not Empty Group)
+      expect(tables).toHaveLength(2)
+    })
+  })
 
-    // Second click toggles back to desc → ↓
-    fireEvent.click(countHeader);
-    expect(screen.getByText('↓')).toBeInTheDocument();
-  });
+  describe('no headers', () => {
+    it('omits thead when group has no headers', () => {
+      const dataNoHeaders: AggregatesResponse = {
+        job_id: 'job-002',
+        sections: [
+          {
+            title: 'Section A',
+            groups: [
+              {
+                name: 'Group A',
+                headers: [],
+                rows: [{ label: 'Row 1', values: [42] }],
+              },
+            ],
+          },
+        ],
+      }
+      render(<AggregatesSection data={dataNoHeaders} />)
+      const table = screen.getByRole('table', { name: 'Group A' })
+      expect(within(table).queryByRole('columnheader')).toBeNull()
+    })
+  })
 
-  it('renders OK column with success count', () => {
-    render(
-      <AggregatesSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    );
-    expect(screen.getByText('OK')).toBeInTheDocument();
-    // HPD:Help Desk has 100 total - 5 errors = 95 OK
-    expect(screen.getByText('95')).toBeInTheDocument();
-    // CHG:Infrastructure has 50 total - 2 errors = 48 OK
-    expect(screen.getByText('48')).toBeInTheDocument();
-  });
+  describe('single section single group', () => {
+    it('renders a single section without crashing', () => {
+      const singleSection: AggregatesResponse = {
+        job_id: 'job-003',
+        sections: [
+          {
+            title: 'Minimal',
+            groups: [
+              {
+                name: 'Group',
+                headers: ['Value'],
+                rows: [{ label: 'X', values: [1] }],
+              },
+            ],
+          },
+        ],
+      }
+      render(<AggregatesSection data={singleSection} />)
+      expect(screen.getByText('Minimal')).toBeInTheDocument()
+      expect(screen.getByText('X')).toBeInTheDocument()
+      expect(screen.getByText('1')).toBeInTheDocument()
+    })
+  })
 
-  it('renders all timing columns', () => {
-    render(
-      <AggregatesSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    );
-    expect(screen.getByText('MIN(ms)')).toBeInTheDocument();
-    expect(screen.getByText('MAX(ms)')).toBeInTheDocument();
-    expect(screen.getByText('AVG(ms)')).toBeInTheDocument();
-    expect(screen.getByText('SUM(ms)')).toBeInTheDocument();
-  });
-});
+  describe('className prop', () => {
+    it('passes className to the wrapper when data is present', () => {
+      const { container } = render(
+        <AggregatesSection data={fullData} className="test-class" />
+      )
+      expect(container.firstChild).toHaveClass('test-class')
+    })
+  })
+})

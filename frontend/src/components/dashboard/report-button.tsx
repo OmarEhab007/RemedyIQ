@@ -1,172 +1,142 @@
-"use client";
-
-import { useState } from "react";
-import { FileText, Download, ChevronDown } from "lucide-react";
-import { generateReport } from "@/lib/api";
-import DOMPurify from "dompurify";
-
-interface ReportButtonProps {
-  jobId: string;
-}
+'use client'
 
 /**
- * ReportButton - Generate and download analysis reports in various formats
+ * ReportButton — T063
+ *
+ * "Generate Report" button. Calls useGenerateReport mutation and shows
+ * loading state. On success, opens the report content in a new tab or
+ * triggers a download for PDF format.
  *
  * Usage:
- * <ReportButton jobId={jobId} />
- *
- * Features:
- * - HTML and JSON format selection
- * - Loading state during generation
- * - Error handling with user feedback
- * - Opens HTML reports in new tab
- * - Downloads JSON reports
- *
- * Accessibility:
- * - Keyboard navigable dropdown
- * - ARIA labels for screen readers
- * - Focus management
+ *   <ReportButton jobId="job-123" />
+ *   <ReportButton jobId="job-123" format="pdf" variant="outline" />
  */
-export function ReportButton({ jobId }: ReportButtonProps) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [format, setFormat] = useState<"html" | "json">("html");
-  const [showDropdown, setShowDropdown] = useState(false);
 
-  const handleGenerateReport = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+import { useState } from 'react'
+import { cn } from '@/lib/utils'
+import { useGenerateReport } from '@/hooks/use-api'
+import { Button } from '@/components/ui/button'
+import type { ReportFormat } from '@/lib/api-types'
 
-      const report = await generateReport(jobId, format);
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
-      if (format === "html") {
-        // Sanitize HTML content before rendering
-        const sanitizedHTML = DOMPurify.sanitize(report.content);
+interface ReportButtonProps {
+  jobId: string
+  format?: ReportFormat
+  variant?: 'default' | 'outline' | 'secondary' | 'ghost'
+  size?: 'default' | 'sm' | 'lg'
+  className?: string
+}
 
-        // Create a blob with the sanitized HTML
-        const blob = new Blob([sanitizedHTML], { type: "text/html" });
-        const url = URL.createObjectURL(blob);
+// ---------------------------------------------------------------------------
+// ReportButton
+// ---------------------------------------------------------------------------
 
-        // Open in new tab using URL
-        const newWindow = window.open(url, "_blank");
-        if (!newWindow) {
-          setError("Popup blocked. Please allow popups for this site.");
-        }
+export function ReportButton({
+  jobId,
+  format = 'html',
+  variant = 'outline',
+  size = 'sm',
+  className,
+}: ReportButtonProps) {
+  const mutation = useGenerateReport()
+  const [error, setError] = useState<string | null>(null)
 
-        // Clean up the blob URL after a delay (60 seconds for new tab to load)
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
-      } else {
-        // Download JSON
-        const blob = new Blob([report.content], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `report-${jobId}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+  function handleGenerate() {
+    setError(null)
+    mutation.mutate(
+      { jobId, format },
+      {
+        onSuccess: (data) => {
+          if (format === 'json') {
+            // Download as JSON file
+            const blob = new Blob([data.content], { type: 'application/json' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `remedyiq-report-${jobId}.json`
+            a.click()
+            URL.revokeObjectURL(url)
+          } else if (format === 'pdf') {
+            // Treat content as base64 PDF or URL
+            const a = document.createElement('a')
+            a.href = `data:application/pdf;base64,${data.content}`
+            a.download = `remedyiq-report-${jobId}.pdf`
+            a.click()
+          } else {
+            // HTML — open in new tab
+            const blob = new Blob([data.content], { type: 'text/html' })
+            const url = URL.createObjectURL(blob)
+            window.open(url, '_blank', 'noopener,noreferrer')
+            // Release after a short delay
+            setTimeout(() => URL.revokeObjectURL(url), 60_000)
+          }
+        },
+        onError: (err) => {
+          setError(err.message ?? 'Failed to generate report')
+        },
       }
-    } catch (err) {
-      setShowDropdown(false);
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Failed to generate report. API may not be running.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+    )
+  }
+
+  const isPending = mutation.isPending
 
   return (
-    <div className="relative">
-      <div className="flex gap-1">
-        <button
-          onClick={handleGenerateReport}
-          disabled={loading}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-l-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-          aria-label={`Generate ${format.toUpperCase()} report`}
-        >
-          {loading ? (
-            <>
-              <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden="true" />
-              <span>Generating...</span>
-            </>
-          ) : (
-            <>
-              <FileText className="h-4 w-4" aria-hidden="true" />
-              <span>Generate Report</span>
-            </>
-          )}
-        </button>
-
-        <button
-          onClick={() => setShowDropdown(!showDropdown)}
-          disabled={loading}
-          className="px-2 py-2 bg-primary text-primary-foreground rounded-r-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed border-l border-primary-foreground/20 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-          aria-label="Select report format"
-          aria-expanded={showDropdown}
-          aria-haspopup="true"
-        >
-          <ChevronDown className="h-4 w-4" aria-hidden="true" />
-        </button>
-      </div>
-
-      {showDropdown && (
-        <div
-          className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-10"
-          role="menu"
-          aria-orientation="vertical"
-        >
-          <button
-            onClick={() => {
-              setFormat("html");
-              setShowDropdown(false);
-            }}
-            className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-              format === "html" ? "bg-gray-50 font-medium" : ""
-            }`}
-            role="menuitem"
-          >
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4" aria-hidden="true" />
-              <span>HTML</span>
-              {format === "html" && <span className="ml-auto text-primary">✓</span>}
-            </div>
-          </button>
-          <button
-            onClick={() => {
-              setFormat("json");
-              setShowDropdown(false);
-            }}
-            className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-              format === "json" ? "bg-gray-50 font-medium" : ""
-            }`}
-            role="menuitem"
-          >
-            <div className="flex items-center gap-2">
-              <Download className="h-4 w-4" aria-hidden="true" />
-              <span>JSON</span>
-              {format === "json" && <span className="ml-auto text-primary">✓</span>}
-            </div>
-          </button>
-        </div>
-      )}
+    <div className={cn('flex flex-col gap-1', className)}>
+      <Button
+        variant={variant}
+        size={size}
+        onClick={handleGenerate}
+        disabled={isPending}
+        aria-busy={isPending}
+        aria-label={isPending ? 'Generating report…' : `Generate ${format.toUpperCase()} report`}
+      >
+        {isPending ? (
+          <>
+            <svg
+              className="h-3.5 w-3.5 animate-spin"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
+              <path d="M21 12a9 9 0 11-6.219-8.56" />
+            </svg>
+            Generating…
+          </>
+        ) : (
+          <>
+            <svg
+              className="h-3.5 w-3.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+            Generate {format.toUpperCase()} Report
+          </>
+        )}
+      </Button>
 
       {error && (
-        <div className="absolute right-0 mt-2 p-3 bg-red-50 border border-red-200 text-red-900 rounded-md shadow-md text-sm max-w-xs z-10" role="alert">
-          <p className="font-medium">Error</p>
-          <p className="mt-1">{error}</p>
-          <button
-            onClick={() => setError(null)}
-            className="mt-2 text-xs text-red-700 hover:text-red-900 underline"
-          >
-            Dismiss
-          </button>
-        </div>
+        <p
+          role="alert"
+          className="text-[10px] text-[var(--color-error)]"
+        >
+          {error}
+        </p>
       )}
     </div>
-  );
+  )
 }

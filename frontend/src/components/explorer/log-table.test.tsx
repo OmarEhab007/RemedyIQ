@@ -1,227 +1,211 @@
-import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
-import { LogTable } from './log-table'
-import type { SearchHit } from '@/hooks/use-search'
+/**
+ * Tests for LogTable component.
+ *
+ * Covers: rendering, empty/loading states, row rendering, row selection,
+ * keyboard navigation (Enter on row), virtualization (only renders visible rows).
+ */
 
-const mockHits: SearchHit[] = [
-  {
-    id: 'entry-1',
-    score: 1.0,
-    fields: {
-      line_number: 100,
-      log_type: 'API',
-      timestamp: '2026-02-12T10:00:00Z',
-      user: 'Demo',
-      form: 'HPD:Help Desk',
-      api_code: 'GET_ENTRY',
-      duration_ms: 150,
-      success: true,
-      raw_text: 'API call successful',
-    },
-  },
-  {
-    id: 'entry-2',
-    score: 0.9,
-    fields: {
-      line_number: 101,
-      log_type: 'SQL',
-      timestamp: '2026-02-12T10:00:01Z',
-      user: 'Admin',
-      sql_statement: 'SELECT * FROM table',
-      duration_ms: 2500,
-      success: false,
-    },
-  },
-  {
-    id: 'entry-3',
-    score: 0.8,
-    fields: {
-      line_number: 102,
-      log_type: 'FLTR',
-      timestamp: '2026-02-12T10:00:02Z',
-      filter_name: 'ValidateForm',
-      duration_ms: 50,
-    },
-  },
-  {
-    id: 'entry-4',
-    score: 0.7,
-    fields: {
-      line_number: 103,
-      log_type: 'ESCL',
-      timestamp: '2026-02-12T10:00:03Z',
-      esc_name: 'NotifyOnUpdate',
-    },
-  },
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, within, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { LogTable } from './log-table'
+import type { LogEntry } from '@/lib/api-types'
+
+// ---------------------------------------------------------------------------
+// react-window mock — renders all items for testing (no DOM measurements)
+// ---------------------------------------------------------------------------
+
+vi.mock('react-window', () => ({
+  FixedSizeList: ({
+    children: Children,
+    itemCount,
+    itemData,
+  }: {
+    children: React.ComponentType<{ index: number; style: React.CSSProperties; data: unknown }>
+    itemCount: number
+    itemData: unknown
+  }) => (
+    <div data-testid="fixed-size-list">
+      {Array.from({ length: itemCount }, (_, i) => (
+        <Children key={i} index={i} style={{}} data={itemData} />
+      ))}
+    </div>
+  ),
+}))
+
+// ---------------------------------------------------------------------------
+// ResizeObserver mock (jsdom doesn't implement it)
+// ---------------------------------------------------------------------------
+
+class ResizeObserverMock {
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+  constructor(callback: ResizeObserverCallback) {
+    // immediately fire with a dummy entry so AutoSizerWrapper renders children
+    callback(
+      [{ contentRect: { height: 500, width: 800 } } as ResizeObserverEntry],
+      this,
+    )
+  }
+}
+
+vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+
+// Mock clientHeight/clientWidth for AutoSizerWrapper (jsdom returns 0)
+Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+  configurable: true,
+  get: () => 500,
+})
+Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+  configurable: true,
+  get: () => 800,
+})
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+function makeEntry(overrides: Partial<LogEntry> = {}): LogEntry {
+  return {
+    tenant_id: 'tenant-1',
+    job_id: 'job-1',
+    entry_id: `entry-${Math.random().toString(36).slice(2)}`,
+    line_number: 1,
+    timestamp: '2025-01-15T10:30:00.000Z',
+    log_type: 'API',
+    trace_id: 'trace-abc',
+    rpc_id: 'rpc-001',
+    thread_id: 'thread-1',
+    queue: 'Queue-1',
+    user: 'john.doe',
+    duration_ms: 250,
+    success: true,
+    form: 'HPD:Help_Desk',
+    sql_table: null,
+    filter_name: null,
+    esc_name: null,
+    raw_text: 'API TRACE entry raw text line',
+    error_message: null,
+    ...overrides,
+  }
+}
+
+const entries: LogEntry[] = [
+  makeEntry({ entry_id: 'e1', form: 'HPD:Help_Desk', user: 'alice', duration_ms: 100 }),
+  makeEntry({ entry_id: 'e2', log_type: 'SQL', form: null, sql_table: 'HPD:Help_Desk', user: 'bob', duration_ms: 5500, success: false }),
+  makeEntry({ entry_id: 'e3', log_type: 'FLTR', form: null, filter_name: 'MyFilter', user: 'charlie', duration_ms: null, success: null }),
 ]
 
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
 describe('LogTable', () => {
-  it('renders empty state when no hits provided', () => {
-    render(<LogTable hits={[]} onSelect={vi.fn()} />)
-    expect(screen.getByText('No results found')).toBeInTheDocument()
+  const defaultProps = {
+    entries,
+    selectedEntryId: null,
+    onSelectEntry: vi.fn(),
+    isLoading: false,
+    total: entries.length,
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
   })
 
-  it('renders table header with all columns', () => {
-    render(<LogTable hits={mockHits} onSelect={vi.fn()} />)
-
-    expect(screen.getByText('Line')).toBeInTheDocument()
-    expect(screen.getByText('Type')).toBeInTheDocument()
-    expect(screen.getByText('Time')).toBeInTheDocument()
-    expect(screen.getByText('User')).toBeInTheDocument()
-    expect(screen.getByText('Context')).toBeInTheDocument()
-    expect(screen.getByText('Details')).toBeInTheDocument()
-    expect(screen.getByText('Duration')).toBeInTheDocument()
-    expect(screen.getByText('Status')).toBeInTheDocument()
+  it('renders column headers', () => {
+    render(<LogTable {...defaultProps} />)
+    expect(screen.getByText(/timestamp/i)).toBeInTheDocument()
+    expect(screen.getByText(/type/i)).toBeInTheDocument()
+    expect(screen.getByText(/identifier/i)).toBeInTheDocument()
+    expect(screen.getByText(/user/i)).toBeInTheDocument()
+    expect(screen.getByText(/duration/i)).toBeInTheDocument()
   })
 
-  it('renders all log entries using virtual list', () => {
-    render(<LogTable hits={mockHits} onSelect={vi.fn()} />)
-
-    // Check that virtual-list mock is rendered
-    expect(screen.getByTestId('virtual-list')).toBeInTheDocument()
-
-    // Verify entries are rendered by checking for identifiable content
-    expect(screen.getByText('API')).toBeInTheDocument()
-    expect(screen.getByText('SQL')).toBeInTheDocument()
-    expect(screen.getByText('FLTR')).toBeInTheDocument()
-    expect(screen.getByText('ESCL')).toBeInTheDocument()
+  it('renders loading state when isLoading is true', () => {
+    render(<LogTable {...defaultProps} entries={[]} isLoading />)
+    expect(screen.getByRole('status', { name: /loading content/i })).toBeInTheDocument()
   })
 
-  it('displays API type with correct styling', () => {
-    render(<LogTable hits={[mockHits[0]]} onSelect={vi.fn()} />)
-
-    const apiType = screen.getByText('API')
-    expect(apiType).toHaveClass('bg-blue-100', 'text-blue-800')
+  it('renders empty state when entries array is empty', () => {
+    render(<LogTable {...defaultProps} entries={[]} isLoading={false} />)
+    expect(screen.getByText(/no log entries found/i)).toBeInTheDocument()
   })
 
-  it('displays SQL type with correct styling', () => {
-    render(<LogTable hits={[mockHits[1]]} onSelect={vi.fn()} />)
-
-    const sqlType = screen.getByText('SQL')
-    expect(sqlType).toHaveClass('bg-green-100', 'text-green-800')
+  it('renders all entry rows via the virtualized list', () => {
+    render(<LogTable {...defaultProps} />)
+    // Each entry appears as a row
+    const rows = screen.getAllByRole('row')
+    // header row + 3 entry rows = 4
+    expect(rows.length).toBe(4)
   })
 
-  it('displays FLTR type with correct styling', () => {
-    render(<LogTable hits={[mockHits[2]]} onSelect={vi.fn()} />)
-
-    const fltrType = screen.getByText('FLTR')
-    expect(fltrType).toHaveClass('bg-orange-100', 'text-orange-800')
+  it('displays user names in rows', () => {
+    render(<LogTable {...defaultProps} />)
+    expect(screen.getByText('alice')).toBeInTheDocument()
+    expect(screen.getByText('bob')).toBeInTheDocument()
+    expect(screen.getByText('charlie')).toBeInTheDocument()
   })
 
-  it('displays formatted timestamp', () => {
-    render(<LogTable hits={[mockHits[0]]} onSelect={vi.fn()} />)
-
-    // Check for time format (HH:MM:SS)
-    const timeElements = screen.getAllByText(/\d{2}:\d{2}:\d{2}/)
-    expect(timeElements.length).toBeGreaterThan(0)
+  it('displays identifier from form / sql_table / filter_name', () => {
+    render(<LogTable {...defaultProps} />)
+    // HPD:Help_Desk appears in both e1 (form) and e2 (sql_table)
+    const hpdElements = screen.getAllByText('HPD:Help_Desk')
+    expect(hpdElements.length).toBe(2)
+    expect(screen.getByText('MyFilter')).toBeInTheDocument()
   })
 
-  it('displays duration with ms suffix', () => {
-    render(<LogTable hits={[mockHits[0]]} onSelect={vi.fn()} />)
-
-    expect(screen.getByText('150ms')).toBeInTheDocument()
+  it('calls onSelectEntry when a row is clicked', async () => {
+    const onSelectEntry = vi.fn()
+    const user = userEvent.setup()
+    render(<LogTable {...defaultProps} onSelectEntry={onSelectEntry} />)
+    // Click first entry row
+    const rows = screen.getAllByRole('row')
+    await user.click(rows[1]) // rows[0] is header
+    expect(onSelectEntry).toHaveBeenCalledWith('e1')
   })
 
-  it('displays success status as OK', () => {
-    render(<LogTable hits={[mockHits[0]]} onSelect={vi.fn()} />)
-
-    const okStatus = screen.getByText('OK')
-    expect(okStatus).toHaveClass('text-green-600')
+  it('calls onSelectEntry with null when clicking the already-selected row', async () => {
+    const onSelectEntry = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <LogTable
+        {...defaultProps}
+        selectedEntryId="e1"
+        onSelectEntry={onSelectEntry}
+      />,
+    )
+    const rows = screen.getAllByRole('row')
+    await user.click(rows[1])
+    expect(onSelectEntry).toHaveBeenCalledWith(null)
   })
 
-  it('displays failed status as ERR', () => {
-    render(<LogTable hits={[mockHits[1]]} onSelect={vi.fn()} />)
-
-    const errStatus = screen.getByText('ERR')
-    expect(errStatus).toHaveClass('text-red-600')
+  it('applies selected state styling to the chosen row', () => {
+    render(<LogTable {...defaultProps} selectedEntryId="e2" />)
+    const rows = screen.getAllByRole('row')
+    expect(rows[2]).toHaveAttribute('aria-selected', 'true')
   })
 
-  it('calls onSelect when row is clicked', () => {
-    const onSelect = vi.fn()
-    render(<LogTable hits={mockHits} onSelect={onSelect} />)
-
-    // Click on the row div (parent of the line number div)
-    const firstRow = screen.getByText('100').parentElement!
-    fireEvent.click(firstRow)
-    expect(onSelect).toHaveBeenCalledWith(mockHits[0])
+  it('calls onSelectEntry on Enter keydown', () => {
+    const onSelectEntry = vi.fn()
+    render(<LogTable {...defaultProps} onSelectEntry={onSelectEntry} />)
+    const rows = screen.getAllByRole('row')
+    fireEvent.keyDown(rows[1], { key: 'Enter' })
+    expect(onSelectEntry).toHaveBeenCalledWith('e1')
   })
 
-  it('highlights selected row', () => {
-    render(<LogTable hits={mockHits} onSelect={vi.fn()} selectedId="entry-1" />)
-
-    // getByText('100') returns the inner div; parentElement is the row div with bg-primary/10
-    const lineNumberDiv = screen.getByText('100')
-    const selectedRow = lineNumberDiv.parentElement
-    expect(selectedRow).toHaveClass('bg-primary/10')
+  it('shows entry count when total is provided', () => {
+    render(<LogTable {...defaultProps} total={100} />)
+    expect(screen.getByText(/showing 3 of 100 entries/i)).toBeInTheDocument()
   })
 
-  it('displays form name in context column for API entries', () => {
-    render(<LogTable hits={[mockHits[0]]} onSelect={vi.fn()} />)
-
-    expect(screen.getByText('HPD:Help Desk')).toBeInTheDocument()
-  })
-
-  it('displays filter name in context column for FLTR entries', () => {
-    render(<LogTable hits={[mockHits[2]]} onSelect={vi.fn()} />)
-
-    expect(screen.getByText('ValidateForm')).toBeInTheDocument()
-  })
-
-  it('displays escalation name in context column for ESCL entries', () => {
-    render(<LogTable hits={[mockHits[3]]} onSelect={vi.fn()} />)
-
-    expect(screen.getByText('NotifyOnUpdate')).toBeInTheDocument()
-  })
-
-  it('displays api_code in details column for API entries', () => {
-    render(<LogTable hits={[mockHits[0]]} onSelect={vi.fn()} />)
-
-    expect(screen.getByText('GET_ENTRY')).toBeInTheDocument()
-  })
-
-  it('displays sql_statement in details column for SQL entries', () => {
-    render(<LogTable hits={[mockHits[1]]} onSelect={vi.fn()} />)
-
-    expect(screen.getByText('SELECT * FROM table')).toBeInTheDocument()
-  })
-
-  it('displays hyphen for missing optional fields', () => {
-    const hitWithMissingFields: SearchHit = {
-      id: 'entry-5',
-      score: 0.5,
-      fields: {
-        line_number: 105,
-        log_type: 'API',
-      },
-    }
-
-    render(<LogTable hits={[hitWithMissingFields]} onSelect={vi.fn()} />)
-
-    // Check for multiple hyphens representing missing data
-    const hyphens = screen.getAllByText('-')
-    expect(hyphens.length).toBeGreaterThan(3)
-  })
-
-  it('handles missing fields object gracefully', () => {
-    const hitWithoutFields: SearchHit = {
-      id: 'entry-6',
-      score: 0.4,
-      fields: {},
-    }
-
-    render(<LogTable hits={[hitWithoutFields]} onSelect={vi.fn()} />)
-
-    // Should render without crashing
-    expect(screen.getByTestId('virtual-list')).toBeInTheDocument()
-  })
-
-  it('renders correct number of rows', () => {
-    render(<LogTable hits={mockHits} onSelect={vi.fn()} />)
-
-    // All 4 mock entries should be present (check line numbers)
-    expect(screen.getByText('100')).toBeInTheDocument()
-    expect(screen.getByText('101')).toBeInTheDocument()
-    expect(screen.getByText('102')).toBeInTheDocument()
-    expect(screen.getByText('103')).toBeInTheDocument()
+  it('formats duration correctly', () => {
+    render(<LogTable {...defaultProps} />)
+    expect(screen.getByText('100ms')).toBeInTheDocument()
+    expect(screen.getByText('5.50s')).toBeInTheDocument()
+    // null duration
+    const dashes = screen.getAllByText('—')
+    expect(dashes.length).toBeGreaterThan(0)
   })
 })

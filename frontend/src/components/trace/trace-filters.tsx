@@ -1,271 +1,193 @@
-"use client";
+'use client'
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, X, Filter, ChevronDown, ChevronUp, Zap } from "lucide-react";
+/**
+ * trace-filters.tsx — Filter controls for trace views.
+ *
+ * Controls:
+ *   - Log type checkboxes (API, SQL, FLTR, ESCL)
+ *   - Min duration slider (0–5000 ms)
+ *   - Errors-only toggle
+ *
+ * Usage:
+ *   <TraceFilters filters={filters} onChange={setFilters} totalSpans={data.span_count} />
+ */
 
-export interface TraceFilterState {
-  searchText: string;
-  logTypes: Set<string>;
-  errorsOnly: boolean;
-  minDurationMs: number | null;
-}
+import { useCallback } from 'react'
+import { cn } from '@/lib/utils'
+import { LOG_TYPE_COLORS } from '@/lib/constants'
+import type { LogType } from '@/lib/api-types'
+import type { WaterfallFilters } from './waterfall'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface TraceFiltersProps {
-  filters: TraceFilterState;
-  onFiltersChange: (filters: Partial<TraceFilterState>) => void;
-  onClearFilters: () => void;
-  totalSpans: number;
-  filteredCount: number;
-  showCriticalPath: boolean;
-  onToggleCriticalPath: () => void;
-  compact?: boolean;
+  filters: WaterfallFilters
+  onChange: (filters: WaterfallFilters) => void
+  totalSpans?: number
+  className?: string
 }
 
-const LOG_TYPES = [
-  { id: "API", label: "API", color: "bg-blue-100 text-blue-700 border-blue-300" },
-  { id: "SQL", label: "SQL", color: "bg-green-100 text-green-700 border-green-300" },
-  { id: "FLTR", label: "Filter", color: "bg-purple-100 text-purple-700 border-purple-300" },
-  { id: "ESCL", label: "Escalation", color: "bg-orange-100 text-orange-700 border-orange-300" },
-];
+// ---------------------------------------------------------------------------
+// Log type options
+// ---------------------------------------------------------------------------
+
+const LOG_TYPES: LogType[] = ['API', 'SQL', 'FLTR', 'ESCL']
+
+// ---------------------------------------------------------------------------
+// TraceFilters
+// ---------------------------------------------------------------------------
 
 export function TraceFilters({
   filters,
-  onFiltersChange,
-  onClearFilters,
+  onChange,
   totalSpans,
-  filteredCount,
-  showCriticalPath,
-  onToggleCriticalPath,
-  compact = false,
+  className,
 }: TraceFiltersProps) {
-  const [searchInput, setSearchInput] = useState(filters.searchText);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const moreRef = useRef<HTMLDivElement>(null);
-
-  // Sync local input with external filter changes (e.g., clear filters)
-  useEffect(() => {
-    setSearchInput(filters.searchText);
-  }, [filters.searchText]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchInput !== filters.searchText) {
-        onFiltersChange({ searchText: searchInput });
+  const toggleLogType = useCallback(
+    (type: LogType) => {
+      const next = new Set(filters.logTypes)
+      if (next.has(type)) {
+        next.delete(type)
+      } else {
+        next.add(type)
       }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchInput, filters.searchText, onFiltersChange]);
+      onChange({ ...filters, logTypes: next })
+    },
+    [filters, onChange],
+  )
 
-  useEffect(() => {
-    if (!moreOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
-        setMoreOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [moreOpen]);
+  const handleMinDuration = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      onChange({ ...filters, minDurationMs: Number(e.target.value) })
+    },
+    [filters, onChange],
+  )
 
-  const handleLogTypeToggle = useCallback((type: string) => {
-    const newLogTypes = new Set(filters.logTypes);
-    if (newLogTypes.has(type)) {
-      newLogTypes.delete(type);
-    } else {
-      newLogTypes.add(type);
-    }
-    onFiltersChange({ logTypes: newLogTypes });
-  }, [filters.logTypes, onFiltersChange]);
+  const handleErrorsOnly = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      onChange({ ...filters, errorsOnly: e.target.checked })
+    },
+    [filters, onChange],
+  )
 
-  const handleErrorsOnlyToggle = useCallback(() => {
-    onFiltersChange({ errorsOnly: !filters.errorsOnly });
-  }, [filters.errorsOnly, onFiltersChange]);
+  const handleReset = useCallback(() => {
+    onChange({ logTypes: new Set(), minDurationMs: 0, errorsOnly: false })
+  }, [onChange])
 
-  const handleMinDurationChange = useCallback((value: string) => {
-    const num = parseInt(value, 10);
-    onFiltersChange({ minDurationMs: isNaN(num) || num <= 0 ? null : num });
-  }, [onFiltersChange]);
-
-  const activeFilterCount =
-    (filters.searchText ? 1 : 0) +
-    (filters.logTypes.size < LOG_TYPES.length ? LOG_TYPES.length - filters.logTypes.size : 0) +
-    (filters.errorsOnly ? 1 : 0) +
-    (filters.minDurationMs !== null ? 1 : 0);
-
-  const isFiltered = activeFilterCount > 0;
-
-  if (compact) {
-    return (
-      <div className="flex items-center gap-2">
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search spans..."
-            className="w-36 pl-7 pr-2 py-1 border rounded text-xs bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
-          />
-          {searchInput && (
-            <button
-              onClick={() => setSearchInput("")}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 hover:bg-muted rounded"
-            >
-              <X className="w-2.5 h-2.5 text-muted-foreground" />
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-0.5">
-          {LOG_TYPES.map((type) => {
-            const isActive = filters.logTypes.has(type.id);
-            return (
-              <button
-                key={type.id}
-                onClick={() => handleLogTypeToggle(type.id)}
-                className={`px-1.5 py-0.5 text-[10px] font-medium rounded border transition-colors ${
-                  isActive ? type.color : "bg-muted/50 text-muted-foreground border-muted"
-                }`}
-              >
-                {type.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <button
-          onClick={handleErrorsOnlyToggle}
-          className={`px-1.5 py-0.5 text-[10px] font-medium rounded border transition-colors ${
-            filters.errorsOnly
-              ? "bg-red-100 text-red-700 border-red-300"
-              : "bg-muted/50 text-muted-foreground border-muted"
-          }`}
-        >
-          Errors
-        </button>
-
-        {isFiltered && (
-          <>
-            <span className="text-[10px] text-muted-foreground">
-              {filteredCount}/{totalSpans}
-            </span>
-            <button
-              onClick={onClearFilters}
-              className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] text-red-600 hover:bg-red-50 rounded"
-            >
-              <X className="w-2.5 h-2.5" />
-              Clear
-            </button>
-          </>
-        )}
-      </div>
-    );
-  }
+  const hasActiveFilters =
+    filters.logTypes.size > 0 || filters.minDurationMs > 0 || filters.errorsOnly
 
   return (
-    <div className="border-b bg-card">
-      <div className="flex items-center gap-3 p-3">
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search spans..."
-            className="w-full pl-8 pr-3 py-1.5 border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
-          />
-          {searchInput && (
-            <button
-              onClick={() => setSearchInput("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-muted rounded"
+    <div
+      className={cn(
+        'flex flex-wrap items-center gap-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-3',
+        className,
+      )}
+      role="group"
+      aria-label="Trace filters"
+    >
+      {/* Log type checkboxes */}
+      <fieldset className="flex items-center gap-2">
+        <legend className="sr-only">Log types</legend>
+        <span className="shrink-0 text-xs font-semibold text-[var(--color-text-secondary)]">
+          Log types:
+        </span>
+        {LOG_TYPES.map((type) => {
+          const config = LOG_TYPE_COLORS[type]
+          const checked = filters.logTypes.has(type)
+          const id = `trace-filter-type-${type}`
+          return (
+            <label
+              key={type}
+              htmlFor={id}
+              className={cn(
+                'inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors',
+                checked
+                  ? 'border-transparent text-white'
+                  : 'border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)]',
+              )}
+              style={checked ? { backgroundColor: config.bg } : undefined}
             >
-              <X className="w-3 h-3 text-muted-foreground" />
-            </button>
-          )}
-        </div>
+              <input
+                id={id}
+                type="checkbox"
+                checked={checked}
+                onChange={() => toggleLogType(type)}
+                className="sr-only"
+                aria-label={`Filter ${config.label} spans`}
+              />
+              {config.label}
+            </label>
+          )
+        })}
+      </fieldset>
 
-        <div className="flex items-center gap-1">
-          {LOG_TYPES.map((type) => {
-            const isActive = filters.logTypes.has(type.id);
-            return (
-              <button
-                key={type.id}
-                onClick={() => handleLogTypeToggle(type.id)}
-                className={`px-2 py-1 text-xs font-medium rounded border transition-colors ${
-                  isActive ? type.color : "bg-muted/50 text-muted-foreground border-muted"
-                }`}
-              >
-                {type.label}
-              </button>
-            );
-          })}
-        </div>
+      {/* Separator */}
+      <div className="hidden h-5 w-px bg-[var(--color-border)] sm:block" aria-hidden="true" />
 
-        <button
-          onClick={handleErrorsOnlyToggle}
-          className={`px-2 py-1 text-xs font-medium rounded border transition-colors ${
-            filters.errorsOnly
-              ? "bg-red-100 text-red-700 border-red-300"
-              : "bg-muted/50 text-muted-foreground border-muted"
-          }`}
+      {/* Min duration slider */}
+      <div className="flex items-center gap-2">
+        <label
+          htmlFor="trace-min-duration"
+          className="shrink-0 text-xs font-semibold text-[var(--color-text-secondary)]"
         >
-          Errors Only
-        </button>
-
-        <button
-          onClick={onToggleCriticalPath}
-          className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded border transition-colors ${
-            showCriticalPath
-              ? "bg-amber-100 text-amber-700 border-amber-300"
-              : "bg-muted/50 text-muted-foreground border-muted"
-          }`}
-        >
-          <Zap className="w-3 h-3" />
-          Critical Path
-        </button>
-
-        <div className="relative" ref={moreRef}>
-          <button
-            onClick={() => setMoreOpen(!moreOpen)}
-            className="flex items-center gap-1 px-2 py-1 text-xs border rounded hover:bg-muted"
-          >
-            <Filter className="w-3 h-3" />
-            More
-            {moreOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          </button>
-          {moreOpen && (
-            <div className="absolute top-full left-0 mt-1 p-3 bg-card border rounded-md shadow-lg z-50 w-56">
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-muted-foreground">Min Duration:</label>
-                <input
-                  type="number"
-                  value={filters.minDurationMs ?? ""}
-                  onChange={(e) => handleMinDurationChange(e.target.value)}
-                  placeholder="ms"
-                  className="w-20 px-2 py-1 border rounded text-sm"
-                  min="0"
-                />
-                <span className="text-xs text-muted-foreground">ms</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {isFiltered && (
-          <>
-            <span className="text-xs text-muted-foreground">
-              {filteredCount} of {totalSpans}
-            </span>
-            <button
-              onClick={onClearFilters}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded"
-            >
-              <X className="w-3 h-3" />
-              Clear
-            </button>
-          </>
-        )}
+          Min dur.:
+        </label>
+        <input
+          id="trace-min-duration"
+          type="range"
+          min={0}
+          max={5000}
+          step={10}
+          value={filters.minDurationMs}
+          onChange={handleMinDuration}
+          className="h-1.5 w-28 cursor-pointer accent-[var(--color-primary)]"
+          aria-label={`Minimum duration: ${filters.minDurationMs} ms`}
+          aria-valuemin={0}
+          aria-valuemax={5000}
+          aria-valuenow={filters.minDurationMs}
+        />
+        <span className="w-16 text-right text-xs tabular-nums text-[var(--color-text-primary)]">
+          {filters.minDurationMs} ms
+        </span>
       </div>
+
+      {/* Separator */}
+      <div className="hidden h-5 w-px bg-[var(--color-border)] sm:block" aria-hidden="true" />
+
+      {/* Errors only toggle */}
+      <label htmlFor="trace-errors-only" className="flex cursor-pointer items-center gap-2">
+        <input
+          id="trace-errors-only"
+          type="checkbox"
+          checked={filters.errorsOnly}
+          onChange={handleErrorsOnly}
+          className="h-3.5 w-3.5 cursor-pointer accent-[var(--color-error)]"
+        />
+        <span className="text-xs font-semibold text-[var(--color-text-secondary)]">
+          Errors only
+        </span>
+      </label>
+
+      {/* Span count */}
+      {totalSpans !== undefined && (
+        <span className="ml-auto text-xs text-[var(--color-text-tertiary)]">
+          {totalSpans} span{totalSpans !== 1 ? 's' : ''}
+        </span>
+      )}
+
+      {/* Reset */}
+      {hasActiveFilters && (
+        <button
+          type="button"
+          onClick={handleReset}
+          className="text-xs font-medium text-[var(--color-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] rounded"
+        >
+          Reset
+        </button>
+      )}
     </div>
-  );
+  )
 }

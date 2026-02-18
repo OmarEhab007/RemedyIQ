@@ -1,488 +1,287 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
-import { TopNTable } from './top-n-table'
+/**
+ * Tests for TopNTable component (rebuilt)
+ */
 
-// Mock next/link
-vi.mock('next/link', () => ({
-  default: ({ children, href, ...props }: any) => <a href={href} {...props}>{children}</a>,
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent, within } from '@testing-library/react'
+import { TopNTable } from './top-n-table'
+import type { TopNEntry } from '@/lib/api-types'
+
+// ---------------------------------------------------------------------------
+// Mock next/navigation
+// ---------------------------------------------------------------------------
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  useParams: () => ({ id: 'job-123' }),
 }))
 
-interface TopNEntry {
-  rank: number
-  identifier: string
-  duration_ms: number
-  success: boolean
-  line_number: number
-  trace_id?: string
-  rpc_id?: string
-  form?: string
-  user?: string
-  queue?: string
-  queue_time_ms?: number
-  details?: string
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+function makeEntry(overrides: Partial<TopNEntry> = {}): TopNEntry {
+  return {
+    rank: 1,
+    line_number: 100,
+    timestamp: '2024-01-01T00:00:00Z',
+    trace_id: 'trace-001',
+    rpc_id: 'rpc-001',
+    queue: 'AR System',
+    identifier: 'REMEDY:GetEntry',
+    form: 'HPD:Help Desk',
+    user: 'demo',
+    duration_ms: 350,
+    success: true,
+    details: '',
+    ...overrides,
+  }
 }
 
-const mockApiCalls: TopNEntry[] = [
-  {
-    rank: 1,
-    identifier: 'GET_ENTRY',
-    duration_ms: 5000,
-    success: true,
-    line_number: 100,
-    trace_id: 'trace-1',
-    rpc_id: 'rpc-1',
-    form: 'HPD:Help Desk',
-    user: 'Demo',
-    queue: 'Default',
-    details: '{"thread_id":"T001","raw_text":"sample log line"}',
-  },
-  {
-    rank: 2,
-    identifier: 'SET_ENTRY',
-    duration_ms: 3000,
-    success: false,
-    line_number: 200,
-    form: 'CHG:Change',
-    user: 'Admin',
-  },
-]
+function makeAPIEntries(count: number): TopNEntry[] {
+  return Array.from({ length: count }, (_, i) =>
+    makeEntry({
+      rank: i + 1,
+      trace_id: `trace-${i}`,
+      identifier: `API:Call${i}`,
+      duration_ms: 1000 - i * 50,
+      user: `user${i}`,
+    })
+  )
+}
 
-const mockSqlStatements: TopNEntry[] = [
-  {
-    rank: 1,
-    identifier: 'SELECT HPD_Entry',
-    duration_ms: 2500,
-    success: true,
-    line_number: 150,
-    details: '{"sql_table":"HPD_Entry","sql_statement":"SELECT * FROM HPD_Entry WHERE id=1"}',
-  },
-]
-
-const mockFilters: TopNEntry[] = [
-  {
-    rank: 1,
-    identifier: 'ValidateForm',
-    duration_ms: 1000,
-    success: true,
-    line_number: 300,
-    details: '{"filter_name":"ValidateForm","filter_level":2}',
-  },
-]
-
-const mockEscalations: TopNEntry[] = [
-  {
-    rank: 1,
-    identifier: 'NotifyOnUpdate',
-    duration_ms: 500,
-    success: true,
-    line_number: 400,
-    details: '{"esc_pool":"Pool1","delay_ms":50,"error_encountered":false}',
-  },
-]
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 describe('TopNTable', () => {
-  it('renders tab buttons: API Calls, SQL, Filters, Escalations with counts', () => {
-    render(
-      <TopNTable
-        apiCalls={mockApiCalls}
-        sqlStatements={mockSqlStatements}
-        filters={mockFilters}
-        escalations={mockEscalations}
-        jobId="job-123"
-      />
-    )
 
-    // Check tab buttons exist with counts
-    expect(screen.getByText(/API Calls/i)).toBeInTheDocument()
-    expect(screen.getByText(/SQL/i)).toBeInTheDocument()
-    expect(screen.getByText(/Filters/i)).toBeInTheDocument()
-    expect(screen.getByText(/Escalations/i)).toBeInTheDocument()
+  // --- Rendering basics ---
 
-    // Check counts are displayed
-    expect(screen.getByText('2')).toBeInTheDocument() // API calls count
-    expect(screen.getByText('1')).toBeInTheDocument() // SQL, Filters, Escalations count
+  it('renders the title in non-compact mode', () => {
+    render(<TopNTable entries={[makeEntry()]} title="Top API Calls" logType="API" />)
+    expect(screen.getByText('Top API Calls')).toBeInTheDocument()
   })
 
-  it('renders API tab by default', () => {
-    render(
-      <TopNTable
-        apiCalls={mockApiCalls}
-        sqlStatements={mockSqlStatements}
-        filters={mockFilters}
-        escalations={mockEscalations}
-      />
-    )
-
-    // Check that API call data is visible
-    expect(screen.getByText('GET_ENTRY')).toBeInTheDocument()
-    expect(screen.getByText('SET_ENTRY')).toBeInTheDocument()
+  it('renders the log type badge in non-compact mode', () => {
+    render(<TopNTable entries={[makeEntry()]} title="Top SQL" logType="SQL" />)
+    expect(screen.getByLabelText('Log type: SQL')).toBeInTheDocument()
   })
 
-  it('shows API columns: #, Identifier, Form, User, Queue, Duration, Status', () => {
-    render(
-      <TopNTable
-        apiCalls={mockApiCalls}
-        sqlStatements={mockSqlStatements}
-        filters={mockFilters}
-        escalations={mockEscalations}
-      />
-    )
-
-    // Check for column headers (API tab has: #, Identifier, Form, Queue, Duration, Status)
-    expect(screen.getByText('#')).toBeInTheDocument()
-    expect(screen.getByText('Identifier')).toBeInTheDocument()
-    expect(screen.getByText('Form')).toBeInTheDocument()
-    expect(screen.getByText('Queue')).toBeInTheDocument()
-    expect(screen.getByText('Duration (ms)')).toBeInTheDocument()
-    expect(screen.getByText('Status')).toBeInTheDocument()
+  it('renders an accessible table with aria-label', () => {
+    render(<TopNTable entries={[makeEntry()]} title="Top API Calls" logType="API" />)
+    expect(screen.getByRole('table', { name: 'Top API Calls' })).toBeInTheDocument()
   })
 
-  it('renders API entries with rank, identifier, form, user, duration', () => {
-    render(
-      <TopNTable
-        apiCalls={mockApiCalls}
-        sqlStatements={mockSqlStatements}
-        filters={mockFilters}
-        escalations={mockEscalations}
-      />
-    )
-
-    // Check rank
-    expect(screen.getByText('1')).toBeInTheDocument()
-    expect(screen.getByText('2')).toBeInTheDocument()
-
-    // Check identifier
-    expect(screen.getByText('GET_ENTRY')).toBeInTheDocument()
-    expect(screen.getByText('SET_ENTRY')).toBeInTheDocument()
-
-    // Check form
-    expect(screen.getByText('HPD:Help Desk')).toBeInTheDocument()
-    expect(screen.getByText('CHG:Change')).toBeInTheDocument()
-
-    // Check duration (formatted with toLocaleString)
-    expect(screen.getByText('5,000')).toBeInTheDocument()
-    expect(screen.getByText('3,000')).toBeInTheDocument()
+  it('renders in compact mode without Card wrapper', () => {
+    render(<TopNTable entries={[makeEntry()]} title="Top API Calls" logType="API" compact />)
+    expect(screen.getByRole('table', { name: 'Top API Calls' })).toBeInTheDocument()
+    // No CardTitle in compact mode
+    expect(screen.queryByText('Top API Calls')).toBeNull()
   })
 
-  it('shows green dot for success, red for failure', () => {
-    const { container } = render(
-      <TopNTable
-        apiCalls={mockApiCalls}
-        sqlStatements={mockSqlStatements}
-        filters={mockFilters}
-        escalations={mockEscalations}
-      />
-    )
+  // --- Empty state ---
 
-    // Check for success (green) and failure (red) indicators
-    const greenDots = container.querySelectorAll('.bg-green-500, [class*="bg-green"]')
-    const redDots = container.querySelectorAll('.bg-red-500, [class*="bg-red"]')
-
-    expect(greenDots.length).toBeGreaterThan(0)
-    expect(redDots.length).toBeGreaterThan(0)
+  it('renders empty state with icon when no entries', () => {
+    render(<TopNTable entries={[]} title="Top API Calls" logType="API" />)
+    expect(screen.getByText(/no top api calls found/i)).toBeInTheDocument()
   })
 
-  it('switches to SQL tab on click and shows SQL-specific columns', () => {
-    render(
-      <TopNTable
-        apiCalls={mockApiCalls}
-        sqlStatements={mockSqlStatements}
-        filters={mockFilters}
-        escalations={mockEscalations}
-      />
-    )
+  // --- Type-specific columns ---
 
-    // Click SQL tab
-    const sqlTab = screen.getByRole('button', { name: /SQL/i })
-    fireEvent.click(sqlTab)
-
-    // Check that SQL data is visible
-    expect(screen.getByText('SELECT HPD_Entry')).toBeInTheDocument()
-    expect(screen.getByText('2,500')).toBeInTheDocument()
+  it('shows API-specific columns for API type', () => {
+    render(<TopNTable entries={[makeEntry()]} title="Top API Calls" logType="API" compact />)
+    const table = screen.getByRole('table')
+    expect(within(table).getByText('API Call')).toBeInTheDocument()
+    expect(within(table).getByText('Q-Time')).toBeInTheDocument()
+    expect(within(table).getByText('User')).toBeInTheDocument()
   })
 
-  it('switches to Filters tab', () => {
-    render(
-      <TopNTable
-        apiCalls={mockApiCalls}
-        sqlStatements={mockSqlStatements}
-        filters={mockFilters}
-        escalations={mockEscalations}
-      />
-    )
-
-    // Click Filters tab
-    const filtersTab = screen.getByRole('button', { name: /Filters/i })
-    fireEvent.click(filtersTab)
-
-    // Check that Filters data is visible (identifier column)
-    const filterNames = screen.getAllByText('ValidateForm')
-    expect(filterNames.length).toBeGreaterThan(0)
+  it('decodes known API codes to human-readable names', () => {
+    render(<TopNTable entries={[makeEntry({ identifier: 'SE' })]} title="Top API Calls" logType="API" compact />)
+    expect(screen.getByText('Set Entry')).toBeInTheDocument()
+    expect(screen.getByText('SE')).toBeInTheDocument()
   })
 
-  it('switches to Escalations tab', () => {
-    render(
-      <TopNTable
-        apiCalls={mockApiCalls}
-        sqlStatements={mockSqlStatements}
-        filters={mockFilters}
-        escalations={mockEscalations}
-      />
-    )
-
-    // Click Escalations tab
-    const escalationsTab = screen.getByRole('button', { name: /Escalations/i })
-    fireEvent.click(escalationsTab)
-
-    // Check that Escalations data is visible
-    expect(screen.getByText('NotifyOnUpdate')).toBeInTheDocument()
+  it('shows raw identifier for unknown API codes', () => {
+    render(<TopNTable entries={[makeEntry({ identifier: 'UNKNOWN_CODE' })]} title="Top API Calls" logType="API" compact />)
+    expect(screen.getByTitle('UNKNOWN_CODE')).toBeInTheDocument()
   })
 
-  it('expands row on click to show trace details (trace_id, rpc_id, thread, line)', () => {
-    render(
-      <TopNTable
-        apiCalls={mockApiCalls}
-        sqlStatements={mockSqlStatements}
-        filters={mockFilters}
-        escalations={mockEscalations}
-      />
-    )
-
-    // Click on first row to expand
-    const firstRow = screen.getByText('GET_ENTRY').closest('tr')
-    expect(firstRow).toBeInTheDocument()
-    fireEvent.click(firstRow!)
-
-    // Check for trace details
-    expect(screen.getByText(/trace-1/)).toBeInTheDocument()
-    expect(screen.getByText(/rpc-1/)).toBeInTheDocument()
-    expect(screen.getByText(/T001/)).toBeInTheDocument()
-    expect(screen.getByText(/100/)).toBeInTheDocument()
+  it('shows SQL-specific columns for SQL type', () => {
+    render(<TopNTable entries={[makeEntry({ identifier: 'user_table' })]} title="Top SQL" logType="SQL" compact />)
+    const table = screen.getByRole('table')
+    expect(within(table).getByText('Table')).toBeInTheDocument()
+    expect(within(table).getByText('SQL Statement')).toBeInTheDocument()
+    expect(within(table).getByText('Time')).toBeInTheDocument()
+    // SQL type should NOT have User or Q-Time columns
+    expect(within(table).queryByText('User')).toBeNull()
+    expect(within(table).queryByText('Q-Time')).toBeNull()
   })
 
-  it('collapses expanded row on second click', () => {
-    render(
-      <TopNTable
-        apiCalls={mockApiCalls}
-        sqlStatements={mockSqlStatements}
-        filters={mockFilters}
-        escalations={mockEscalations}
-      />
-    )
-
-    // Click on first row to expand
-    const firstRow = screen.getByText('GET_ENTRY').closest('tr')
-    fireEvent.click(firstRow!)
-
-    // Verify details are visible
-    expect(screen.getByText(/trace-1/)).toBeInTheDocument()
-
-    // Click again to collapse
-    fireEvent.click(firstRow!)
-
-    // Details should no longer be visible
-    expect(screen.queryByText(/trace-1/)).not.toBeInTheDocument()
+  it('shows sql_statement from parsed details in SQL tab', () => {
+    const entry = makeEntry({
+      identifier: 'T4381',
+      details: JSON.stringify({ sql_statement: 'SELECT * FROM users WHERE id = 1' }),
+    })
+    render(<TopNTable entries={[entry]} title="Top SQL" logType="SQL" compact />)
+    expect(screen.getByTitle('SELECT * FROM users WHERE id = 1')).toBeInTheDocument()
   })
 
-  it('shows "View in Explorer" link when jobId is provided', () => {
-    render(
-      <TopNTable
-        apiCalls={mockApiCalls}
-        sqlStatements={mockSqlStatements}
-        filters={mockFilters}
-        escalations={mockEscalations}
-        jobId="job-123"
-      />
-    )
-
-    // Click on first row to expand
-    const firstRow = screen.getByText('GET_ENTRY').closest('tr')
-    fireEvent.click(firstRow!)
-
-    // Check for "View in Explorer" link
-    const explorerLink = screen.getByRole('link', { name: /view in explorer/i })
-    expect(explorerLink).toBeInTheDocument()
-    expect(explorerLink).toHaveAttribute('href', expect.stringContaining('/explorer'))
-    expect(explorerLink).toHaveAttribute('href', expect.stringContaining('job-123'))
+  it('shows Filter-specific columns for FLTR type', () => {
+    render(<TopNTable entries={[makeEntry({ identifier: 'SetDefaults' })]} title="Top Filters" logType="FLTR" compact />)
+    const table = screen.getByRole('table')
+    expect(within(table).getByText('Filter Name')).toBeInTheDocument()
+    expect(within(table).getByText('Level')).toBeInTheDocument()
   })
 
-  it('shows "No data available" for empty tab', () => {
-    render(
-      <TopNTable
-        apiCalls={[]}
-        sqlStatements={[]}
-        filters={[]}
-        escalations={[]}
-      />
-    )
-
-    // Should show "No data available" message
-    expect(screen.getByText(/no data available/i)).toBeInTheDocument()
+  it('shows Escalation-specific columns for ESCL type', () => {
+    render(<TopNTable entries={[makeEntry({ identifier: 'HPD:AutoAssign' })]} title="Top Escalations" logType="ESCL" compact />)
+    const table = screen.getByRole('table')
+    expect(within(table).getByText('Escalation')).toBeInTheDocument()
+    expect(within(table).getByText('Pool')).toBeInTheDocument()
+    expect(within(table).getByText('Delay')).toBeInTheDocument()
   })
 
-  it('shows SQL-specific columns (Table, Statement, Queue Wait) with parsed details', () => {
-    render(
-      <TopNTable
-        apiCalls={mockApiCalls}
-        sqlStatements={mockSqlStatements}
-        filters={mockFilters}
-        escalations={mockEscalations}
-      />
-    )
+  // --- Data rendering ---
 
-    const sqlTab = screen.getByRole('button', { name: /SQL/i })
-    fireEvent.click(sqlTab)
-
-    // SQL columns
-    expect(screen.getByText('Table')).toBeInTheDocument()
-    expect(screen.getByText('Statement')).toBeInTheDocument()
-
-    // Parsed details: sql_table and sql_statement
-    expect(screen.getByText('HPD_Entry')).toBeInTheDocument()
-    expect(screen.getByText(/SELECT \* FROM HPD_Entry/)).toBeInTheDocument()
+  it('renders an entry row with identifier', () => {
+    render(<TopNTable entries={[makeEntry({ identifier: 'REMEDY:GetEntry' })]} title="Top API Calls" logType="API" compact />)
+    expect(screen.getByTitle('REMEDY:GetEntry')).toBeInTheDocument()
   })
 
-  it('shows Filter-specific columns (Filter Name, Level)', () => {
-    render(
-      <TopNTable
-        apiCalls={mockApiCalls}
-        sqlStatements={mockSqlStatements}
-        filters={mockFilters}
-        escalations={mockEscalations}
-      />
-    )
-
-    const filtersTab = screen.getByRole('button', { name: /Filters/i })
-    fireEvent.click(filtersTab)
-
-    // Filter columns
-    expect(screen.getByText('Filter Name')).toBeInTheDocument()
-    expect(screen.getByText('Level')).toBeInTheDocument()
-
-    // Parsed filter details
-    const filterNames = screen.getAllByText('ValidateForm')
-    expect(filterNames.length).toBeGreaterThan(0)
-    expect(screen.getByText('2')).toBeInTheDocument()
+  it('renders duration with visual bar', () => {
+    render(<TopNTable entries={[makeEntry({ duration_ms: 2500 })]} title="Top API Calls" logType="API" compact />)
+    expect(screen.getByText('2.50s')).toBeInTheDocument()
   })
 
-  it('shows Escalation-specific columns (Pool, Delay, Error)', () => {
-    render(
-      <TopNTable
-        apiCalls={mockApiCalls}
-        sqlStatements={mockSqlStatements}
-        filters={mockFilters}
-        escalations={mockEscalations}
-      />
-    )
-
-    const escalationsTab = screen.getByRole('button', { name: /Escalations/i })
-    fireEvent.click(escalationsTab)
-
-    // Escalation columns
-    expect(screen.getByText('Pool')).toBeInTheDocument()
-    expect(screen.getByText('Delay (ms)')).toBeInTheDocument()
-    expect(screen.getByText('Error')).toBeInTheDocument()
-
-    // Parsed escalation details
-    expect(screen.getByText('Pool1')).toBeInTheDocument()
-    expect(screen.getByText('50')).toBeInTheDocument()
-    expect(screen.getByText('No')).toBeInTheDocument()
+  it('renders duration in ms for small values', () => {
+    render(<TopNTable entries={[makeEntry({ duration_ms: 350 })]} title="Top API Calls" logType="API" compact />)
+    expect(screen.getByText('350ms')).toBeInTheDocument()
   })
 
-  it('shows raw_text in expanded row when available', () => {
-    render(
-      <TopNTable
-        apiCalls={mockApiCalls}
-        sqlStatements={mockSqlStatements}
-        filters={mockFilters}
-        escalations={mockEscalations}
-      />
-    )
-
-    // Expand first API call which has raw_text in details
-    const firstRow = screen.getByText('GET_ENTRY').closest('tr')
-    fireEvent.click(firstRow!)
-
-    expect(screen.getByText(/sample log line/)).toBeInTheDocument()
+  it('renders success status as OK', () => {
+    render(<TopNTable entries={[makeEntry({ success: true })]} title="Top API Calls" logType="API" compact />)
+    expect(screen.getByLabelText('Success')).toBeInTheDocument()
   })
 
-  it('shows "-" for missing optional fields in API tab', () => {
-    render(
-      <TopNTable
-        apiCalls={mockApiCalls}
-        sqlStatements={mockSqlStatements}
-        filters={mockFilters}
-        escalations={mockEscalations}
-      />
-    )
-
-    // Second API call has no queue, so it renders "-"
-    const dashCells = screen.getAllByText('-')
-    expect(dashCells.length).toBeGreaterThan(0)
+  it('renders error status as ERR with row highlight', () => {
+    render(<TopNTable entries={[makeEntry({ success: false })]} title="Top API Calls" logType="API" compact />)
+    expect(screen.getByLabelText('Error')).toBeInTheDocument()
   })
 
-  it('handles invalid JSON in details gracefully', () => {
-    const badDetailsApiCalls: TopNEntry[] = [
-      {
-        rank: 1,
-        identifier: 'BAD_ENTRY',
-        duration_ms: 100,
-        success: true,
-        line_number: 50,
-        details: 'not valid json{{{',
-      },
-    ]
-
-    render(
-      <TopNTable
-        apiCalls={badDetailsApiCalls}
-        sqlStatements={[]}
-        filters={[]}
-        escalations={[]}
-      />
-    )
-
-    expect(screen.getByText('BAD_ENTRY')).toBeInTheDocument()
-
-    // Expand row - should show "-" for parsed details
-    const row = screen.getByText('BAD_ENTRY').closest('tr')
-    fireEvent.click(row!)
-
-    // Thread ID should show "-" since details couldn't be parsed
-    const dashes = screen.getAllByText('-')
-    expect(dashes.length).toBeGreaterThan(0)
+  it('renders rank number', () => {
+    render(<TopNTable entries={[makeEntry({ rank: 3 })]} title="Top API Calls" logType="API" compact />)
+    expect(screen.getByText('3')).toBeInTheDocument()
   })
 
-  it('renders duration with toLocaleString formatting', () => {
+  it('renders user column for API type', () => {
+    render(<TopNTable entries={[makeEntry({ user: 'testuser' })]} title="Top API Calls" logType="API" compact />)
+    expect(screen.getByText('testuser')).toBeInTheDocument()
+  })
+
+  it('renders queue column', () => {
+    render(<TopNTable entries={[makeEntry({ queue: 'Fast' })]} title="Top API Calls" logType="API" compact />)
+    expect(screen.getByTitle('Fast')).toBeInTheDocument()
+  })
+
+  // --- Sorting ---
+
+  it('renders sortable column headers with aria-sort', () => {
+    render(<TopNTable entries={[makeEntry()]} title="Top API Calls" logType="API" compact />)
+    const durationHeader = screen.getByRole('columnheader', { name: /duration/i })
+    expect(durationHeader).toBeInTheDocument()
+  })
+
+  it('changes sort direction when sortable header is clicked', () => {
+    render(<TopNTable entries={makeAPIEntries(3)} title="Top API Calls" logType="API" compact />)
+    const durationHeader = screen.getByRole('columnheader', { name: /duration/i })
+    fireEvent.click(durationHeader)
+    expect(durationHeader).toHaveAttribute('aria-sort', 'descending')
+    fireEvent.click(durationHeader)
+    expect(durationHeader).toHaveAttribute('aria-sort', 'ascending')
+  })
+
+  // --- maxRows ---
+
+  it('limits rows when maxRows is set', () => {
+    const entries = makeAPIEntries(15)
+    render(<TopNTable entries={entries} title="Top API Calls" logType="API" maxRows={5} compact />)
+    const rows = screen.getAllByRole('row')
+    expect(rows).toHaveLength(6) // 1 header + 5 data
+    expect(screen.getByText(/show all 15 entries/i)).toBeInTheDocument()
+  })
+
+  it('expands to show all rows when "Show all" is clicked', () => {
+    const entries = makeAPIEntries(15)
+    render(<TopNTable entries={entries} title="Top API Calls" logType="API" maxRows={5} compact />)
+    fireEvent.click(screen.getByText(/show all/i))
+    const rows = screen.getAllByRole('row')
+    expect(rows).toHaveLength(16) // 1 header + 15 data
+    expect(screen.getByText(/show less/i)).toBeInTheDocument()
+  })
+
+  // --- Click-to-expand detail panel ---
+
+  it('expands detail panel when row is clicked', () => {
     render(
       <TopNTable
-        apiCalls={mockApiCalls}
-        sqlStatements={mockSqlStatements}
-        filters={mockFilters}
-        escalations={mockEscalations}
+        entries={[makeEntry({ trace_id: 'abc123', form: 'HPD:Help Desk', user: 'Demo' })]}
+        title="Top API Calls"
+        logType="API"
+        compact
       />
     )
+    const row = screen.getAllByRole('row')[1] // first data row
+    fireEvent.click(row)
+    // Detail panel should show labels like "Trace ID", "Form", etc.
+    expect(screen.getByText('Trace ID')).toBeInTheDocument()
+    expect(screen.getByText('abc123')).toBeInTheDocument()
+  })
 
-    // Check that durations are formatted with commas
-    expect(screen.getByText('5,000')).toBeInTheDocument()
-    expect(screen.getByText('3,000')).toBeInTheDocument()
+  it('collapses detail panel when same row is clicked again', () => {
+    render(
+      <TopNTable
+        entries={[makeEntry({ trace_id: 'abc123' })]}
+        title="Top API Calls"
+        logType="API"
+        compact
+      />
+    )
+    const row = screen.getAllByRole('row')[1]
+    fireEvent.click(row) // expand
+    expect(screen.getByText('abc123')).toBeInTheDocument()
+    fireEvent.click(row) // collapse
+    // The detail panel trace_id text should no longer be visible
+    // (trace_id may still appear in the table row itself if it's a column, so check for detail label)
+    expect(screen.queryByText('Trace ID')).not.toBeInTheDocument()
+  })
 
-    // Switch to SQL tab
-    const sqlTab = screen.getByRole('button', { name: /SQL/i })
-    fireEvent.click(sqlTab)
+  // --- Details parsing ---
 
-    expect(screen.getByText('2,500')).toBeInTheDocument()
+  it('shows escalation pool from parsed details', () => {
+    const entry = makeEntry({
+      identifier: 'HPD:AutoAssign',
+      details: JSON.stringify({ esc_pool: 'Assignment', delay_ms: 500, thread_id: 'T001' }),
+    })
+    render(<TopNTable entries={[entry]} title="Top Escalations" logType="ESCL" compact />)
+    expect(screen.getByTitle('Assignment')).toBeInTheDocument()
+    expect(screen.getByText('500ms')).toBeInTheDocument()
+  })
 
-    // Switch to Filters tab
-    const filtersTab = screen.getByRole('button', { name: /Filters/i })
-    fireEvent.click(filtersTab)
+  it('shows filter level from parsed details', () => {
+    const entry = makeEntry({
+      identifier: 'SetDefaults',
+      details: JSON.stringify({ filter_level: 3, filter_name: 'SetDefaults' }),
+    })
+    render(<TopNTable entries={[entry]} title="Top Filters" logType="FLTR" compact />)
+    expect(screen.getByText('3')).toBeInTheDocument()
+  })
 
-    expect(screen.getByText('1,000')).toBeInTheDocument()
+  // --- Count badge in non-compact mode ---
 
-    // Switch to Escalations tab
-    const escalationsTab = screen.getByRole('button', { name: /Escalations/i })
-    fireEvent.click(escalationsTab)
-
-    expect(screen.getByText('500')).toBeInTheDocument()
+  it('shows entry count next to title in non-compact mode', () => {
+    render(<TopNTable entries={makeAPIEntries(5)} title="Top API Calls" logType="API" />)
+    expect(screen.getByText('(5)')).toBeInTheDocument()
   })
 })

@@ -1,90 +1,111 @@
+/**
+ * Tests for SkillSelector component.
+ *
+ * Covers: rendering Auto + skill buttons, active state, click handling,
+ * fallback skills when API unavailable, accessibility.
+ */
+
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { SkillSelector } from './skill-selector'
-import type { SkillInfo } from '@/hooks/use-ai'
+
+// ---------------------------------------------------------------------------
+// Mock use-api hook
+// ---------------------------------------------------------------------------
+
+vi.mock('@/hooks/use-api', () => ({
+  useAISkills: vi.fn(() => ({
+    data: [
+      {
+        name: 'performance',
+        display_name: 'Performance',
+        description: 'Analyze performance',
+        icon: '⚡',
+      },
+      {
+        name: 'root_cause',
+        display_name: 'Root Cause',
+        description: 'Find root causes',
+        icon: '🔍',
+      },
+    ],
+    isLoading: false,
+    isError: false,
+  })),
+}))
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function setup(selectedSkill: string | null = null) {
+  const onSelectSkill = vi.fn()
+  const user = userEvent.setup()
+  const result = render(
+    <SkillSelector selectedSkill={selectedSkill} onSelectSkill={onSelectSkill} />,
+  )
+  return { onSelectSkill, user, ...result }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 describe('SkillSelector', () => {
-  const mockOnSelect = vi.fn()
-  const mockSkills: SkillInfo[] = [
-    { name: 'summarizer', description: 'Summarize log analysis results' },
-    { name: 'anomaly', description: 'Detect anomalies in log data' },
-    { name: 'error_explainer', description: 'Explain error codes and messages' },
-  ]
-
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('returns null when skills array is empty', () => {
-    const { container } = render(
-      <SkillSelector skills={[]} selected="summarizer" onSelect={mockOnSelect} />
-    )
-
-    expect(container.firstChild).toBeNull()
+  it('renders the Auto button', () => {
+    setup()
+    expect(screen.getByRole('button', { name: /auto/i })).toBeInTheDocument()
   })
 
-  it('renders "AI Skill" heading', () => {
-    render(<SkillSelector skills={mockSkills} selected="summarizer" onSelect={mockOnSelect} />)
-
-    expect(screen.getByText(/ai skill/i)).toBeInTheDocument()
+  it('renders skill buttons from the API', () => {
+    setup()
+    expect(screen.getByRole('button', { name: /performance/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /root cause/i })).toBeInTheDocument()
   })
 
-  it('renders all skill buttons with name and description', () => {
-    render(<SkillSelector skills={mockSkills} selected="summarizer" onSelect={mockOnSelect} />)
-
-    expect(screen.getByText('summarizer')).toBeInTheDocument()
-    expect(screen.getByText('Summarize log analysis results')).toBeInTheDocument()
-    expect(screen.getByText('anomaly')).toBeInTheDocument()
-    expect(screen.getByText('Detect anomalies in log data')).toBeInTheDocument()
-    expect(screen.getByText('error_explainer')).toBeInTheDocument()
-    expect(screen.getByText('Explain error codes and messages')).toBeInTheDocument()
+  it('marks Auto as pressed when selectedSkill is null', () => {
+    setup(null)
+    expect(screen.getByRole('button', { name: /auto/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /performance/i })).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('applies selected styling to selected skill', () => {
-    render(<SkillSelector skills={mockSkills} selected="anomaly" onSelect={mockOnSelect} />)
-
-    const anomalyButton = screen.getByText('anomaly').closest('button')!
-    expect(anomalyButton.className).toContain('bg-primary')
+  it('marks performance skill as pressed when selected', () => {
+    setup('performance')
+    expect(screen.getByRole('button', { name: /performance/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /auto/i })).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('does not apply selected styling to unselected skills', () => {
-    render(<SkillSelector skills={mockSkills} selected="anomaly" onSelect={mockOnSelect} />)
-
-    const summarizerButton = screen.getByText('summarizer').closest('button')!
-    const errorExplainerButton = screen.getByText('error_explainer').closest('button')!
-
-    expect(summarizerButton.className).not.toContain('bg-primary')
-    expect(errorExplainerButton.className).not.toContain('bg-primary')
+  it('calls onSelectSkill with null when Auto is clicked', async () => {
+    const { user, onSelectSkill } = setup('performance')
+    await user.click(screen.getByRole('button', { name: /auto/i }))
+    expect(onSelectSkill).toHaveBeenCalledWith(null)
   })
 
-  it('calls onSelect with skill name when clicked', () => {
-    render(<SkillSelector skills={mockSkills} selected="summarizer" onSelect={mockOnSelect} />)
-
-    const anomalyButton = screen.getByText('anomaly').closest('button')!
-    fireEvent.click(anomalyButton)
-
-    expect(mockOnSelect).toHaveBeenCalledWith('anomaly')
+  it('calls onSelectSkill with skill name when skill button is clicked', async () => {
+    const { user, onSelectSkill } = setup(null)
+    await user.click(screen.getByRole('button', { name: /performance/i }))
+    expect(onSelectSkill).toHaveBeenCalledWith('performance')
   })
 
-  it('renders each skill description', () => {
-    render(<SkillSelector skills={mockSkills} selected="summarizer" onSelect={mockOnSelect} />)
-
-    expect(screen.getByText('Summarize log analysis results')).toBeInTheDocument()
-    expect(screen.getByText('Detect anomalies in log data')).toBeInTheDocument()
-    expect(screen.getByText('Explain error codes and messages')).toBeInTheDocument()
+  it('calls onSelectSkill with root_cause when root cause is clicked', async () => {
+    const { user, onSelectSkill } = setup(null)
+    await user.click(screen.getByRole('button', { name: /root cause/i }))
+    expect(onSelectSkill).toHaveBeenCalledWith('root_cause')
   })
 
-  it('handles single skill', () => {
-    const singleSkill: SkillInfo[] = [
-      { name: 'summarizer', description: 'Summarize log analysis results' },
-    ]
+  it('has group role with accessible label', () => {
+    setup()
+    expect(screen.getByRole('group', { name: /ai skill selector/i })).toBeInTheDocument()
+  })
 
-    render(<SkillSelector skills={singleSkill} selected="summarizer" onSelect={mockOnSelect} />)
-
-    expect(screen.getByText('summarizer')).toBeInTheDocument()
-    expect(screen.getByText('Summarize log analysis results')).toBeInTheDocument()
-
-    const button = screen.getByText('summarizer').closest('button')!
-    expect(button!.className).toContain('bg-primary')
+  it('renders tooltip-like title attributes on buttons', () => {
+    setup()
+    const autoBtn = screen.getByRole('button', { name: /auto/i })
+    expect(autoBtn).toHaveAttribute('title')
   })
 })

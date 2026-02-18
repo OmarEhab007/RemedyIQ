@@ -1,76 +1,170 @@
-"use client";
+'use client'
 
-import type { Skill } from "@/lib/ai-types";
-import { cn } from "@/lib/utils";
+/**
+ * skill-selector.tsx — AI skill picker buttons.
+ *
+ * Shows "Auto" (null skill) + each skill from useAISkills().
+ * Active skill is highlighted. Tooltip on each button via title attr.
+ *
+ * Usage:
+ *   <SkillSelector
+ *     selectedSkill={selectedSkill}
+ *     onSelectSkill={setSkill}
+ *   />
+ */
+
+import { useCallback } from 'react'
+import { cn } from '@/lib/utils'
+import { useAISkills } from '@/hooks/use-api'
+import type { AISkill } from '@/lib/api-types'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface SkillSelectorProps {
-  skills: Skill[];
-  selected: string;
-  onSelect: (name: string) => void;
+  selectedSkill: string | null
+  onSelectSkill: (skill: string | null) => void
+  className?: string
 }
 
-const skillDescriptions: Record<string, string> = {
-  auto: "Automatically choose the best skill based on your question",
-  performance: "Analyze slow operations and latency issues",
-  root_cause: "Find correlations and cascading failures",
-  error_explainer: "Explain error codes and exceptions",
-  anomaly_narrator: "Detect unusual patterns in your logs",
-  summarizer: "Generate overview summaries of your analysis",
-  nl_query: "General natural language queries",
-};
+// ---------------------------------------------------------------------------
+// Fallback skill icon based on skill name
+// ---------------------------------------------------------------------------
 
-export function SkillSelector({ skills, selected, onSelect }: SkillSelectorProps) {
-  const autoOption = { name: "auto", description: skillDescriptions.auto };
+function getSkillEmoji(name: string): string {
+  const map: Record<string, string> = {
+    performance: '⚡',
+    root_cause: '🔍',
+    root_cause_analysis: '🔍',
+    error_explainer: '🚨',
+    anomaly_narrator: '📊',
+    summarizer: '📝',
+    summary: '📝',
+  }
+  return map[name.toLowerCase()] ?? '🤖'
+}
+
+// ---------------------------------------------------------------------------
+// Static fallback skills (shown when API is loading/unavailable)
+// ---------------------------------------------------------------------------
+
+const FALLBACK_SKILLS: AISkill[] = [
+  {
+    name: 'performance',
+    display_name: 'Performance',
+    description: 'Analyze query performance and bottlenecks',
+    icon: '⚡',
+  },
+  {
+    name: 'root_cause',
+    display_name: 'Root Cause',
+    description: 'Identify root causes of errors and failures',
+    icon: '🔍',
+  },
+  {
+    name: 'error_explainer',
+    display_name: 'Error Explainer',
+    description: 'Explain error messages in plain language',
+    icon: '🚨',
+  },
+  {
+    name: 'anomaly_narrator',
+    display_name: 'Anomaly Narrator',
+    description: 'Narrate unusual patterns and anomalies',
+    icon: '📊',
+  },
+  {
+    name: 'summarizer',
+    display_name: 'Summarizer',
+    description: 'Generate concise summaries of log data',
+    icon: '📝',
+  },
+]
+
+// ---------------------------------------------------------------------------
+// Skill button
+// ---------------------------------------------------------------------------
+
+interface SkillButtonProps {
+  name: string | null
+  label: string
+  description: string
+  icon: string
+  isActive: boolean
+  onClick: (name: string | null) => void
+}
+
+function SkillButton({ name, label, description, icon, isActive, onClick }: SkillButtonProps) {
+  const handleClick = useCallback(() => {
+    onClick(name)
+  }, [name, onClick])
 
   return (
-    <div className="space-y-2">
-      <h4 className="text-xs font-medium text-muted-foreground uppercase">AI Skill</h4>
-      <div className="space-y-1">
-        <button
-          onClick={() => onSelect("auto")}
-          className={cn(
-            "w-full text-left px-3 py-2 rounded-md text-sm transition-colors",
-            selected === "auto"
-              ? "bg-primary text-primary-foreground"
-              : "hover:bg-muted border border-transparent"
-          )}
-        >
-          <div className="font-medium flex items-center gap-2">
-            Auto
-            <span className="text-xs opacity-70 font-normal">(recommended)</span>
-          </div>
-          <div className={cn("text-xs mt-0.5", selected === "auto" ? "text-primary-foreground/80" : "text-muted-foreground")}>
-            {autoOption.description}
-          </div>
-        </button>
+    <button
+      type="button"
+      onClick={handleClick}
+      title={description}
+      aria-label={`${label}: ${description}`}
+      aria-pressed={isActive}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2',
+        isActive
+          ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white shadow-sm'
+          : 'border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]',
+      )}
+    >
+      <span role="img" aria-hidden="true">{icon}</span>
+      {label}
+    </button>
+  )
+}
 
-        {skills.map((skill) => (
-          <button
-            key={skill.name}
-            onClick={() => onSelect(skill.name)}
-            className={cn(
-              "w-full text-left px-3 py-2 rounded-md text-sm transition-colors",
-              selected === skill.name
-                ? "bg-primary/10 text-primary border border-primary/20"
-                : "hover:bg-muted"
-            )}
-          >
-            <div className="font-medium capitalize">{skill.name.replace(/_/g, " ")}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">
-              {skillDescriptions[skill.name] || skill.description}
-            </div>
-            {skill.keywords && skill.keywords.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-1">
-                {skill.keywords.slice(0, 3).map((kw) => (
-                  <span key={kw} className="text-[10px] px-1.5 py-0.5 bg-muted rounded">
-                    {kw}
-                  </span>
-                ))}
-              </div>
-            )}
-          </button>
-        ))}
-      </div>
+// ---------------------------------------------------------------------------
+// SkillSelector
+// ---------------------------------------------------------------------------
+
+export function SkillSelector({
+  selectedSkill,
+  onSelectSkill,
+  className,
+}: SkillSelectorProps) {
+  const { data: skills, isLoading } = useAISkills()
+
+  const displaySkills = isLoading || !skills?.length ? FALLBACK_SKILLS : skills
+
+  return (
+    <div
+      className={cn('flex flex-wrap items-center gap-1.5', className)}
+      role="group"
+      aria-label="AI skill selector"
+    >
+      {/* Auto (no skill) */}
+      <SkillButton
+        name={null}
+        label="Auto"
+        description="Let the AI choose the best approach"
+        icon="✨"
+        isActive={selectedSkill === null}
+        onClick={onSelectSkill}
+      />
+
+      {/* Divider */}
+      <div className="h-4 w-px bg-[var(--color-border)]" aria-hidden="true" />
+
+      {/* Skill buttons */}
+      {displaySkills.map((skill) => (
+        <SkillButton
+          key={skill.name}
+          name={skill.name}
+          label={skill.display_name}
+          description={skill.description}
+          icon={skill.icon || getSkillEmoji(skill.name)}
+          isActive={selectedSkill === skill.name}
+          onClick={onSelectSkill}
+        />
+      ))}
     </div>
-  );
+  )
 }

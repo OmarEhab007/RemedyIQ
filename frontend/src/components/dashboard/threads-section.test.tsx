@@ -1,226 +1,352 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
-import { ThreadsSection } from './threads-section'
-import type { ThreadStatsResponse } from '@/lib/api'
+/**
+ * T066 — Tests for ThreadsSection component (T061)
+ */
 
-const mockData: ThreadStatsResponse = {
-  threads: [
-    {
-      thread_id: 'T001',
-      total_calls: 1500,
-      total_ms: 45000.5,
-      avg_ms: 30.0,
-      max_ms: 500.25,
-      error_count: 5,
-      busy_pct: 95.5,
-    },
-    {
-      thread_id: 'T002',
-      total_calls: 800,
-      total_ms: 20000.0,
-      avg_ms: 25.0,
-      max_ms: 300.0,
-      error_count: 2,
-      busy_pct: 45.0,
-    },
-    {
-      thread_id: 'T003',
-      total_calls: 300,
-      total_ms: 5000.0,
-      avg_ms: 16.67,
-      max_ms: 100.0,
-      error_count: 0,
-      busy_pct: 15.0,
-    },
-  ],
-  total_threads: 3,
+import { describe, it, expect } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { ThreadsSection } from './threads-section'
+import type { ThreadStatsResponse, ThreadStatsEntry } from '@/lib/api-types'
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+function makeThread(overrides: Partial<ThreadStatsEntry> = {}): ThreadStatsEntry {
+  return {
+    thread_id: 'thread-01',
+    queue: 'AR System',
+    total_requests: 100,
+    error_count: 0,
+    avg_duration_ms: 250,
+    max_duration_ms: 800,
+    min_duration_ms: 10,
+    total_duration_ms: 25_000,
+    unique_users: 3,
+    unique_forms: 2,
+    ...overrides,
+  }
 }
 
+function makeData(overrides: Partial<ThreadStatsResponse> = {}): ThreadStatsResponse {
+  return {
+    job_id: 'job-001',
+    thread_stats: [],
+    total_threads: 0,
+    ...overrides,
+  }
+}
+
+const twoThreads: ThreadStatsResponse = {
+  job_id: 'job-001',
+  total_threads: 2,
+  thread_stats: [
+    makeThread({
+      thread_id: 'thread-alpha',
+      queue: 'AR System',
+      total_requests: 200,
+      error_count: 0,
+      avg_duration_ms: 300,
+      max_duration_ms: 900,
+    }),
+    makeThread({
+      thread_id: 'thread-beta',
+      queue: 'AR Background',
+      total_requests: 50,
+      error_count: 5,
+      avg_duration_ms: 1500,
+      max_duration_ms: 6000,
+    }),
+  ],
+}
+
+const singleThread: ThreadStatsResponse = {
+  job_id: 'job-002',
+  total_threads: 1,
+  thread_stats: [
+    makeThread({ thread_id: 'thread-only', total_requests: 10 }),
+  ],
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
 describe('ThreadsSection', () => {
-  it('renders loading state with pulse animation', () => {
-    render(
-      <ThreadsSection data={null} loading={true} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('Thread Statistics')).toBeInTheDocument()
-    const pulseElements = document.querySelectorAll('.animate-pulse')
-    expect(pulseElements.length).toBeGreaterThan(0)
+  describe('empty state', () => {
+    it('shows empty message when thread_stats is empty', () => {
+      render(<ThreadsSection data={makeData()} />)
+      expect(
+        screen.getByText('No thread statistics available for this job.')
+      ).toBeInTheDocument()
+    })
+
+    it('does not render a table when no threads', () => {
+      render(<ThreadsSection data={makeData()} />)
+      expect(screen.queryByRole('table')).toBeNull()
+    })
+
+    it('does not render the summary bar when no threads', () => {
+      render(<ThreadsSection data={makeData()} />)
+      expect(screen.queryByText(/thread.*active/i)).toBeNull()
+    })
   })
 
-  it('renders error state with error message and retry button', () => {
-    const errorMessage = 'Failed to load threads'
-    render(
-      <ThreadsSection
-        data={null}
-        loading={false}
-        error={errorMessage}
-        refetch={vi.fn()}
-      />
-    )
-    expect(screen.getByText(errorMessage)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument()
+  describe('summary bar', () => {
+    it('shows thread count with plural form', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      // The summary bar renders "{count} threads active" as two sibling nodes
+      expect(screen.getByText(/threads active/i)).toBeInTheDocument()
+      // The count span is a child of the same parent — query by exact text on the span
+      const countSpan = screen.getByText('2', { selector: 'span' })
+      expect(countSpan).toBeInTheDocument()
+    })
+
+    it('uses singular form for 1 thread', () => {
+      render(<ThreadsSection data={singleThread} />)
+      expect(screen.getByText(/thread active/i)).toBeInTheDocument()
+      // should not say "threads" (plural)
+      expect(screen.queryByText(/threads active/i)).toBeNull()
+    })
   })
 
-  it('calls refetch on retry button click', () => {
-    const refetchMock = vi.fn()
-    render(
-      <ThreadsSection
-        data={null}
-        loading={false}
-        error="Test error"
-        refetch={refetchMock}
-      />
-    )
-    const retryButton = screen.getByRole('button', { name: /retry/i })
-    fireEvent.click(retryButton)
-    expect(refetchMock).toHaveBeenCalledTimes(1)
+  describe('table structure', () => {
+    it('renders the thread statistics table with aria-label', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      expect(screen.getByRole('table', { name: 'Thread statistics' })).toBeInTheDocument()
+    })
+
+    it('renders sortable column headers', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      const table = screen.getByRole('table', { name: 'Thread statistics' })
+      expect(within(table).getByText('Thread ID')).toBeInTheDocument()
+      expect(within(table).getByText('Requests')).toBeInTheDocument()
+      expect(within(table).getByText('Errors')).toBeInTheDocument()
+      expect(within(table).getByText('Avg Duration')).toBeInTheDocument()
+      expect(within(table).getByText('Max Duration')).toBeInTheDocument()
+    })
+
+    it('renders non-sortable Queue column header', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      expect(screen.getByText('Queue')).toBeInTheDocument()
+    })
+
+    it('renders one data row per thread entry', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      const table = screen.getByRole('table', { name: 'Thread statistics' })
+      const allRows = within(table).getAllByRole('row')
+      // 1 header + 2 data rows
+      expect(allRows).toHaveLength(3)
+    })
   })
 
-  it('renders "No thread data available" when data is null', () => {
-    render(
-      <ThreadsSection data={null} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('No thread data available')).toBeInTheDocument()
+  describe('row content', () => {
+    it('renders thread IDs in data rows', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      expect(screen.getByText('thread-alpha')).toBeInTheDocument()
+      expect(screen.getByText('thread-beta')).toBeInTheDocument()
+    })
+
+    it('renders total_requests values', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      expect(screen.getByText('200')).toBeInTheDocument()
+      expect(screen.getByText('50')).toBeInTheDocument()
+    })
+
+    it('renders queue names', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      expect(screen.getByText('AR System')).toBeInTheDocument()
+      expect(screen.getByText('AR Background')).toBeInTheDocument()
+    })
+
+    it('renders em dash when queue is empty string', () => {
+      render(
+        <ThreadsSection
+          data={makeData({
+            total_threads: 1,
+            thread_stats: [makeThread({ queue: '' })],
+          })}
+        />
+      )
+      expect(screen.getByText('—')).toBeInTheDocument()
+    })
   })
 
-  it('renders "No thread data available" when threads array is empty', () => {
-    const emptyData: ThreadStatsResponse = { threads: [], total_threads: 0 }
-    render(
-      <ThreadsSection data={emptyData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('No thread data available')).toBeInTheDocument()
+  describe('error count styling', () => {
+    it('error_count > 0 renders with error class on the span', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      // thread-beta has error_count: 5
+      const errorSpan = screen.getByText('5')
+      expect(errorSpan.className).toMatch(/color-error/)
+    })
+
+    it('zero error_count renders with secondary text class', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      // thread-alpha has error_count: 0
+      const table = screen.getByRole('table', { name: 'Thread statistics' })
+      const alphaRow = within(table).getAllByRole('row')[1]
+      // The error count cell contains "0"
+      const zeroSpan = within(alphaRow).getByText('0')
+      expect(zeroSpan.className).not.toMatch(/color-error/)
+    })
+
+    it('row with error_count > 0 gets error-light background class', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      const table = screen.getByRole('table', { name: 'Thread statistics' })
+      // Default sort is total_requests desc: alpha(200) first, beta(50) second
+      const rows = within(table).getAllByRole('row')
+      const betaRow = rows[2]
+      expect(betaRow.className).toMatch(/color-error-light/)
+    })
   })
 
-  it('renders title and total threads badge', () => {
-    render(
-      <ThreadsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('Thread Statistics')).toBeInTheDocument()
-    expect(screen.getByText('3 threads detected')).toBeInTheDocument()
+  describe('duration formatting', () => {
+    it('formats avg_duration_ms < 1000 as ms', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      // thread-alpha avg: 300ms
+      expect(screen.getByText('300ms')).toBeInTheDocument()
+    })
+
+    it('formats avg_duration_ms >= 1000 as seconds with 2 decimal places', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      // thread-beta avg: 1500ms
+      expect(screen.getByText('1.50s')).toBeInTheDocument()
+    })
+
+    it('formats max_duration_ms < 1000 as ms', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      // thread-alpha max: 900ms
+      expect(screen.getByText('900ms')).toBeInTheDocument()
+    })
+
+    it('formats max_duration_ms >= 1000 as seconds', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      // thread-beta max: 6000ms -> 6.00s
+      expect(screen.getByText('6.00s')).toBeInTheDocument()
+    })
+
+    it('max_duration_ms > 5000 renders with error color', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      // thread-beta max is 6000ms > 5000
+      const maxDurationSpan = screen.getByText('6.00s')
+      expect(maxDurationSpan.className).toMatch(/color-error/)
+    })
+
+    it('max_duration_ms > 1000 and <= 5000 renders with warning color', () => {
+      render(
+        <ThreadsSection
+          data={makeData({
+            total_threads: 1,
+            thread_stats: [makeThread({ max_duration_ms: 3000 })],
+          })}
+        />
+      )
+      const maxDurationSpan = screen.getByText('3.00s')
+      expect(maxDurationSpan.className).toMatch(/color-warning/)
+    })
+
+    it('max_duration_ms <= 1000 renders with secondary text color', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      // thread-alpha max is 900ms <= 1000
+      const maxDurationSpan = screen.getByText('900ms')
+      expect(maxDurationSpan.className).not.toMatch(/color-error/)
+      expect(maxDurationSpan.className).not.toMatch(/color-warning/)
+    })
   })
 
-  it('renders column headers', () => {
-    render(
-      <ThreadsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('Thread ID')).toBeInTheDocument()
-    expect(screen.getByText('Total Calls')).toBeInTheDocument()
-    expect(screen.getByText('Total Time(ms)')).toBeInTheDocument()
-    expect(screen.getByText('Avg Time(ms)')).toBeInTheDocument()
-    expect(screen.getByText('Max Time(ms)')).toBeInTheDocument()
-    expect(screen.getByText('Errors')).toBeInTheDocument()
-    expect(screen.getByText('Busy%')).toBeInTheDocument()
+  describe('column sorting', () => {
+    it('default sort is total_requests descending — higher count appears first', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      const table = screen.getByRole('table', { name: 'Thread statistics' })
+      const rows = within(table).getAllByRole('row')
+      // thread-alpha (200 requests) should come before thread-beta (50 requests)
+      expect(rows[1]).toHaveTextContent('thread-alpha')
+      expect(rows[2]).toHaveTextContent('thread-beta')
+    })
+
+    it('Requests column header has aria-sort="descending" by default', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      const requestsHeader = screen.getByRole('columnheader', { name: /requests/i })
+      expect(requestsHeader).toHaveAttribute('aria-sort', 'descending')
+    })
+
+    it('clicking Requests header toggles sort to ascending', async () => {
+      const user = userEvent.setup()
+      render(<ThreadsSection data={twoThreads} />)
+
+      const requestsHeader = screen.getByRole('columnheader', { name: /requests/i })
+      await user.click(requestsHeader)
+
+      expect(requestsHeader).toHaveAttribute('aria-sort', 'ascending')
+    })
+
+    it('ascending sort on Requests places lower count first', async () => {
+      const user = userEvent.setup()
+      render(<ThreadsSection data={twoThreads} />)
+
+      await user.click(screen.getByRole('columnheader', { name: /requests/i }))
+
+      const table = screen.getByRole('table', { name: 'Thread statistics' })
+      const rows = within(table).getAllByRole('row')
+      // thread-beta (50) should come before thread-alpha (200) in ascending
+      expect(rows[1]).toHaveTextContent('thread-beta')
+      expect(rows[2]).toHaveTextContent('thread-alpha')
+    })
+
+    it('clicking a different header switches sort key with descending direction', async () => {
+      const user = userEvent.setup()
+      render(<ThreadsSection data={twoThreads} />)
+
+      const errorsHeader = screen.getByRole('columnheader', { name: /errors/i })
+      await user.click(errorsHeader)
+
+      expect(errorsHeader).toHaveAttribute('aria-sort', 'descending')
+      // thread-beta (5 errors) should appear first after sort by errors desc
+      const table = screen.getByRole('table', { name: 'Thread statistics' })
+      const rows = within(table).getAllByRole('row')
+      expect(rows[1]).toHaveTextContent('thread-beta')
+    })
+
+    it('clicking same header twice returns to descending', async () => {
+      const user = userEvent.setup()
+      render(<ThreadsSection data={twoThreads} />)
+
+      const requestsHeader = screen.getByRole('columnheader', { name: /requests/i })
+      // First click -> ascending
+      await user.click(requestsHeader)
+      expect(requestsHeader).toHaveAttribute('aria-sort', 'ascending')
+      // Second click -> descending again
+      await user.click(requestsHeader)
+      expect(requestsHeader).toHaveAttribute('aria-sort', 'descending')
+    })
+
+    it('non-active column headers have aria-sort="none"', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      const errorsHeader = screen.getByRole('columnheader', { name: /errors/i })
+      expect(errorsHeader).toHaveAttribute('aria-sort', 'none')
+    })
+
+    it('sorting by Thread ID (string sort) works correctly', async () => {
+      const user = userEvent.setup()
+      render(<ThreadsSection data={twoThreads} />)
+
+      const threadIdHeader = screen.getByRole('columnheader', { name: /thread id/i })
+      await user.click(threadIdHeader)
+
+      // descending alphabetical: thread-beta comes before thread-alpha
+      const table = screen.getByRole('table', { name: 'Thread statistics' })
+      const rows = within(table).getAllByRole('row')
+      expect(rows[1]).toHaveTextContent('thread-beta')
+      expect(rows[2]).toHaveTextContent('thread-alpha')
+    })
   })
 
-  it('renders thread data rows', () => {
-    render(
-      <ThreadsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('T001')).toBeInTheDocument()
-    expect(screen.getByText('T002')).toBeInTheDocument()
-    expect(screen.getByText('T003')).toBeInTheDocument()
-  })
-
-  it('formats total_calls with toLocaleString', () => {
-    render(
-      <ThreadsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('1,500')).toBeInTheDocument()
-    expect(screen.getByText('800')).toBeInTheDocument()
-    expect(screen.getByText('300')).toBeInTheDocument()
-  })
-
-  it('formats timing values with toFixed(2)', () => {
-    render(
-      <ThreadsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('45000.50')).toBeInTheDocument()
-    expect(screen.getByText('30.00')).toBeInTheDocument()
-    expect(screen.getByText('500.25')).toBeInTheDocument()
-  })
-
-  it('renders busy% with progress bar and percentage text', () => {
-    render(
-      <ThreadsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    expect(screen.getByText('95.5%')).toBeInTheDocument()
-    expect(screen.getByText('45.0%')).toBeInTheDocument()
-    expect(screen.getByText('15.0%')).toBeInTheDocument()
-
-    // Check progress bar widths
-    const progressBars = document.querySelectorAll('[style*="width"]')
-    expect(progressBars.length).toBeGreaterThanOrEqual(3)
-  })
-
-  it('applies correct busy% colors (>=90 red, >=50 yellow, <50 green)', () => {
-    const { container } = render(
-      <ThreadsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    // T001 has 95.5% → red
-    const redBars = container.querySelectorAll('.bg-red-500')
-    expect(redBars.length).toBeGreaterThan(0)
-
-    // T002 has 45.0% → green (< 50)
-    const greenBars = container.querySelectorAll('.bg-green-500')
-    expect(greenBars.length).toBeGreaterThan(0)
-  })
-
-  it('highlights high busy% rows (>90%) with amber background', () => {
-    render(
-      <ThreadsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    // T001 has 95.5% (>90), should have amber background
-    const warningRow = screen.getByText('T001').closest('tr')!
-    expect(warningRow.className).toContain('bg-amber-50')
-
-    // T002 has 45.0% (<=90), should not
-    const normalRow = screen.getByText('T002').closest('tr')!
-    expect(normalRow.className).not.toContain('bg-amber-50')
-  })
-
-  it('sorts by clicking column headers - default is busy_pct desc', () => {
-    render(
-      <ThreadsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    // Default sort: busy_pct desc → T001 (95.5%) first
-    const rows = screen.getAllByRole('row')
-    // rows[0] is header, rows[1] is first data row
-    expect(rows[1]).toHaveTextContent('T001')
-    expect(rows[2]).toHaveTextContent('T002')
-    expect(rows[3]).toHaveTextContent('T003')
-
-    // Sort arrow should show on Busy%
-    expect(screen.getByText('↓')).toBeInTheDocument()
-  })
-
-  it('toggles sort direction when clicking same column', () => {
-    render(
-      <ThreadsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    // Default: busy_pct desc (↓)
-    expect(screen.getByText('↓')).toBeInTheDocument()
-
-    // Click Busy% to toggle to asc
-    const busyHeader = screen.getByText('Busy%')
-    fireEvent.click(busyHeader)
-    expect(screen.getByText('↑')).toBeInTheDocument()
-
-    // Rows should now be sorted ascending: T003, T002, T001
-    const rows = screen.getAllByRole('row')
-    expect(rows[1]).toHaveTextContent('T003')
-    expect(rows[3]).toHaveTextContent('T001')
-  })
-
-  it('sorts by different column when clicking a new header', () => {
-    render(
-      <ThreadsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    )
-    // Click Thread ID header
-    const threadHeader = screen.getByText('Thread ID')
-    fireEvent.click(threadHeader)
-
-    // Should sort by thread_id desc
-    const rows = screen.getAllByRole('row')
-    expect(rows[1]).toHaveTextContent('T003')
-    expect(rows[3]).toHaveTextContent('T001')
+  describe('className prop', () => {
+    it('passes className to wrapper when data is present', () => {
+      const { container } = render(
+        <ThreadsSection data={twoThreads} className="my-custom-class" />
+      )
+      expect(container.firstChild).toHaveClass('my-custom-class')
+    })
   })
 })

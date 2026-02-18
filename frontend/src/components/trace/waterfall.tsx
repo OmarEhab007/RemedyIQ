@@ -1,205 +1,378 @@
-"use client";
+'use client'
 
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { FixedSizeList as List } from "react-window";
-import { SpanNode, WaterfallResponse } from "@/lib/api";
-import { TimestampRuler } from "./timestamp-ruler";
-import { WaterfallRow } from "./waterfall-row";
-import { ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+/**
+ * waterfall.tsx — Hierarchical waterfall diagram for trace spans.
+ *
+ * Renders SpanNode[] tree with indentation by depth.
+ * Duration bars are proportional to total trace time, colored by log type.
+ * Virtual scrolling via react-window for 500+ spans.
+ * Clickable spans invoke onSelectSpan callback.
+ *
+ * Usage:
+ *   <Waterfall
+ *     data={waterfallResponse}
+ *     selectedSpanId={selectedId}
+ *     onSelectSpan={(span) => setSelected(span)}
+ *     showCriticalPath={true}
+ *     filters={activeFilters}
+ *   />
+ */
+
+import { useMemo, useCallback, useRef, useEffect } from 'react'
+import { cn } from '@/lib/utils'
+import { LOG_TYPE_COLORS } from '@/lib/constants'
+import type { SpanNode, WaterfallResponse, LogType } from '@/lib/api-types'
+
+// ---------------------------------------------------------------------------
+// react-window — use require() to avoid named-import TS issues with this
+// CommonJS package under bundler moduleResolution
+// ---------------------------------------------------------------------------
+
+/* eslint-disable @typescript-eslint/no-require-imports */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { FixedSizeList: List } = require('react-window') as {
+  FixedSizeList: React.ComponentType<FixedSizeListProps>
+}
+/* eslint-enable @typescript-eslint/no-require-imports */
+
+interface FixedSizeListProps {
+  ref?: React.Ref<ListInstance>
+  height: number
+  width: number | string
+  itemCount: number
+  itemSize: number
+  overscanCount?: number
+  children: (props: { index: number; style: React.CSSProperties }) => React.ReactNode
+}
+
+interface ListInstance {
+  scrollToItem: (index: number, align?: string) => void
+}
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface WaterfallFilters {
+  logTypes: Set<LogType>
+  minDurationMs: number
+  errorsOnly: boolean
+}
 
 interface WaterfallProps {
-  data: WaterfallResponse;
-  selectedSpanId: string | null;
-  onSelectSpan: (spanId: string | null) => void;
-  filters?: {
-    searchText?: string;
-    logTypes?: Set<string>;
-    errorsOnly?: boolean;
-  };
-  filteredSpanIds?: Set<string>;
-  showCriticalPath?: boolean;
+  data: WaterfallResponse
+  selectedSpanId: string | null
+  onSelectSpan: (span: SpanNode | null) => void
+  showCriticalPath: boolean
+  filters: WaterfallFilters
+  className?: string
 }
 
-interface FlattenedRow {
-  span: SpanNode;
-  depth: number;
-  hasChildren: boolean;
+interface FlatRow {
+  span: SpanNode
+  hasChildren: boolean
 }
 
-const ROW_HEIGHT = 36;
+// ---------------------------------------------------------------------------
+// Row height constant
+// ---------------------------------------------------------------------------
+
+const ROW_HEIGHT = 36
+
+// ---------------------------------------------------------------------------
+// Helper — flatten tree into ordered rows, respecting filters
+// ---------------------------------------------------------------------------
+
+function flattenSpans(
+  spans: SpanNode[],
+  filters: WaterfallFilters,
+): FlatRow[] {
+  const rows: FlatRow[] = []
+
+  function visit(span: SpanNode) {
+    // Apply filters
+    if (filters.logTypes.size > 0 && !filters.logTypes.has(span.log_type)) {
+      // Still recurse children — they might pass filters
+      span.children.forEach(visit)
+      return
+    }
+    if (span.duration_ms < filters.minDurationMs) {
+      span.children.forEach(visit)
+      return
+    }
+    if (filters.errorsOnly && !span.has_error) {
+      span.children.forEach(visit)
+      return
+    }
+
+    rows.push({ span, hasChildren: span.children.length > 0 })
+    span.children.forEach(visit)
+  }
+
+  spans.forEach(visit)
+  return rows
+}
+
+// ---------------------------------------------------------------------------
+// SpanBar — the colored duration bar
+// ---------------------------------------------------------------------------
+
+interface SpanBarProps {
+  span: SpanNode
+  totalDurationMs: number
+  showCriticalPath: boolean
+  isSelected: boolean
+}
+
+function SpanBar({ span, totalDurationMs, showCriticalPath, isSelected }: SpanBarProps) {
+  const config = LOG_TYPE_COLORS[span.log_type]
+  const leftPct = totalDurationMs > 0
+    ? (span.start_offset_ms / totalDurationMs) * 100
+    : 0
+  const widthPct = totalDurationMs > 0
+    ? Math.max((span.duration_ms / totalDurationMs) * 100, 0.5) // min 0.5% for visibility
+    : 0.5
+
+  return (
+    <div className="relative h-5 flex-1">
+      <div
+        className={cn(
+          'absolute top-0 h-full rounded-sm transition-opacity',
+          showCriticalPath && !span.on_critical_path && 'opacity-30',
+          isSelected && 'ring-2 ring-offset-1 ring-[var(--color-primary)]',
+        )}
+        style={{
+          left: `${leftPct}%`,
+          width: `${widthPct}%`,
+          backgroundColor: config.bg,
+          minWidth: 2,
+        }}
+        aria-hidden="true"
+      />
+      {span.has_error && (
+        <div
+          className="absolute top-0 right-0 h-full w-1 rounded-r-sm bg-[var(--color-error)]"
+          aria-hidden="true"
+        />
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// WaterfallRow — single row rendered inside the virtual list
+// ---------------------------------------------------------------------------
+
+interface WaterfallRowProps {
+  row: FlatRow
+  totalDurationMs: number
+  showCriticalPath: boolean
+  selectedSpanId: string | null
+  onSelectSpan: (span: SpanNode | null) => void
+  style: React.CSSProperties
+}
+
+function WaterfallRow({
+  row,
+  totalDurationMs,
+  showCriticalPath,
+  selectedSpanId,
+  onSelectSpan,
+  style,
+}: WaterfallRowProps) {
+  const { span } = row
+  const isSelected = span.id === selectedSpanId
+  const config = LOG_TYPE_COLORS[span.log_type]
+  const indentPx = span.depth * 16
+
+  const handleClick = useCallback(() => {
+    onSelectSpan(isSelected ? null : span)
+  }, [span, isSelected, onSelectSpan])
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        handleClick()
+      }
+    },
+    [handleClick],
+  )
+
+  return (
+    <div
+      style={style}
+      role="row"
+      aria-selected={isSelected}
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      className={cn(
+        'flex cursor-pointer items-center gap-2 border-b border-[var(--color-border-light)] px-3 transition-colors',
+        'hover:bg-[var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-primary)]',
+        isSelected && 'bg-[var(--color-primary-light)]',
+        showCriticalPath && span.on_critical_path && 'bg-amber-50/60',
+      )}
+    >
+      {/* Indentation + log type badge */}
+      <div
+        className="flex shrink-0 items-center gap-1.5"
+        style={{ paddingLeft: indentPx, width: `${180 + indentPx}px` }}
+      >
+        {/* Depth connector line */}
+        {span.depth > 0 && (
+          <span
+            className="shrink-0 text-[var(--color-border)]"
+            aria-hidden="true"
+          >
+            {'└'}
+          </span>
+        )}
+
+        {/* Log type badge */}
+        <span
+          className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none"
+          style={{ backgroundColor: config.bg, color: config.text }}
+        >
+          {config.label}
+        </span>
+
+        {/* Operation name */}
+        <span
+          className="truncate text-xs text-[var(--color-text-primary)]"
+          title={span.operation}
+        >
+          {span.operation || span.id.slice(0, 8)}
+        </span>
+      </div>
+
+      {/* Duration bar */}
+      <SpanBar
+        span={span}
+        totalDurationMs={totalDurationMs}
+        showCriticalPath={showCriticalPath}
+        isSelected={isSelected}
+      />
+
+      {/* Duration label */}
+      <span className="w-20 shrink-0 text-right text-xs tabular-nums text-[var(--color-text-secondary)]">
+        {span.duration_ms.toFixed(1)} ms
+      </span>
+
+      {/* Critical path indicator */}
+      {showCriticalPath && span.on_critical_path && (
+        <span
+          className="shrink-0 text-amber-600"
+          aria-label="On critical path"
+          title="On critical path"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" fill="currentColor">
+            <circle cx="5" cy="5" r="4" />
+          </svg>
+        </span>
+      )}
+
+      {/* Error indicator */}
+      {span.has_error && (
+        <span
+          className="shrink-0 text-[var(--color-error)]"
+          aria-label="Has error"
+          title={span.error_message ?? 'Error'}
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" fill="currentColor">
+            <path d="M6 1L11.196 10H.804L6 1Z" />
+            <rect x="5.5" y="5" width="1" height="3" fill="white" />
+            <rect x="5.5" y="9" width="1" height="1" fill="white" />
+          </svg>
+        </span>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Waterfall
+// ---------------------------------------------------------------------------
 
 export function Waterfall({
   data,
   selectedSpanId,
   onSelectSpan,
+  showCriticalPath,
   filters,
-  filteredSpanIds,
-  showCriticalPath = false,
+  className,
 }: WaterfallProps) {
-  const [collapsedSpans, setCollapsedSpans] = useState<Set<string>>(new Set());
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerHeight, setContainerHeight] = useState(400);
+  const listRef = useRef<ListInstance>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
+  const rows = useMemo(
+    () => flattenSpans(data.spans, filters),
+    [data.spans, filters],
+  )
+
+  // Scroll selected span into view
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setContainerHeight(entry.contentRect.height);
-      }
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  const totalDurationMs = data.total_duration_ms;
-  const traceStart = data.trace_start;
-  const traceEnd = data.trace_end;
-
-  const flattenedRows = useMemo(() => {
-    const rows: FlattenedRow[] = [];
-    const hasFilters = filters && (
-      (filters.searchText && filters.searchText.length > 0) ||
-      (filters.logTypes && filters.logTypes.size < 4) ||
-      filters.errorsOnly
-    );
-
-    const isSpanVisible = (span: SpanNode): boolean => {
-      if (!hasFilters) return true;
-      if (filteredSpanIds && filteredSpanIds.size > 0) {
-        return filteredSpanIds.has(span.id);
-      }
-      return true;
-    };
-
-    function flatten(nodes: SpanNode[], depth: number) {
-      for (const node of nodes) {
-        const hasChildren = node.children && node.children.length > 0;
-        const isVisible = isSpanVisible(node);
-
-        if (isVisible) {
-          rows.push({ span: node, depth, hasChildren });
-        }
-
-        if (hasChildren && !collapsedSpans.has(node.id) && isVisible) {
-          flatten(node.children, depth + 1);
-        }
+    if (selectedSpanId && listRef.current) {
+      const idx = rows.findIndex((r) => r.span.id === selectedSpanId)
+      if (idx >= 0) {
+        listRef.current.scrollToItem(idx, 'smart')
       }
     }
+  }, [selectedSpanId, rows])
 
-    flatten(data.spans, 0);
-    return rows;
-  }, [data.spans, collapsedSpans, filters, filteredSpanIds]);
-
-  const toggleExpand = useCallback((spanId: string) => {
-    setCollapsedSpans((prev) => {
-      const next = new Set(prev);
-      if (next.has(spanId)) {
-        next.delete(spanId);
-      } else {
-        next.add(spanId);
-      }
-      return next;
-    });
-  }, []);
-
-  const handleZoomIn = () => setZoomLevel((z) => Math.min(z * 1.5, 5));
-  const handleZoomOut = () => setZoomLevel((z) => Math.max(z / 1.5, 0.5));
-  const handleResetZoom = () => setZoomLevel(1);
-
-  if (!data.spans || data.spans.length === 0) {
+  if (rows.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
-        No trace spans to display
+      <div className={cn('flex items-center justify-center py-12 text-sm text-[var(--color-text-secondary)]', className)}>
+        No spans match the current filters.
       </div>
-    );
+    )
   }
 
-  const scaledWidth = 800 * zoomLevel;
-
-  const RowRenderer = ({ index, style }: { index: number; style: React.CSSProperties }) => {
-    const row = flattenedRows[index];
-    return (
-      <div style={style}>
-        <WaterfallRow
-          span={row.span}
-          totalDurationMs={totalDurationMs}
-          depth={row.depth}
-          isSelected={selectedSpanId === row.span.id}
-          isExpanded={!collapsedSpans.has(row.span.id)}
-          onSelect={onSelectSpan}
-          onToggleExpand={toggleExpand}
-          collapsed={collapsedSpans.has(row.span.id)}
-          showCriticalPath={showCriticalPath}
-        />
-      </div>
-    );
-  };
+  const listHeight = Math.min(rows.length * ROW_HEIGHT, 600)
 
   return (
-    <div className="flex flex-col h-full overflow-hidden relative">
-      <TimestampRuler
-        traceStart={traceStart}
-        traceEnd={traceEnd}
-        totalDurationMs={totalDurationMs}
-        width={scaledWidth}
-        zoomLevel={zoomLevel}
-      />
-
-      <div className="flex-1 overflow-auto" ref={containerRef}>
-        <div style={{ minWidth: `${scaledWidth + 360}px` }}>
-          {flattenedRows.length > 0 ? (
-            <List
-              height={containerHeight}
-              itemCount={flattenedRows.length}
-              itemSize={ROW_HEIGHT}
-              width="100%"
-            >
-              {RowRenderer}
-            </List>
-          ) : (
-            <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-              No spans match the current filters
-            </div>
-          )}
-        </div>
+    <div
+      ref={containerRef}
+      className={cn('overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)]', className)}
+    >
+      {/* Header row */}
+      <div
+        role="rowgroup"
+        className="flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-2 text-xs font-semibold text-[var(--color-text-secondary)]"
+      >
+        <div className="w-44 shrink-0">Span</div>
+        <div className="flex-1">Timeline ({data.total_duration_ms.toFixed(1)} ms total)</div>
+        <div className="w-20 shrink-0 text-right">Duration</div>
+        <div className="w-8 shrink-0" aria-hidden="true" />
       </div>
 
-      {data.correlation_type === "rpc_id" && (
-        <div className="px-4 py-1.5 bg-amber-50 border-t border-amber-200 text-xs text-amber-700">
-          Using RPC ID fallback (pre-19.x AR Server). Trace correlation may be incomplete.
-        </div>
-      )}
-
-      <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-card/90 backdrop-blur-sm border rounded-lg p-1 shadow-sm z-10">
-        <button
-          onClick={handleZoomOut}
-          className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
-          disabled={zoomLevel <= 0.5}
-          title="Zoom out"
+      {/* Virtual list */}
+      <div role="table" aria-label="Trace waterfall" aria-rowcount={rows.length}>
+        <List
+          ref={listRef}
+          height={listHeight}
+          itemCount={rows.length}
+          itemSize={ROW_HEIGHT}
+          width="100%"
+          overscanCount={5}
         >
-          <ZoomOut className="w-3.5 h-3.5" />
-        </button>
-        <span className="text-[10px] text-muted-foreground w-10 text-center font-mono">
-          {Math.round(zoomLevel * 100)}%
-        </span>
-        <button
-          onClick={handleZoomIn}
-          className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
-          disabled={zoomLevel >= 5}
-          title="Zoom in"
-        >
-          <ZoomIn className="w-3.5 h-3.5" />
-        </button>
-        <button
-          onClick={handleResetZoom}
-          className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors ml-0.5"
-          title="Reset zoom"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-        </button>
+          {({ index, style }: { index: number; style: React.CSSProperties }) => {
+            const row = rows[index]
+            if (!row) return null
+            return (
+              <WaterfallRow
+                key={row.span.id}
+                row={row}
+                totalDurationMs={data.total_duration_ms}
+                showCriticalPath={showCriticalPath}
+                selectedSpanId={selectedSpanId}
+                onSelectSpan={onSelectSpan}
+                style={style}
+              />
+            )
+          }}
+        </List>
       </div>
     </div>
-  );
+  )
 }

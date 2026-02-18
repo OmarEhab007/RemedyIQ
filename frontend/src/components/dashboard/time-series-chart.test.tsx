@@ -1,116 +1,108 @@
-import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+/**
+ * Tests for TimeSeriesChart component (T067).
+ *
+ * Covers: renders chart, empty state, card title, series rendering.
+ * Recharts is mocked since jsdom can't render SVG charts.
+ */
+
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import { TimeSeriesChart } from './time-series-chart'
-import type { TimeSeriesPoint } from '@/lib/api'
+import type { TimeSeriesPoint } from '@/lib/api-types'
+
+// ---------------------------------------------------------------------------
+// Mock Recharts — jsdom can't render SVG-based charts
+// ---------------------------------------------------------------------------
+
+vi.mock('recharts', () => ({
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="responsive-container">{children}</div>
+  ),
+  AreaChart: ({ children, data }: { children: React.ReactNode; data: unknown[] }) => (
+    <div data-testid="area-chart" data-count={data.length}>{children}</div>
+  ),
+  Area: ({ dataKey, name }: { dataKey: string; name: string }) => (
+    <div data-testid={`area-${dataKey}`} data-name={name} />
+  ),
+  XAxis: () => <div data-testid="x-axis" />,
+  YAxis: () => <div data-testid="y-axis" />,
+  CartesianGrid: () => <div data-testid="cartesian-grid" />,
+  Tooltip: () => <div data-testid="tooltip" />,
+  Legend: () => <div data-testid="legend" />,
+}))
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function makePoint(overrides: Partial<TimeSeriesPoint> = {}): TimeSeriesPoint {
+  return {
+    timestamp: '2024-01-01T10:00:00Z',
+    api_count: 100,
+    sql_count: 200,
+    filter_count: 50,
+    esc_count: 10,
+    avg_duration_ms: 45.5,
+    error_count: 3,
+    ...overrides,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 describe('TimeSeriesChart', () => {
-  const mockData: TimeSeriesPoint[] = [
-    {
-      timestamp: '2024-01-01T10:00:00Z',
-      api_count: 100,
-      sql_count: 200,
-      filter_count: 50,
-      esc_count: 10,
-      avg_duration_ms: 150,
-      error_count: 5,
-    },
-    {
-      timestamp: '2024-01-01T10:15:00Z',
-      api_count: 120,
-      sql_count: 210,
-      filter_count: 55,
-      esc_count: 12,
-      avg_duration_ms: 160,
-      error_count: 3,
-    },
-    {
-      timestamp: '2024-01-01T10:30:00Z',
-      api_count: 90,
-      sql_count: 190,
-      filter_count: 45,
-      esc_count: 8,
-      avg_duration_ms: 140,
-      error_count: 7,
-    },
-  ]
-
-  it('renders chart with data', () => {
-    render(<TimeSeriesChart data={mockData} />)
-
+  it('renders "Activity Over Time" title', () => {
+    render(<TimeSeriesChart data={[makePoint()]} />)
     expect(screen.getByText('Activity Over Time')).toBeInTheDocument()
-    expect(screen.getByTestId('line-chart')).toBeInTheDocument()
   })
 
-  it('shows empty state when no data provided', () => {
+  it('renders empty state when data is empty', () => {
     render(<TimeSeriesChart data={[]} />)
-
     expect(screen.getByText('No time series data available')).toBeInTheDocument()
-    expect(screen.queryByTestId('line-chart')).not.toBeInTheDocument()
   })
 
-  it('renders duration checkbox and toggles', () => {
-    render(<TimeSeriesChart data={mockData} />)
-
-    const durationCheckbox = screen.getByLabelText(/Duration/i)
-    expect(durationCheckbox).toBeInTheDocument()
-    expect(durationCheckbox).not.toBeChecked()
-
-    fireEvent.click(durationCheckbox)
-    expect(durationCheckbox).toBeChecked()
-
-    fireEvent.click(durationCheckbox)
-    expect(durationCheckbox).not.toBeChecked()
+  it('renders the chart when data is provided', () => {
+    render(<TimeSeriesChart data={[makePoint(), makePoint({ timestamp: '2024-01-01T11:00:00Z' })]} />)
+    expect(screen.getByTestId('area-chart')).toBeInTheDocument()
   })
 
-  it('renders errors checkbox and toggles', () => {
-    render(<TimeSeriesChart data={mockData} />)
-
-    const errorsCheckbox = screen.getByLabelText(/Errors/i)
-    expect(errorsCheckbox).toBeInTheDocument()
-    expect(errorsCheckbox).not.toBeChecked()
-
-    fireEvent.click(errorsCheckbox)
-    expect(errorsCheckbox).toBeChecked()
-
-    fireEvent.click(errorsCheckbox)
-    expect(errorsCheckbox).not.toBeChecked()
+  it('renders all 5 area series (API, SQL, Filter, Escalation, Errors)', () => {
+    render(<TimeSeriesChart data={[makePoint()]} />)
+    expect(screen.getByTestId('area-api_count')).toBeInTheDocument()
+    expect(screen.getByTestId('area-sql_count')).toBeInTheDocument()
+    expect(screen.getByTestId('area-filter_count')).toBeInTheDocument()
+    expect(screen.getByTestId('area-esc_count')).toBeInTheDocument()
+    expect(screen.getByTestId('area-error_count')).toBeInTheDocument()
   })
 
-  it('passes correct data to chart component', () => {
-    render(<TimeSeriesChart data={mockData} />)
-
-    const chart = screen.getByTestId('line-chart')
-    const chartData = JSON.parse(chart.getAttribute('data-chart-data') || '[]')
-
-    expect(chartData).toHaveLength(3)
-    expect(chartData[0]).toHaveProperty('api_count', 100)
-    expect(chartData[0]).toHaveProperty('time')
+  it('renders series with correct names', () => {
+    render(<TimeSeriesChart data={[makePoint()]} />)
+    expect(screen.getByTestId('area-api_count')).toHaveAttribute('data-name', 'API')
+    expect(screen.getByTestId('area-sql_count')).toHaveAttribute('data-name', 'SQL')
+    expect(screen.getByTestId('area-filter_count')).toHaveAttribute('data-name', 'Filter')
+    expect(screen.getByTestId('area-esc_count')).toHaveAttribute('data-name', 'Escalation')
+    expect(screen.getByTestId('area-error_count')).toHaveAttribute('data-name', 'Errors')
   })
 
-  it('renders chart components', () => {
-    render(<TimeSeriesChart data={mockData} />)
+  it('passes data count to chart', () => {
+    const data = [
+      makePoint(),
+      makePoint({ timestamp: '2024-01-01T11:00:00Z' }),
+      makePoint({ timestamp: '2024-01-01T12:00:00Z' }),
+    ]
+    render(<TimeSeriesChart data={data} />)
+    expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3')
+  })
 
+  it('renders responsive container', () => {
+    render(<TimeSeriesChart data={[makePoint()]} />)
     expect(screen.getByTestId('responsive-container')).toBeInTheDocument()
-    expect(screen.getByTestId('cartesian-grid')).toBeInTheDocument()
-    expect(screen.getByTestId('x-axis')).toBeInTheDocument()
-    expect(screen.getByTestId('tooltip')).toBeInTheDocument()
-    expect(screen.getByTestId('legend')).toBeInTheDocument()
   })
 
-  it('handles null/undefined data gracefully', () => {
-    // @ts-expect-error Testing null data
-    render(<TimeSeriesChart data={null} />)
-
-    expect(screen.getByText('No time series data available')).toBeInTheDocument()
-  })
-
-  it('formats timestamps correctly', () => {
-    render(<TimeSeriesChart data={mockData} />)
-
-    const chart = screen.getByTestId('line-chart')
-    const chartData = JSON.parse(chart.getAttribute('data-chart-data') || '[]')
-
-    // Check that time field is formatted (contains colon for time)
-    expect(chartData[0].time).toMatch(/\d{1,2}:\d{2}/)
+  it('applies custom className', () => {
+    const { container } = render(<TimeSeriesChart data={[makePoint()]} className="my-chart" />)
+    expect(container.querySelector('.my-chart')).toBeInTheDocument()
   })
 })
