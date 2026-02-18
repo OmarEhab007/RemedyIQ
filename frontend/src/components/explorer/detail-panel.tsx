@@ -1,318 +1,363 @@
-"use client";
+'use client'
 
-import { useState, useEffect, useRef } from "react";
-import type { SearchHit } from "@/hooks/use-search";
-import { getApiHeaders } from "@/lib/api";
-import { ContextView } from "./context-view";
+/**
+ * DetailPanel — right-side sliding panel for a selected log entry.
+ *
+ * Shows:
+ *   - All structured fields as key-value pairs
+ *   - Raw text in a monospace scrollable block
+ *   - Context window: before/after entries
+ *   - Copy raw_text button
+ *   - Close button
+ *
+ * Usage:
+ *   <DetailPanel
+ *     jobId="job-123"
+ *     entryId={selectedEntryId}
+ *     onClose={() => selectEntry(null)}
+ *   />
+ */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
+import { useCallback, useState } from 'react'
+import { useLogEntry, useEntryContext } from '@/hooks/use-api'
+import type { LogEntry, LogType } from '@/lib/api-types'
+import { LOG_TYPE_COLORS } from '@/lib/constants'
+import { cn } from '@/lib/utils'
+import { PageState } from '@/components/ui/page-state'
 
-/** Map raw ClickHouse log_type codes to human-readable labels. */
-const LOG_TYPE_LABELS: Record<string, string> = {
-  API: "API",
-  SQL: "SQL",
-  FLTR: "Filter",
-  ESCL: "Escalation",
-};
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
-interface LogEntry {
-  entry_id: string;
-  line_number: number;
-  file_number: number;
-  timestamp: string;
-  log_type: string;
-  trace_id?: string;
-  rpc_id?: string;
-  thread_id?: string;
-  queue?: string;
-  user?: string;
-  duration_ms?: number;
-  queue_time_ms?: number;
-  success?: boolean;
-  api_code?: string;
-  form?: string;
-  sql_table?: string;
-  sql_statement?: string;
-  filter_name?: string;
-  filter_level?: string;
-  operation?: string;
-  request_id?: string;
-  esc_name?: string;
-  esc_pool?: string;
-  delay_ms?: number;
-  error_encountered?: boolean;
-  raw_text?: string;
-  error_message?: string;
+export interface DetailPanelProps {
+  jobId: string
+  entryId: string
+  onClose: () => void
+  className?: string
 }
 
-interface DetailPanelProps {
-  entry: SearchHit;
-  onClose: () => void;
-  jobId?: string;
-  onSearchRelated?: (field: string, value: string) => void;
-}
+// ---------------------------------------------------------------------------
+// LogTypeBadge
+// ---------------------------------------------------------------------------
 
-export function DetailPanel({ entry, onClose, jobId, onSearchRelated }: DetailPanelProps) {
-  const [fullEntry, setFullEntry] = useState<LogEntry | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showContext, setShowContext] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
-
-  const entryId = entry.id;
-
-  useEffect(() => {
-    if (!jobId || !entryId) {
-      setFullEntry(null);
-      return;
-    }
-
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    async function fetchFullEntry() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch(`${API_BASE}/analysis/${jobId}/entries/${entryId}`, {
-          headers: getApiHeaders(),
-          signal: controller.signal,
-        });
-
-        if (!res.ok) {
-          if (res.status === 404) {
-            throw new Error("Entry not found");
-          }
-          throw new Error("Failed to fetch entry");
-        }
-
-        const data: LogEntry = await res.json();
-        setFullEntry(data);
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setError(err instanceof Error ? err.message : "Failed to fetch entry");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchFullEntry();
-    return () => controller.abort();
-  }, [jobId, entryId]);
-
-  const fields = fullEntry || entry.fields || {};
-  const logType = fields.log_type;
-
-  const handleSearchRelated = (field: string, value: string) => {
-    if (onSearchRelated && value) {
-      onSearchRelated(field, value);
-    }
-  };
-
+function LogTypeBadge({ logType }: { logType: LogType }) {
+  const config = LOG_TYPE_COLORS[logType]
   return (
-    <div className="w-96 border-l bg-card overflow-y-auto">
-      <div className="sticky top-0 bg-card border-b p-4 flex items-center justify-between z-10">
-        <h3 className="text-sm font-semibold">Log Entry Details</h3>
-        <div className="flex items-center gap-2">
-          {jobId && (
-            <button
-              onClick={() => setShowContext(true)}
-              className="text-xs px-2 py-1 border rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-              title="View surrounding entries"
-            >
-              Context
-            </button>
-          )}
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Close detail panel"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {loading && (
-        <div className="flex items-center justify-center h-32 text-muted-foreground">
-          <div className="h-5 w-5 border-2 border-muted-foreground border-t-primary rounded-full animate-spin mr-2" />
-          Loading entry...
-        </div>
-      )}
-
-      {error && (
-        <div className="p-4 m-4 bg-destructive/10 text-destructive rounded-md text-sm">
-          {error}
-        </div>
-      )}
-
-      {!loading && !error && (
-        <div className="p-4 space-y-4">
-          <div className="space-y-2">
-            <FieldRow label="Entry ID" value={entryId} mono />
-            <FieldRow label="Log Type" value={logType ? (LOG_TYPE_LABELS[logType] || logType) : undefined} badge />
-            <FieldRow label="Line Number" value={fields.line_number} />
-            <FieldRow label="Timestamp" value={fields.timestamp ? new Date(fields.timestamp).toLocaleString() : undefined} />
-            <FieldRow label="Duration" value={fields.duration_ms != null ? `${fields.duration_ms}ms` : undefined} />
-            <FieldRow label="Status" value={fields.success != null ? (fields.success ? "Success" : "Failed") : undefined} />
-          </div>
-
-          <div>
-            <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">Context</h4>
-            <div className="space-y-2">
-              <FieldRow label="User" value={fields.user} />
-              <FieldRow label="Queue" value={fields.queue} />
-              <FieldRow label="Thread" value={fields.thread_id} mono />
-              <ClickableFieldRow 
-                label="Trace ID" 
-                value={fields.trace_id} 
-                mono 
-                onClick={() => handleSearchRelated("trace_id", fields.trace_id || "")}
-              />
-              <ClickableFieldRow 
-                label="RPC ID" 
-                value={fields.rpc_id} 
-                mono 
-                onClick={() => handleSearchRelated("rpc_id", fields.rpc_id || "")}
-              />
-            </div>
-          </div>
-
-          {logType === "API" && (
-            <div>
-              <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">API Details</h4>
-              <div className="space-y-2">
-                <FieldRow label="API Code" value={fields.api_code} mono />
-                <FieldRow label="Form" value={fields.form} />
-              </div>
-            </div>
-          )}
-
-          {logType === "SQL" && (
-            <div>
-              <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">SQL Details</h4>
-              <div className="space-y-2">
-                <FieldRow label="Table" value={fields.sql_table} mono />
-                <FieldRow label="Statement" value={fields.sql_statement} mono />
-              </div>
-            </div>
-          )}
-
-          {logType === "FLTR" && (
-            <div>
-              <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">Filter Details</h4>
-              <div className="space-y-2">
-                <FieldRow label="Filter Name" value={fields.filter_name} />
-                <FieldRow label="Operation" value={fields.operation} />
-              </div>
-            </div>
-          )}
-
-          {logType === "ESCL" && (
-            <div>
-              <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">Escalation Details</h4>
-              <div className="space-y-2">
-                <FieldRow label="Escalation" value={fields.esc_name} />
-                <FieldRow label="Pool" value={fields.esc_pool} />
-              </div>
-            </div>
-          )}
-
-          {fields.error_message && (
-            <div>
-              <h4 className="text-xs font-medium text-destructive uppercase mb-2">Error</h4>
-              <pre className="text-xs bg-destructive/10 text-destructive p-2 rounded whitespace-pre-wrap">
-                {fields.error_message}
-              </pre>
-            </div>
-          )}
-
-          {fields.raw_text && (
-            <div>
-              <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">Raw Text</h4>
-              <pre className="text-xs bg-muted p-2 rounded whitespace-pre-wrap font-mono max-h-48 overflow-y-auto">
-                {fields.raw_text}
-              </pre>
-            </div>
-          )}
-
-          <details className="text-xs">
-            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-              All Fields ({Object.keys(fields).length})
-            </summary>
-            <pre className="mt-2 bg-muted p-2 rounded whitespace-pre-wrap font-mono max-h-64 overflow-y-auto">
-              {JSON.stringify(fields, null, 2)}
-            </pre>
-          </details>
-        </div>
-      )}
-
-      {showContext && jobId && entryId && (
-        <ContextView
-          jobId={jobId}
-          entryId={entryId}
-          onClose={() => setShowContext(false)}
-        />
-      )}
-    </div>
-  );
+    <span
+      className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+      style={{ background: config.bg, color: config.text }}
+    >
+      {config.label}
+    </span>
+  )
 }
+
+// ---------------------------------------------------------------------------
+// FieldRow — a label + value pair
+// ---------------------------------------------------------------------------
 
 function FieldRow({
   label,
   value,
-  mono,
-  badge,
+  mono = false,
 }: {
-  label: string;
-  value?: string | number | boolean | null;
-  mono?: boolean;
-  badge?: boolean;
+  label: string
+  value: string | number | null | boolean
+  mono?: boolean
 }) {
-  if (value == null || value === "") return null;
+  if (value === null || value === undefined || value === '') return null
+
+  const display = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)
 
   return (
-    <div className="flex items-start gap-2">
-      <span className="text-xs text-muted-foreground min-w-[80px]">{label}</span>
-      {badge ? (
-        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
-          {String(value)}
-        </span>
-      ) : (
-        <span className={`text-xs break-all ${mono ? "font-mono" : ""}`}>
-          {String(value)}
-        </span>
-      )}
+    <div className="grid grid-cols-[7rem_1fr] gap-2 py-1 text-xs">
+      <dt className="shrink-0 font-medium text-[var(--color-text-secondary)]">
+        {label}
+      </dt>
+      <dd
+        className={cn(
+          'break-words text-[var(--color-text-primary)]',
+          mono && 'font-mono',
+        )}
+      >
+        {display}
+      </dd>
     </div>
-  );
+  )
 }
 
-function ClickableFieldRow({
-  label,
-  value,
-  mono,
-  onClick,
+// ---------------------------------------------------------------------------
+// ContextEntry — compact row for a before/after entry
+// ---------------------------------------------------------------------------
+
+function ContextEntry({
+  entry,
+  isSelected,
 }: {
-  label: string;
-  value?: string | number | null;
-  mono?: boolean;
-  onClick?: () => void;
+  entry: LogEntry
+  isSelected?: boolean
 }) {
-  if (value == null || value === "") return null;
+  if (!entry) return null
+  const timestamp = (entry.timestamp ?? '').replace('T', ' ').replace('Z', '').slice(0, 23)
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-2 rounded px-2 py-1 text-xs',
+        isSelected
+          ? 'bg-[var(--color-primary-light)] font-medium'
+          : 'text-[var(--color-text-secondary)]',
+      )}
+    >
+      <span className="w-[136px] shrink-0 font-mono text-[10px]">{timestamp}</span>
+      <LogTypeBadge logType={entry.log_type} />
+      <span className="min-w-0 flex-1 truncate font-mono">
+        {entry.form ?? entry.filter_name ?? entry.sql_table ?? entry.rpc_id ?? '—'}
+      </span>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Section wrapper
+// ---------------------------------------------------------------------------
+
+function Section({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="flex flex-col gap-1">
+      <h3 className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">
+        {title}
+      </h3>
+      {children}
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// CopyButton
+// ---------------------------------------------------------------------------
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Clipboard unavailable — silently fail
+    }
+  }, [text])
 
   return (
-    <div className="flex items-start gap-2">
-      <span className="text-xs text-muted-foreground min-w-[80px]">{label}</span>
-      <button
-        onClick={onClick}
-        className={`text-xs break-all text-left hover:text-primary hover:underline cursor-pointer ${mono ? "font-mono" : ""}`}
-        title={`Search for entries with ${label.toLowerCase()}: ${value}`}
-      >
-        {String(value)}
-      </button>
-    </div>
-  );
+    <button
+      type="button"
+      onClick={handleCopy}
+      aria-label={copied ? 'Copied!' : 'Copy raw text to clipboard'}
+      className="flex h-6 items-center gap-1 rounded border border-[var(--color-border)] bg-[var(--color-bg-primary)] px-2 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] transition-colors"
+    >
+      {copied ? (
+        <>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="11"
+            height="11"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-[var(--color-success)]"
+            aria-hidden="true"
+          >
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+          Copied
+        </>
+      ) : (
+        <>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="11"
+            height="11"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+          Copy
+        </>
+      )}
+    </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// EntryFields — renders all structured fields
+// ---------------------------------------------------------------------------
+
+function EntryFields({ entry }: { entry: LogEntry }) {
+  return (
+    <dl className="divide-y divide-[var(--color-border-light)]">
+      <FieldRow label="Entry ID" value={entry.entry_id} mono />
+      <FieldRow label="Line #" value={entry.line_number} />
+      <FieldRow label="Timestamp" value={entry.timestamp} mono />
+      <FieldRow label="Job ID" value={entry.job_id} mono />
+      <FieldRow label="Trace ID" value={entry.trace_id} mono />
+      <FieldRow label="RPC ID" value={entry.rpc_id} mono />
+      <FieldRow label="Thread ID" value={entry.thread_id} mono />
+      <FieldRow label="Queue" value={entry.queue} />
+      <FieldRow label="User" value={entry.user} />
+      <FieldRow label="Duration" value={entry.duration_ms !== null ? `${entry.duration_ms}ms` : null} mono />
+      <FieldRow label="Success" value={entry.success} />
+      <FieldRow label="Form" value={entry.form} />
+      <FieldRow label="SQL Table" value={entry.sql_table} />
+      <FieldRow label="Filter" value={entry.filter_name} />
+      <FieldRow label="Escalation" value={entry.esc_name} />
+      {entry.error_message && (
+        <FieldRow label="Error" value={entry.error_message} />
+      )}
+    </dl>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// DetailPanel component
+// ---------------------------------------------------------------------------
+
+export function DetailPanel({
+  jobId,
+  entryId,
+  onClose,
+  className,
+}: DetailPanelProps) {
+  const { data: entry, isLoading, isError, refetch } = useLogEntry(jobId, entryId)
+  const { data: context } = useEntryContext(jobId, entryId)
+
+  return (
+    <aside
+      aria-label="Log entry details"
+      className={cn(
+        'flex w-96 shrink-0 flex-col overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)]',
+        className,
+      )}
+    >
+      {/* Panel header */}
+      <header className="flex shrink-0 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-2.5">
+        <div className="flex items-center gap-2">
+          {entry && <LogTypeBadge logType={entry.log_type} />}
+          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
+            Entry Details
+          </h2>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close detail panel"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-tertiary)] hover:text-[var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] transition-colors"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      {/* Body */}
+      <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-4">
+        {isLoading && <PageState variant="loading" rows={6} />}
+
+        {isError && (
+          <PageState
+            variant="error"
+            message="Failed to load log entry details."
+            onRetry={() => void refetch()}
+          />
+        )}
+
+        {entry && (
+          <>
+            {/* Fields section */}
+            <Section title="Fields">
+              <EntryFields entry={entry} />
+            </Section>
+
+            {/* Raw text section */}
+            <Section title="Raw Text">
+              <div className="relative">
+                <pre
+                  className={cn(
+                    'max-h-48 overflow-auto rounded border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] p-3',
+                    'font-mono text-[11px] leading-relaxed text-[var(--color-text-primary)] whitespace-pre-wrap break-words',
+                  )}
+                >
+                  {entry.raw_text}
+                </pre>
+                <div className="absolute right-2 top-2">
+                  <CopyButton text={entry.raw_text} />
+                </div>
+              </div>
+            </Section>
+
+            {/* Error message */}
+            {entry.error_message && (
+              <Section title="Error Message">
+                <p className="rounded border border-[var(--color-error-light)] bg-[var(--color-error-light)] p-2.5 font-mono text-xs text-[var(--color-error)]">
+                  {entry.error_message}
+                </p>
+              </Section>
+            )}
+
+            {/* Context */}
+            {context && ((context.before ?? []).length > 0 || (context.after ?? []).length > 0) && (
+              <Section title="Context">
+                <div
+                  className="flex flex-col gap-0.5 rounded border border-[var(--color-border)] bg-[var(--color-bg-secondary)] py-1"
+                  role="list"
+                  aria-label="Surrounding log entries"
+                >
+                  {(context.before ?? []).map((e) => (
+                    <div key={e.entry_id} role="listitem">
+                      <ContextEntry entry={e} />
+                    </div>
+                  ))}
+                  <div role="listitem">
+                    <ContextEntry entry={context.entry} isSelected />
+                  </div>
+                  {(context.after ?? []).map((e) => (
+                    <div key={e.entry_id} role="listitem">
+                      <ContextEntry entry={e} />
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
+          </>
+        )}
+      </div>
+    </aside>
+  )
 }

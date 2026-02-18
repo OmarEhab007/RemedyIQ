@@ -1,123 +1,192 @@
-"use client";
+'use client'
 
-import type { HealthScore, HealthScoreFactor } from "@/lib/api";
+/**
+ * HealthScoreCard — T052
+ *
+ * Large card showing overall health score (0-100), status badge, and a
+ * factor breakdown table. Color-coded by threshold:
+ *   good    >= 80  → green
+ *   warning >= 60  → yellow
+ *   critical < 60  → red
+ *
+ * Usage:
+ *   <HealthScoreCard healthScore={dashboardData.health_score} />
+ */
+
+import { cn } from '@/lib/utils'
+import { getHealthScoreLevel } from '@/lib/constants'
+import type { HealthScore, HealthScoreFactor, HealthSeverity } from '@/lib/api-types'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface HealthScoreCardProps {
-  healthScore: HealthScore | null | undefined;
+  healthScore: HealthScore
+  className?: string
 }
 
-export function HealthScoreCard({ healthScore }: HealthScoreCardProps) {
-  if (!healthScore) {
-    return null;
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const LEVEL_STYLES = {
+  good: {
+    scoreBg: 'bg-[var(--color-success-light)]',
+    scoreText: 'text-[var(--color-success)]',
+    badgeBg: 'bg-[var(--color-success-light)]',
+    badgeText: 'text-[var(--color-success)]',
+    ring: 'ring-[var(--color-success)]',
+    label: 'Healthy',
+  },
+  warning: {
+    scoreBg: 'bg-[var(--color-warning-light)]',
+    scoreText: 'text-[var(--color-warning)]',
+    badgeBg: 'bg-[var(--color-warning-light)]',
+    badgeText: 'text-[var(--color-warning)]',
+    ring: 'ring-[var(--color-warning)]',
+    label: 'Degraded',
+  },
+  critical: {
+    scoreBg: 'bg-[var(--color-error-light)]',
+    scoreText: 'text-[var(--color-error)]',
+    badgeBg: 'bg-[var(--color-error-light)]',
+    badgeText: 'text-[var(--color-error)]',
+    ring: 'ring-[var(--color-error)]',
+    label: 'Critical',
+  },
+} as const
+
+function severityColor(severity: HealthSeverity): string {
+  switch (severity) {
+    case 'ok':
+      return 'text-[var(--color-success)]'
+    case 'warning':
+      return 'text-[var(--color-warning)]'
+    case 'critical':
+      return 'text-[var(--color-error)]'
   }
+}
 
-  const { score, status, factors } = healthScore;
-
-  // Determine color based on score
-  const getScoreColor = (score: number): string => {
-    if (score > 80) return "stroke-primary text-primary";
-    if (score >= 50) return "stroke-yellow-500 text-yellow-600";
-    return "stroke-destructive text-destructive";
-  };
-
-  const scoreColor = getScoreColor(score);
-
-  // SVG circle parameters
-  const radius = 70;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (score / 100) * circumference;
+function FactorBar({ score, maxScore }: { score: number; maxScore: number }) {
+  const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
+  const color =
+    pct >= 80
+      ? 'bg-[var(--color-success)]'
+      : pct >= 60
+        ? 'bg-[var(--color-warning)]'
+        : 'bg-[var(--color-error)]'
 
   return (
-    <div className="border rounded-lg p-6 bg-card">
-      <h3 className="text-lg font-semibold mb-6">System Health Score</h3>
+    <div
+      className="h-1.5 w-full rounded-full bg-[var(--color-bg-tertiary)]"
+      role="progressbar"
+      aria-valuenow={score}
+      aria-valuemax={maxScore}
+      aria-valuemin={0}
+    >
+      <div
+        className={cn('h-1.5 rounded-full transition-all', color)}
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  )
+}
 
-      {/* Circular Score Indicator */}
-      <div className="flex justify-center mb-8">
-        <div className="relative">
-          <svg width="180" height="180" className="transform -rotate-90">
-            {/* Background circle */}
-            <circle
-              cx="90"
-              cy="90"
-              r={radius}
-              fill="none"
-              stroke="#e5e7eb"
-              strokeWidth="12"
-            />
-            {/* Progress circle */}
-            <circle
-              cx="90"
-              cy="90"
-              r={radius}
-              fill="none"
-              className={scoreColor.split(" ")[0]}
-              strokeWidth="12"
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              style={{ transition: "stroke-dashoffset 0.5s ease" }}
-            />
-          </svg>
-          {/* Score text in center */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className={`text-4xl font-bold ${scoreColor.split(" ")[1]}`}>
-              {Math.round(score)}
+function FactorRow({ factor }: { factor: HealthScoreFactor }) {
+  return (
+    <li className="flex flex-col gap-1">
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className="truncate text-xs text-[var(--color-text-primary)]"
+          title={factor.description}
+        >
+          {factor.name}
+        </span>
+        <span
+          className={cn(
+            'shrink-0 text-xs font-mono font-semibold',
+            severityColor(factor.severity)
+          )}
+        >
+          {factor.score}/{factor.max_score}
+        </span>
+      </div>
+      <FactorBar score={factor.score} maxScore={factor.max_score} />
+      {factor.description && (
+        <span className="text-[10px] leading-tight text-[var(--color-text-tertiary)]">
+          {factor.description}
+        </span>
+      )}
+    </li>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// HealthScoreCard
+// ---------------------------------------------------------------------------
+
+export function HealthScoreCard({ healthScore, className }: HealthScoreCardProps) {
+  const level = getHealthScoreLevel(healthScore.score)
+  const styles = LEVEL_STYLES[level]
+
+  return (
+    <Card className={cn('overflow-hidden', className)}>
+      <CardHeader className="pb-0">
+        <CardTitle className="text-sm font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
+          Health Score
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="pt-4">
+        {/* Score + badge */}
+        <div className="flex items-center gap-4">
+          <div
+            className={cn(
+              'flex h-20 w-20 shrink-0 items-center justify-center rounded-full ring-4',
+              styles.scoreBg,
+              styles.ring
+            )}
+            aria-label={`Health score: ${healthScore.score} out of 100`}
+          >
+            <span className={cn('text-3xl font-bold tabular-nums', styles.scoreText)}>
+              {healthScore.score}
             </span>
-            <span className="text-sm text-muted-foreground capitalize">
-              {status}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <span
+              className={cn(
+                'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                styles.badgeBg,
+                styles.badgeText
+              )}
+              role="status"
+            >
+              {styles.label}
+            </span>
+            <span className="text-xs text-[var(--color-text-secondary)]">
+              Composite score across {healthScore.factors.length} factor
+              {healthScore.factors.length !== 1 ? 's' : ''}
             </span>
           </div>
         </div>
-      </div>
 
-      {/* Factor Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {factors.map((factor: HealthScoreFactor) => {
-          const isRedZone = factor.severity === "red";
-          return (
-            <div
-              key={factor.name}
-              className={`border rounded-lg p-4 ${
-                isRedZone ? "border-destructive bg-destructive/10" : "bg-card"
-              }`}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <h4 className="font-medium text-sm">{factor.name}</h4>
-                {isRedZone && (
-                  <svg
-                    className="w-5 h-5 text-destructive flex-shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                    />
-                  </svg>
-                )}
-              </div>
-              <div className="flex items-baseline gap-2 mb-2">
-                <span
-                  className={`text-xl font-bold ${
-                    isRedZone ? "text-destructive" : "text-foreground"
-                  }`}
-                >
-                  {factor.score}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  / {factor.max_score}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {factor.description}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+        {/* Factor breakdown */}
+        {healthScore.factors.length > 0 && (
+          <div className="mt-5">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
+              Factors
+            </h3>
+            <ul className="space-y-3" aria-label="Health score factors">
+              {healthScore.factors.map((factor) => (
+                <FactorRow key={factor.name} factor={factor} />
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
 }

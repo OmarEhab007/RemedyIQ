@@ -1,0 +1,196 @@
+Total messages: 197 (Errors: 193, Warnings: 0)
+Returning 193 messages for level "error"
+
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:8080/api/v1/analysis/6311f495-19e9-4c57-86d4-091c8f91c15f:0
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:8080/api/v1/analysis/6311f495-19e9-4c57-86d4-091c8f91c15f:0
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:8080/api/v1/analysis/6311f495-19e9-4c57-86d4-091c8f91c15f:0
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:8080/api/v1/analysis/6311f495-19e9-4c57-86d4-091c8f91c15f:0
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:8080/api/v1/analysis/6311f495-19e9-4c57-86d4-091c8f91c15f:0
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:8080/api/v1/analysis/6311f495-19e9-4c57-86d4-091c8f91c15f:0
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:8080/api/v1/analysis/6311f495-19e9-4c57-86d4-091c8f91c15f:0
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:8080/api/v1/analysis/6311f495-19e9-4c57-86d4-091c8f91c15f:0
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:8080/api/v1/analysis/6311f495-19e9-4c57-86d4-091c8f91c15f:0
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:8080/api/v1/analysis/6311f495-19e9-4c57-86d4-091c8f91c15f:0
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:8080/api/v1/analysis/6311f495-19e9-4c57-86d4-091c8f91c15f:0
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:8080/api/v1/analysis/6311f495-19e9-4c57-86d4-091c8f91c15f:0
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:8080/api/v1/analysis/6311f495-19e9-4c57-86d4-091c8f91c15f:0
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:8080/api/v1/analysis/6311f495-19e9-4c57-86d4-091c8f91c15f:0
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301
+[ERROR] Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ERROR] WebSocket connection to 'ws://localhost:8080/api/v1/ws?token=dev' failed: Insufficient resources @ http://localhost:3000/_next/static/chunks/frontend_src_e5e83573._.js:2301

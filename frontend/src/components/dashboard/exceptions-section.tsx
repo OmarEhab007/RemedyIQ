@@ -1,476 +1,168 @@
-"use client";
+'use client'
 
-import { useState } from "react";
-import type {
-  ExceptionsResponse,
-  ExceptionEntry,
-  JARExceptionsResponse,
-  JARAPIError,
-  JARExceptionEntry,
-} from "@/lib/api";
+/**
+ * ExceptionsSection — T059
+ *
+ * Renders ExceptionsResponse: an error table with message, log type,
+ * user, timestamp, and optional stack trace (expandable).
+ *
+ * Usage:
+ *   <ExceptionsSection data={exceptionsData} />
+ */
+
+import { useState } from 'react'
+import { cn } from '@/lib/utils'
+import { LOG_TYPE_COLORS } from '@/lib/constants'
+import type { ExceptionsResponse, ExceptionEntry } from '@/lib/api-types'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface ExceptionsSectionProps {
-  data: ExceptionsResponse | JARExceptionsResponse | null;
-  loading: boolean;
-  error: string | null;
-  refetch: () => void;
-  headless?: boolean;
+  data: ExceptionsResponse
+  className?: string
 }
 
-// Type guard to check if data is JAR-parsed
-function isJARExceptions(data: any): data is JARExceptionsResponse {
-  return data && data.source === "jar_parsed";
-}
+// ---------------------------------------------------------------------------
+// ExceptionRow
+// ---------------------------------------------------------------------------
 
-export function ExceptionsSection({ data, loading, error, refetch, headless }: ExceptionsSectionProps) {
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"api_errors" | "api_exceptions" | "sql_exceptions">("api_errors");
-  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
-  const [activeExcTab, setActiveExcTab] = useState("api_errors");
-
-  const getErrorRateColor = (rate: number): string => {
-    if (rate < 1) return "bg-green-100 text-green-800 border-green-300";
-    if (rate < 5) return "bg-yellow-100 text-yellow-800 border-yellow-300";
-    return "bg-red-100 text-red-800 border-red-300";
-  };
-
-  const toggleMessageExpansion = (index: number) => {
-    const key = `${activeExcTab}:${index}`;
-    const newExpanded = new Set(expandedMessages);
-    if (newExpanded.has(key)) {
-      newExpanded.delete(key);
-    } else {
-      newExpanded.add(key);
-    }
-    setExpandedMessages(newExpanded);
-  };
-
-  const isExpanded = (index: number): boolean => {
-    return expandedMessages.has(`${activeExcTab}:${index}`);
-  };
-
-  const truncateText = (text: string, maxLength: number = 80): { text: string; isTruncated: boolean } => {
-    if (text.length <= maxLength) return { text, isTruncated: false };
-    return { text: text.substring(0, maxLength) + "...", isTruncated: true };
-  };
-
-  if (loading) {
-    return (
-      <div className={headless ? "" : "border rounded-lg p-6 bg-card"}>
-        {!headless && <h3 className="text-lg font-semibold mb-4">Exceptions</h3>}
-        <div className="animate-pulse space-y-4">
-          <div className="h-20 bg-gray-200 rounded"></div>
-          <div className="h-40 bg-gray-200 rounded"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className={headless ? "" : "border rounded-lg p-6 bg-card"}>
-        {!headless && <h3 className="text-lg font-semibold mb-4">Exceptions</h3>}
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800 mb-3">{error}</p>
-          <button
-            onClick={refetch}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Check for JAR-parsed data
-  if (data && isJARExceptions(data)) {
-    const { api_errors, api_exceptions, sql_exceptions, source } = data;
-    const safeApiErrors = api_errors ?? [];
-    const safeApiExceptions = api_exceptions ?? [];
-    const safeSqlExceptions = sql_exceptions ?? [];
-    const totalErrors = safeApiErrors.length + safeApiExceptions.length + safeSqlExceptions.length;
-
-    // Empty state
-    if (totalErrors === 0) {
-      return (
-        <div className={headless ? "" : "border rounded-lg p-6 bg-card"}>
-          {!headless && <h3 className="text-lg font-semibold mb-4">Exceptions</h3>}
-          <div className="flex items-center justify-center py-8 text-green-600">
-            <svg
-              className="w-12 h-12 mr-3"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span className="text-lg font-medium">No errors detected</span>
-          </div>
-        </div>
-      );
-    }
-
-    // Determine available tabs
-    const tabs: Array<{ key: "api_errors" | "api_exceptions" | "sql_exceptions"; label: string; count: number }> = [];
-    if (safeApiErrors.length > 0) tabs.push({ key: "api_errors", label: "API Errors", count: safeApiErrors.length });
-    if (safeApiExceptions.length > 0) tabs.push({ key: "api_exceptions", label: "API Exceptions", count: safeApiExceptions.length });
-    if (safeSqlExceptions.length > 0) tabs.push({ key: "sql_exceptions", label: "SQL Exceptions", count: safeSqlExceptions.length });
-
-    // Set default active tab if current tab has no data
-    const currentTabHasData = tabs.some(t => t.key === activeTab);
-    const defaultTab = tabs[0]?.key || "api_errors";
-
-    return (
-      <div className={headless ? "" : "border rounded-lg p-6 bg-card"}>
-        {!headless && <h3 className="text-lg font-semibold mb-4">Exceptions</h3>}
-
-        {/* Info banner for computed data */}
-        {source === "computed" && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              Re-analyze for full data from JAR parser
-            </p>
-          </div>
-        )}
-
-        {/* Tabs */}
-        <div className="mb-4 border-b">
-          <div className="flex gap-2">
-            {tabs.map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  (currentTabHasData ? activeTab : defaultTab) === tab.key
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {tab.label}
-                <span className="ml-2 px-2 py-0.5 bg-gray-100 rounded-full text-xs">
-                  {tab.count}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Tab Content */}
-        <div className="overflow-x-auto">
-          {/* API Errors Tab */}
-          {(currentTabHasData ? activeTab : defaultTab) === "api_errors" && safeApiErrors.length > 0 && (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">Line#</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">Trace ID</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">Queue</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">API Type</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">Form</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">User</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">Start Time</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">Error Message</th>
-                </tr>
-              </thead>
-              <tbody>
-                {safeApiErrors.map((err, idx) => {
-                  const { text: errorText, isTruncated } = truncateText(err.error_message);
-                  const expanded = isExpanded(idx);
-                  return (
-                    <tr key={idx} className="border-b hover:bg-gray-50">
-                      <td className="px-3 py-2 font-mono text-xs">{err.end_line}</td>
-                      <td className="px-3 py-2 font-mono text-xs">{err.trace_id}</td>
-                      <td className="px-3 py-2">{err.queue}</td>
-                      <td className="px-3 py-2">{err.api_type}</td>
-                      <td className="px-3 py-2">{err.form}</td>
-                      <td className="px-3 py-2">{err.user}</td>
-                      <td className="px-3 py-2 text-xs">{err.start_time}</td>
-                      <td className="px-3 py-2">
-                        {isTruncated && !expanded ? (
-                          <>
-                            {errorText}
-                            <button
-                              onClick={() => toggleMessageExpansion(idx)}
-                              className="ml-2 text-blue-600 hover:text-blue-800 text-xs"
-                            >
-                              expand
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            {err.error_message}
-                            {isTruncated && (
-                              <button
-                                onClick={() => toggleMessageExpansion(idx)}
-                                className="ml-2 text-blue-600 hover:text-blue-800 text-xs"
-                              >
-                                collapse
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-
-          {/* API Exceptions Tab */}
-          {(currentTabHasData ? activeTab : defaultTab) === "api_exceptions" && safeApiExceptions.length > 0 && (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">Line#</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">Trace ID</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">Type</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">Message</th>
-                </tr>
-              </thead>
-              <tbody>
-                {safeApiExceptions.map((exc, idx) => (
-                  <tr key={idx} className="border-b hover:bg-gray-50">
-                    <td className="px-3 py-2 font-mono text-xs">{exc.line_number}</td>
-                    <td className="px-3 py-2 font-mono text-xs">{exc.trace_id}</td>
-                    <td className="px-3 py-2">{exc.exception_type}</td>
-                    <td className="px-3 py-2">{exc.message}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {/* SQL Exceptions Tab */}
-          {(currentTabHasData ? activeTab : defaultTab) === "sql_exceptions" && safeSqlExceptions.length > 0 && (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">Line#</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">Trace ID</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">Message</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">SQL Statement</th>
-                </tr>
-              </thead>
-              <tbody>
-                {safeSqlExceptions.map((exc, idx) => {
-                  const { text: sqlText, isTruncated } = truncateText(exc.sql_statement, 120);
-                  const expanded = isExpanded(idx);
-                  return (
-                    <tr key={idx} className="border-b hover:bg-gray-50">
-                      <td className="px-3 py-2 font-mono text-xs">{exc.line_number}</td>
-                      <td className="px-3 py-2 font-mono text-xs">{exc.trace_id}</td>
-                      <td className="px-3 py-2">{exc.message}</td>
-                      <td className="px-3 py-2 font-mono text-xs">
-                        {isTruncated && !expanded ? (
-                          <>
-                            {sqlText}
-                            <button
-                              onClick={() => toggleMessageExpansion(idx)}
-                              className="ml-2 text-blue-600 hover:text-blue-800"
-                            >
-                              expand
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <div className="max-w-2xl whitespace-pre-wrap">{exc.sql_statement}</div>
-                            {isTruncated && (
-                              <button
-                                onClick={() => toggleMessageExpansion(idx)}
-                                className="ml-2 text-blue-600 hover:text-blue-800"
-                              >
-                                collapse
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Handle computed ExceptionsResponse
-  if (!data || data.total_count === 0) {
-    return (
-      <div className={headless ? "" : "border rounded-lg p-6 bg-card"}>
-        {!headless && <h3 className="text-lg font-semibold mb-4">Exceptions</h3>}
-        <div className="flex items-center justify-center py-8 text-green-600">
-          <svg
-            className="w-12 h-12 mr-3"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <span className="text-lg font-medium">No errors detected</span>
-        </div>
-      </div>
-    );
-  }
-
-  const { exceptions, error_rates, top_codes } = data;
+function ExceptionRow({ entry }: { entry: ExceptionEntry }) {
+  const [expanded, setExpanded] = useState(false)
+  const typeConfig = LOG_TYPE_COLORS[entry.log_type]
 
   return (
-    <div className={headless ? "" : "border rounded-lg p-6 bg-card"}>
-      {!headless && <h3 className="text-lg font-semibold mb-4">Exceptions</h3>}
-
-      {/* Error Rate Badges */}
-      <div className="mb-4">
-        <h4 className="text-sm font-medium text-muted-foreground mb-2">
-          Error Rates by Log Type
-        </h4>
-        <div className="flex flex-wrap gap-2">
-          {Object.entries(error_rates).map(([logType, rate]) => (
-            <div
-              key={logType}
-              className={`px-3 py-1 rounded-full text-sm font-medium border ${getErrorRateColor(
-                rate
-              )}`}
+    <>
+      <tr className={cn(
+        'border-b border-[var(--color-border-light)] hover:bg-[var(--color-bg-secondary)] transition-colors',
+        'bg-[var(--color-error-light)]/20'
+      )}>
+        <td className="px-4 py-2 font-mono text-[10px] text-[var(--color-text-tertiary)] whitespace-nowrap">
+          L{entry.line_number}
+        </td>
+        <td className="px-4 py-2 whitespace-nowrap">
+          <span
+            className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase"
+            style={{ backgroundColor: typeConfig.bg, color: typeConfig.text }}
+          >
+            {entry.log_type}
+          </span>
+        </td>
+        <td className="px-4 py-2 whitespace-nowrap font-mono text-xs text-[var(--color-text-secondary)]">
+          {new Date(entry.timestamp).toLocaleTimeString()}
+        </td>
+        <td className="px-4 py-2 text-xs text-[var(--color-text-secondary)] whitespace-nowrap truncate max-w-[8rem]" title={entry.user}>
+          {entry.user || '—'}
+        </td>
+        <td className="max-w-0 px-4 py-2">
+          <span
+            className="block truncate text-xs text-[var(--color-error)]"
+            title={entry.message}
+          >
+            {entry.message}
+          </span>
+        </td>
+        <td className="px-4 py-2 text-right">
+          {entry.stack_trace && (
+            <button
+              type="button"
+              onClick={() => setExpanded((e) => !e)}
+              className={cn(
+                'rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors',
+                'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]',
+                'hover:bg-[var(--color-border)] hover:text-[var(--color-text-primary)]',
+                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-primary)]'
+              )}
+              aria-expanded={expanded}
+              aria-label={expanded ? 'Collapse stack trace' : 'Expand stack trace'}
             >
-              {logType}: {rate.toFixed(2)}%
-            </div>
-          ))}
-        </div>
+              {expanded ? 'Hide' : 'Trace'}
+            </button>
+          )}
+        </td>
+      </tr>
+      {expanded && entry.stack_trace && (
+        <tr>
+          <td
+            colSpan={6}
+            className="bg-[var(--color-bg-tertiary)] px-4 py-3"
+          >
+            <pre className="max-h-48 overflow-y-auto rounded text-[10px] font-mono leading-relaxed text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
+              {entry.stack_trace}
+            </pre>
+          </td>
+        </tr>
+      )}
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// ExceptionsSection
+// ---------------------------------------------------------------------------
+
+export function ExceptionsSection({ data, className }: ExceptionsSectionProps) {
+  if (!data.exceptions || data.exceptions.length === 0) {
+    return (
+      <div className="px-5 py-8 text-center text-sm text-[var(--color-success)]">
+        No exceptions found — log looks clean.
+      </div>
+    )
+  }
+
+  return (
+    <div className={className}>
+      {/* Summary bar */}
+      <div className="flex items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-error-light)]/30 px-5 py-3">
+        <svg
+          className="h-4 w-4 shrink-0 text-[var(--color-error)]"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          aria-hidden="true"
+        >
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+        <span className="text-xs font-semibold text-[var(--color-error)]">
+          {data.total ?? data.exceptions?.length ?? 0} exception{(data.total ?? data.exceptions?.length ?? 0) !== 1 ? 's' : ''} found
+        </span>
       </div>
 
-      {/* Top Error Codes Summary */}
-      {top_codes.length > 0 && (
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-          <h4 className="text-sm font-medium text-muted-foreground mb-2">
-            Top Error Codes
-          </h4>
-          <div className="flex flex-wrap gap-2">
-            {top_codes.slice(0, 3).map((code) => (
-              <span
-                key={code}
-                className="px-2 py-1 bg-white border rounded text-sm font-mono"
-              >
-                {code}
-              </span>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs" aria-label="Exceptions list">
+          <thead>
+            <tr className="bg-[var(--color-bg-secondary)]">
+              <th scope="col" className="border-b border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap">
+                Line
+              </th>
+              <th scope="col" className="border-b border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap">
+                Type
+              </th>
+              <th scope="col" className="border-b border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap">
+                Time
+              </th>
+              <th scope="col" className="border-b border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap">
+                User
+              </th>
+              <th scope="col" className="border-b border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider min-w-[16rem]">
+                Message
+              </th>
+              <th scope="col" className="border-b border-[var(--color-border)] px-4 py-2 text-right font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap">
+                Stack
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.exceptions.map((entry, idx) => (
+              <ExceptionRow key={`${entry.trace_id}-${idx}`} entry={entry} />
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* Exceptions List */}
-      <div className="space-y-2">
-        {exceptions.map((exception: ExceptionEntry, idx: number) => {
-          const isExpanded = expandedIndex === idx;
-          return (
-            <div
-              key={idx}
-              className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow"
-            >
-              {/* Collapsed View */}
-              <div
-                className="p-4 cursor-pointer bg-white hover:bg-gray-50"
-                onClick={() => setExpandedIndex(isExpanded ? null : idx)}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="font-mono text-sm font-medium text-red-600">
-                        {exception.error_code}
-                      </span>
-                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">
-                        {exception.log_type}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        × {exception.count}
-                      </span>
-                    </div>
-                    <p className="text-sm text-foreground mb-2">
-                      {exception.message}
-                    </p>
-                    <div className="flex gap-4 text-xs text-muted-foreground">
-                      <span>First: {new Date(exception.first_seen).toLocaleString()}</span>
-                      <span>Last: {new Date(exception.last_seen).toLocaleString()}</span>
-                    </div>
-                  </div>
-                  <svg
-                    className={`w-5 h-5 text-gray-400 transition-transform ${
-                      isExpanded ? "transform rotate-180" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </div>
-              </div>
-
-              {/* Expanded View */}
-              {isExpanded && (
-                <div className="border-t bg-gray-50 p-4 space-y-3">
-                  {exception.sample_line && (
-                    <div>
-                      <h5 className="text-xs font-medium text-muted-foreground mb-1">
-                        Sample Line #{exception.sample_line}
-                      </h5>
-                    </div>
-                  )}
-                  {exception.sample_trace && (
-                    <div>
-                      <h5 className="text-xs font-medium text-muted-foreground mb-1">
-                        Sample Trace
-                      </h5>
-                      <pre className="text-xs bg-white p-2 rounded border overflow-x-auto font-mono">
-                        {exception.sample_trace}
-                      </pre>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    {exception.queue && (
-                      <div>
-                        <span className="text-muted-foreground">Queue:</span>{" "}
-                        <span className="font-medium">{exception.queue}</span>
-                      </div>
-                    )}
-                    {exception.form && (
-                      <div>
-                        <span className="text-muted-foreground">Form:</span>{" "}
-                        <span className="font-medium">{exception.form}</span>
-                      </div>
-                    )}
-                    {exception.user && (
-                      <div>
-                        <span className="text-muted-foreground">User:</span>{" "}
-                        <span className="font-medium">{exception.user}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+          </tbody>
+        </table>
       </div>
     </div>
-  );
+  )
 }

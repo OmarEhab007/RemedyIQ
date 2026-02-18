@@ -1,131 +1,138 @@
-"use client";
+'use client'
 
-import { SpanNode } from "@/lib/api";
-import { getSpanColor, getSpanLabel, formatDuration, hasErrorChildren } from "@/lib/trace-utils";
-import { ChevronRight, ChevronDown, AlertCircle } from "lucide-react";
+/**
+ * waterfall-row.tsx — Standalone WaterfallRow for external use.
+ *
+ * Exports a single span row that can be used outside the virtualized list,
+ * for example in previews or trace comparison diffs.
+ *
+ * Usage:
+ *   <WaterfallRowStandalone
+ *     span={span}
+ *     totalDurationMs={totalDurationMs}
+ *     showCriticalPath={true}
+ *     isSelected={false}
+ *     onClick={() => setSelected(span)}
+ *   />
+ */
 
-interface WaterfallRowProps {
-  span: SpanNode;
-  totalDurationMs: number;
-  depth: number;
-  isSelected: boolean;
-  isExpanded: boolean;
-  onSelect: (spanId: string) => void;
-  onToggleExpand: (spanId: string) => void;
-  collapsed: boolean;
-  showCriticalPath?: boolean;
+import { useCallback } from 'react'
+import { cn } from '@/lib/utils'
+import { LOG_TYPE_COLORS } from '@/lib/constants'
+import type { SpanNode } from '@/lib/api-types'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface WaterfallRowStandaloneProps {
+  span: SpanNode
+  totalDurationMs: number
+  showCriticalPath?: boolean
+  isSelected?: boolean
+  onClick?: (span: SpanNode) => void
+  className?: string
 }
 
-export function WaterfallRow({
+// ---------------------------------------------------------------------------
+// WaterfallRowStandalone
+// ---------------------------------------------------------------------------
+
+export function WaterfallRowStandalone({
   span,
   totalDurationMs,
-  depth,
-  isSelected,
-  isExpanded,
-  onSelect,
-  onToggleExpand,
-  collapsed,
   showCriticalPath = false,
-}: WaterfallRowProps) {
-  const colors = getSpanColor(span.log_type);
-  const hasChildren = span.children && span.children.length > 0;
-  const label = getSpanLabel(span);
-  const hasError = !span.success || span.has_error;
-  const hasChildErrors = hasErrorChildren(span);
-  const isOnCriticalPath = span.on_critical_path;
-  
-  const leftOffset = totalDurationMs > 0 
-    ? (span.start_offset_ms / totalDurationMs) * 100 
-    : 0;
-  const barWidth = totalDurationMs > 0 
-    ? Math.max((span.duration_ms / totalDurationMs) * 100, 0.5) 
-    : 0;
-  
-  const indentPx = depth * 20;
+  isSelected = false,
+  onClick,
+  className,
+}: WaterfallRowStandaloneProps) {
+  const config = LOG_TYPE_COLORS[span.log_type]
+  const indentPx = span.depth * 16
+  const leftPct = totalDurationMs > 0 ? (span.start_offset_ms / totalDurationMs) * 100 : 0
+  const widthPct = totalDurationMs > 0 ? Math.max((span.duration_ms / totalDurationMs) * 100, 0.5) : 0.5
 
-  const getRowOpacity = (): string => {
-    if (showCriticalPath && !isOnCriticalPath) {
-      return "opacity-50";
-    }
-    return "";
-  };
-  
+  const handleClick = useCallback(() => {
+    onClick?.(span)
+  }, [span, onClick])
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        onClick?.(span)
+      }
+    },
+    [span, onClick],
+  )
+
   return (
     <div
-      className={`flex items-center h-9 border-b hover:bg-muted/30 cursor-pointer transition-colors ${
-        isSelected ? "bg-primary/10 ring-1 ring-primary" : ""
-      } ${hasError ? "bg-red-50/50" : ""} ${getRowOpacity()}`}
-      onClick={() => onSelect(span.id)}
-      style={{ minWidth: "100%" }}
+      role="row"
+      aria-selected={isSelected}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick ? handleClick : undefined}
+      onKeyDown={onClick ? handleKeyDown : undefined}
+      className={cn(
+        'flex h-9 items-center gap-2 border-b border-[var(--color-border-light)] px-3',
+        onClick && 'cursor-pointer hover:bg-[var(--color-bg-secondary)] focus-visible:outline-none focus-visible:bg-[var(--color-primary-light)]',
+        isSelected && 'bg-[var(--color-primary-light)]',
+        showCriticalPath && span.on_critical_path && 'bg-amber-50/60',
+        className,
+      )}
     >
-      <div 
-        className="flex items-center gap-1 px-2 shrink-0"
-        style={{ paddingLeft: `${indentPx + 8}px`, width: "260px" }}
+      {/* Indentation + label */}
+      <div
+        className="flex shrink-0 items-center gap-1.5"
+        style={{ paddingLeft: indentPx, width: `${180 + indentPx}px` }}
       >
-        {hasChildren && !collapsed && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleExpand(span.id);
-            }}
-            className="p-0.5 hover:bg-muted rounded"
-          >
-            {isExpanded ? (
-              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-            )}
-          </button>
+        {span.depth > 0 && (
+          <span className="shrink-0 text-[var(--color-border)]" aria-hidden="true">
+            {'└'}
+          </span>
         )}
-        {(!hasChildren || collapsed) && <div className="w-4" />}
-        
         <span
-          className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${colors.bg} ${colors.text}`}
+          className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none"
+          style={{ backgroundColor: config.bg, color: config.text }}
         >
-          {span.log_type}
+          {config.label}
         </span>
-        
-        {hasError && (
-          <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
-        )}
-        {!hasError && hasChildErrors && (
-          <div className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
-        )}
-        
-        {showCriticalPath && isOnCriticalPath && (
-          <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0" title="On critical path" />
-        )}
+        <span className="truncate text-xs text-[var(--color-text-primary)]" title={span.operation}>
+          {span.operation || span.id.slice(0, 8)}
+        </span>
+      </div>
 
-        <span className="text-xs text-muted-foreground truncate ml-1" title={label}>{label}</span>
-      </div>
-      
-      <div className="flex-1 relative h-5 mx-2">
+      {/* Bar */}
+      <div className="relative h-5 flex-1">
         <div
-          className={`absolute h-5 rounded ${colors.bg} border ${
-            hasError ? "border-red-500 bg-red-100" : colors.border
-          } ${isSelected ? "ring-1 ring-primary" : ""} ${
-            showCriticalPath && isOnCriticalPath ? "border-l-4 border-l-amber-500" : ""
-          }`}
-          style={{
-            left: `${leftOffset}%`,
-            width: `${barWidth}%`,
-            minWidth: "4px",
-          }}
-          title={`${label}: ${formatDuration(span.duration_ms)}${isOnCriticalPath ? " (Critical Path)" : ""}`}
-        >
-          {barWidth > 10 && (
-            <span 
-              className="absolute inset-0 flex items-center px-1 text-[10px] truncate text-foreground/70"
-            >
-              {formatDuration(span.duration_ms)}
-            </span>
+          className={cn(
+            'absolute top-0 h-full rounded-sm',
+            showCriticalPath && !span.on_critical_path && 'opacity-30',
+            isSelected && 'ring-2 ring-offset-1 ring-[var(--color-primary)]',
           )}
-        </div>
+          style={{
+            left: `${leftPct}%`,
+            width: `${widthPct}%`,
+            backgroundColor: config.bg,
+            minWidth: 2,
+          }}
+          aria-hidden="true"
+        />
       </div>
-      
-      <div className="w-20 px-2 shrink-0 text-xs text-right font-mono">
-        {formatDuration(span.duration_ms)}
-      </div>
+
+      {/* Duration */}
+      <span className="w-20 shrink-0 text-right text-xs tabular-nums text-[var(--color-text-secondary)]">
+        {span.duration_ms.toFixed(1)} ms
+      </span>
+
+      {span.has_error && (
+        <span className="shrink-0 text-[var(--color-error)]" aria-label="Error" title={span.error_message ?? 'Error'}>
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" fill="currentColor">
+            <path d="M6 1L11.196 10H.804L6 1Z" />
+            <rect x="5.5" y="5" width="1" height="3" fill="white" />
+            <rect x="5.5" y="9" width="1" height="1" fill="white" />
+          </svg>
+        </span>
+      )}
     </div>
-  );
+  )
 }

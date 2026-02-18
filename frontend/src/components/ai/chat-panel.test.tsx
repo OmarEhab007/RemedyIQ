@@ -1,148 +1,247 @@
+/**
+ * Tests for ChatPanel component.
+ *
+ * Covers: empty state, message rendering, no-conversation state,
+ * loading state, error state, skill selector presence.
+ */
+
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { ChatPanel } from './chat-panel'
-import type { AIMessage } from '@/hooks/use-ai'
+import type { Conversation, Message } from '@/lib/api-types'
+
+// Polyfill scrollIntoView for jsdom
+Element.prototype.scrollIntoView = vi.fn()
+
+// ---------------------------------------------------------------------------
+// Mocks
+// ---------------------------------------------------------------------------
+
+vi.mock('@clerk/nextjs', () => ({
+  useAuth: vi.fn(() => ({
+    getToken: vi.fn().mockResolvedValue('test-token'),
+  })),
+}))
+
+vi.mock('@/lib/api', () => ({
+  streamAI: vi.fn(),
+}))
+
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: vi.fn(() => ({
+    invalidateQueries: vi.fn(),
+  })),
+}))
+
+vi.mock('@/hooks/use-api', () => ({
+  useConversation: vi.fn(),
+  queryKeys: {
+    conversation: (id: string) => ['conversations', 'detail', id],
+  },
+}))
+
+vi.mock('@/stores/ai-store', () => ({
+  useAIStore: vi.fn(() => ({
+    isStreaming: false,
+    streamContent: '',
+    selectedSkill: null,
+    startStreaming: vi.fn(),
+    appendToken: vi.fn(),
+    stopStreaming: vi.fn(),
+    setSkill: vi.fn(),
+  })),
+}))
+
+vi.mock('./skill-selector', () => ({
+  SkillSelector: ({ selectedSkill }: { selectedSkill: string | null; onSelectSkill: (s: string | null) => void }) => (
+    <div data-testid="skill-selector" data-selected={selectedSkill ?? 'auto'} />
+  ),
+}))
+
+vi.mock('./message-view', () => ({
+  MessageView: ({ message }: { message: Message }) => (
+    <div data-testid="message-view" data-role={message.role}>{message.content}</div>
+  ),
+  StreamingMessage: ({ content }: { content: string }) => (
+    <div data-testid="streaming-message">{content}</div>
+  ),
+}))
+
+vi.mock('./chat-input', () => ({
+  ChatInput: ({ disabled, isStreaming }: { onSubmit: (s: string) => void; disabled?: boolean; isStreaming?: boolean }) => (
+    <div data-testid="chat-input" data-disabled={String(disabled)} data-streaming={String(isStreaming)} />
+  ),
+}))
+
+vi.mock('./follow-up-suggestions', () => ({
+  FollowUpSuggestions: ({ suggestions }: { suggestions: string[]; onSelect: (s: string) => void }) => (
+    <div data-testid="follow-up-suggestions">{suggestions.join(', ')}</div>
+  ),
+}))
+
+vi.mock('@/components/ui/page-state', () => ({
+  PageState: ({ variant, message }: { variant: string; message?: string; rows?: number; onRetry?: () => void }) => (
+    <div data-testid={`page-state-${variant}`}>{message}</div>
+  ),
+}))
+
+// ---------------------------------------------------------------------------
+// Type imports
+// ---------------------------------------------------------------------------
+
+import { useConversation } from '@/hooks/use-api'
+
+const mockUseConversation = vi.mocked(useConversation)
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function makeMessage(overrides: Partial<Message> = {}): Message {
+  return {
+    id: 'msg-1',
+    conversation_id: 'conv-1',
+    role: 'assistant',
+    content: 'Hello there',
+    skill_name: null,
+    follow_ups: [],
+    tokens_used: 100,
+    latency_ms: 500,
+    status: 'complete',
+    error_message: null,
+    created_at: '2024-01-01T00:00:00Z',
+    ...overrides,
+  }
+}
+
+function makeConversation(messages: Message[] = []): Conversation {
+  return {
+    id: 'conv-1',
+    tenant_id: 't-1',
+    user_id: 'u-1',
+    job_id: 'job-1',
+    title: 'Test conversation',
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+    message_count: messages.length,
+    messages,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 describe('ChatPanel', () => {
-  const mockOnSend = vi.fn()
-  const mockMessages: AIMessage[] = [
-    { id: 'msg-1', role: 'user', content: 'What errors are in the log?' },
-    {
-      id: 'msg-2',
-      role: 'assistant',
-      content: 'I found 5 errors in the log file.',
-      followUps: ['What are the error codes?', 'Show me the stack traces'],
-      latencyMs: 250,
-      tokensUsed: 150,
-    },
-  ]
-
   beforeEach(() => {
     vi.clearAllMocks()
-    // jsdom doesn't implement scrollIntoView
-    Element.prototype.scrollIntoView = vi.fn()
   })
 
-  it('renders empty state message when no messages', () => {
-    render(
-      <ChatPanel messages={[]} loading={false} onSend={mockOnSend} selectedSkill="summarizer" />
-    )
-    expect(screen.getByText('Ask a question about your log analysis')).toBeInTheDocument()
+  it('shows "no conversation" message when conversationId is null', () => {
+    mockUseConversation.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useConversation>)
+
+    render(<ChatPanel jobId="job-1" conversationId={null} />)
+    expect(screen.getByText(/select a conversation/i)).toBeInTheDocument()
   })
 
-  it('renders user messages aligned right', () => {
-    render(
-      <ChatPanel messages={mockMessages} loading={false} onSend={mockOnSend} selectedSkill="summarizer" />
-    )
-    const userMessage = screen.getByText('What errors are in the log?')
-    const container = userMessage.closest('.bg-primary')
-    expect(container).toBeInTheDocument()
+  it('shows loading state while fetching conversation', () => {
+    mockUseConversation.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useConversation>)
+
+    render(<ChatPanel jobId="job-1" conversationId="conv-1" />)
+    expect(screen.getByTestId('page-state-loading')).toBeInTheDocument()
   })
 
-  it('renders assistant messages aligned left', () => {
-    render(
-      <ChatPanel messages={mockMessages} loading={false} onSend={mockOnSend} selectedSkill="summarizer" />
-    )
-    const assistantMessage = screen.getByText('I found 5 errors in the log file.')
-    const container = assistantMessage.closest('.bg-muted')
-    expect(container).toBeInTheDocument()
+  it('shows error state on fetch failure', () => {
+    mockUseConversation.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useConversation>)
+
+    render(<ChatPanel jobId="job-1" conversationId="conv-1" />)
+    expect(screen.getByTestId('page-state-error')).toBeInTheDocument()
   })
 
-  it('displays message content', () => {
-    render(
-      <ChatPanel messages={mockMessages} loading={false} onSend={mockOnSend} selectedSkill="summarizer" />
-    )
-    expect(screen.getByText('What errors are in the log?')).toBeInTheDocument()
-    expect(screen.getByText('I found 5 errors in the log file.')).toBeInTheDocument()
+  it('shows empty state with starters when conversation has no messages', () => {
+    mockUseConversation.mockReturnValue({
+      data: makeConversation([]),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useConversation>)
+
+    render(<ChatPanel jobId="job-1" conversationId="conv-1" />)
+    expect(screen.getByText(/remedyiq ai assistant/i)).toBeInTheDocument()
   })
 
-  it('shows follow-up questions for assistant messages', () => {
-    render(
-      <ChatPanel messages={mockMessages} loading={false} onSend={mockOnSend} selectedSkill="summarizer" />
-    )
-    expect(screen.getByText('What are the error codes?')).toBeInTheDocument()
-    expect(screen.getByText('Show me the stack traces')).toBeInTheDocument()
+  it('renders messages from the conversation', () => {
+    const messages = [
+      makeMessage({ id: 'msg-1', role: 'user', content: 'User says hi' }),
+      makeMessage({ id: 'msg-2', role: 'assistant', content: 'Assistant reply' }),
+    ]
+    mockUseConversation.mockReturnValue({
+      data: makeConversation(messages),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useConversation>)
+
+    render(<ChatPanel jobId="job-1" conversationId="conv-1" />)
+    expect(screen.getAllByTestId('message-view')).toHaveLength(2)
   })
 
-  it('clicking follow-up calls onSend with the question text', () => {
-    render(
-      <ChatPanel messages={mockMessages} loading={false} onSend={mockOnSend} selectedSkill="summarizer" />
-    )
-    fireEvent.click(screen.getByText('What are the error codes?'))
-    expect(mockOnSend).toHaveBeenCalledWith('What are the error codes?', 'summarizer')
+  it('renders SkillSelector', () => {
+    mockUseConversation.mockReturnValue({
+      data: makeConversation([]),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useConversation>)
+
+    render(<ChatPanel jobId="job-1" conversationId="conv-1" />)
+    expect(screen.getByTestId('skill-selector')).toBeInTheDocument()
   })
 
-  it('shows latency and tokens for assistant messages', () => {
-    render(
-      <ChatPanel messages={mockMessages} loading={false} onSend={mockOnSend} selectedSkill="summarizer" />
-    )
-    expect(screen.getByText('250ms | 150 tokens')).toBeInTheDocument()
+  it('renders ChatInput', () => {
+    mockUseConversation.mockReturnValue({
+      data: makeConversation([]),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useConversation>)
+
+    render(<ChatPanel jobId="job-1" conversationId="conv-1" />)
+    expect(screen.getByTestId('chat-input')).toBeInTheDocument()
   })
 
-  it('shows Thinking indicator when loading', () => {
-    render(
-      <ChatPanel messages={mockMessages} loading={true} onSend={mockOnSend} selectedSkill="summarizer" />
-    )
-    expect(screen.getByText('Thinking...')).toBeInTheDocument()
-  })
+  it('renders follow-up suggestions from last assistant message', () => {
+    const messages = [
+      makeMessage({
+        id: 'msg-1',
+        role: 'assistant',
+        content: 'Here is info',
+        follow_ups: ['Tell me more', 'Show examples'],
+      }),
+    ]
+    mockUseConversation.mockReturnValue({
+      data: makeConversation(messages),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useConversation>)
 
-  it('disables input when loading', () => {
-    render(
-      <ChatPanel messages={mockMessages} loading={true} onSend={mockOnSend} selectedSkill="summarizer" />
-    )
-    const input = screen.getByPlaceholderText('Ask about your logs...')
-    expect(input).toBeDisabled()
-  })
-
-  it('disables send button when input is empty', () => {
-    render(
-      <ChatPanel messages={mockMessages} loading={false} onSend={mockOnSend} selectedSkill="summarizer" />
-    )
-    const sendButton = screen.getByRole('button', { name: /send/i })
-    expect(sendButton).toBeDisabled()
-  })
-
-  it('disables send button when loading', () => {
-    render(
-      <ChatPanel messages={mockMessages} loading={true} onSend={mockOnSend} selectedSkill="summarizer" />
-    )
-    const sendButton = screen.getByRole('button', { name: /send/i })
-    expect(sendButton).toBeDisabled()
-  })
-
-  it('calls onSend with input text and selectedSkill on form submit', () => {
-    render(
-      <ChatPanel messages={mockMessages} loading={false} onSend={mockOnSend} selectedSkill="summarizer" />
-    )
-    const input = screen.getByPlaceholderText('Ask about your logs...')
-    fireEvent.change(input, { target: { value: 'Show me the errors' } })
-    fireEvent.submit(input.closest('form')!)
-    expect(mockOnSend).toHaveBeenCalledWith('Show me the errors', 'summarizer')
-  })
-
-  it('clears input after submission', () => {
-    render(
-      <ChatPanel messages={mockMessages} loading={false} onSend={mockOnSend} selectedSkill="summarizer" />
-    )
-    const input = screen.getByPlaceholderText('Ask about your logs...') as HTMLInputElement
-    fireEvent.change(input, { target: { value: 'Show me the errors' } })
-    fireEvent.submit(input.closest('form')!)
-    expect(input.value).toBe('')
-  })
-
-  it('does not submit empty or whitespace-only input', () => {
-    render(
-      <ChatPanel messages={mockMessages} loading={false} onSend={mockOnSend} selectedSkill="summarizer" />
-    )
-    const input = screen.getByPlaceholderText('Ask about your logs...')
-    const form = input.closest('form')!
-
-    fireEvent.change(input, { target: { value: '' } })
-    fireEvent.submit(form)
-    expect(mockOnSend).not.toHaveBeenCalled()
-
-    fireEvent.change(input, { target: { value: '   ' } })
-    fireEvent.submit(form)
-    expect(mockOnSend).not.toHaveBeenCalled()
+    render(<ChatPanel jobId="job-1" conversationId="conv-1" />)
+    expect(screen.getByTestId('follow-up-suggestions')).toBeInTheDocument()
   })
 })

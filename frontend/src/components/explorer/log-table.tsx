@@ -1,270 +1,453 @@
-"use client";
+'use client'
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { FixedSizeList } from "react-window";
-import type { SearchHit } from "@/hooks/use-search";
+/**
+ * LogTable — Virtualized log entry table using react-window FixedSizeList.
+ *
+ * Row height: 44px
+ * Columns: timestamp (monospace), log type (color badge), identifier (mono, truncated),
+ *          user, duration, status icon
+ * Click row → selectEntry callback
+ * Keyboard: Arrow up/down to navigate, Enter to select
+ *
+ * Usage:
+ *   <LogTable
+ *     entries={searchResults.entries}
+ *     selectedEntryId={selectedEntryId}
+ *     onSelectEntry={selectEntry}
+ *     isLoading={isLoading}
+ *     total={searchResults.total}
+ *   />
+ */
 
-interface LogTableProps {
-  hits: SearchHit[];
-  onSelect: (hit: SearchHit) => void;
-  selectedId?: string;
-  sortBy?: string;
-  sortOrder?: "asc" | "desc";
-  onSort?: (field: string) => void;
-  focusedRowIndex?: number | null;
-  onFocusedRowChange?: (index: number | null) => void;
-  tableRef?: React.RefObject<HTMLDivElement | null>;
+import { useCallback, useState, useEffect, useRef, type CSSProperties } from 'react'
+import type { LogEntry, LogType } from '@/lib/api-types'
+import { LOG_TYPE_COLORS } from '@/lib/constants'
+import { cn } from '@/lib/utils'
+import { PageState } from '@/components/ui/page-state'
+
+// ---------------------------------------------------------------------------
+// react-window — use require() to avoid named-import TS issues with this
+// CommonJS package under bundler moduleResolution
+// ---------------------------------------------------------------------------
+
+/* eslint-disable @typescript-eslint/no-require-imports */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { FixedSizeList: List } = require('react-window') as {
+  FixedSizeList: React.ComponentType<FixedSizeListProps>
+}
+/* eslint-enable @typescript-eslint/no-require-imports */
+
+interface FixedSizeListProps {
+  height: number
+  width: number
+  itemCount: number
+  itemSize: number
+  itemData: RowData
+  overscanCount?: number
+  children: React.ComponentType<RowChildProps>
 }
 
-const ROW_HEIGHT = 40;
+interface RowChildProps {
+  index: number
+  style: CSSProperties
+  data: RowData
+}
 
-/** Map raw ClickHouse log_type codes to human-readable labels. */
-const LOG_TYPE_LABELS: Record<string, string> = {
-  API: "API",
-  SQL: "SQL",
-  FLTR: "Filter",
-  ESCL: "Escalation",
-};
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
 
-/** Type badge color config. */
-const TYPE_BADGE: Record<string, { bg: string; text: string; dot: string }> = {
-  API:  { bg: "bg-blue-50 dark:bg-blue-950/60", text: "text-blue-700 dark:text-blue-300", dot: "bg-blue-500" },
-  SQL:  { bg: "bg-emerald-50 dark:bg-emerald-950/60", text: "text-emerald-700 dark:text-emerald-300", dot: "bg-emerald-500" },
-  FLTR: { bg: "bg-orange-50 dark:bg-orange-950/60", text: "text-orange-700 dark:text-orange-300", dot: "bg-orange-500" },
-  ESCL: { bg: "bg-purple-50 dark:bg-purple-950/60", text: "text-purple-700 dark:text-purple-300", dot: "bg-purple-500" },
-};
+const ROW_HEIGHT = 44
 
-const DEFAULT_BADGE = { bg: "bg-gray-50 dark:bg-gray-900", text: "text-gray-700 dark:text-gray-300", dot: "bg-gray-500" };
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
-function LogRow({ index, style, hits, onSelect, selectedId, focusedRowIndex, onFocusRow }: {
-  index: number;
-  style: React.CSSProperties;
-  hits: SearchHit[];
-  onSelect: (hit: SearchHit) => void;
-  selectedId?: string;
-  focusedRowIndex?: number | null;
-  onFocusRow: (index: number) => void;
-}) {
-  const rowIndex = index;
-  const hit = hits[rowIndex];
-  const fields = hit.fields || {};
-  const isSelected = hit.id === selectedId;
-  const isFocused = rowIndex === focusedRowIndex;
-  const isEven = rowIndex % 2 === 0;
-  const badge = TYPE_BADGE[fields.log_type] || DEFAULT_BADGE;
+export interface LogTableProps {
+  entries: LogEntry[]
+  selectedEntryId: string | null
+  onSelectEntry: (entryId: string | null) => void
+  isLoading?: boolean
+  total?: number
+  className?: string
+}
+
+// ---------------------------------------------------------------------------
+// Helper: format timestamp to compact display
+// ---------------------------------------------------------------------------
+
+function formatTimestamp(ts: string): string {
+  try {
+    const d = new Date(ts)
+    return d.toISOString().replace('T', ' ').replace('Z', '').slice(0, 23)
+  } catch {
+    return ts
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helper: format duration
+// ---------------------------------------------------------------------------
+
+function formatDuration(ms: number | null): string {
+  if (ms === null) return '—'
+  if (ms >= 1000) return `${(ms / 1000).toFixed(2)}s`
+  return `${ms}ms`
+}
+
+// ---------------------------------------------------------------------------
+// Helper: get identifier from log entry
+// ---------------------------------------------------------------------------
+
+function getIdentifier(entry: LogEntry): string {
+  return (
+    entry.form ??
+    entry.filter_name ??
+    entry.sql_table ??
+    entry.esc_name ??
+    entry.rpc_id ??
+    entry.trace_id ??
+    '—'
+  )
+}
+
+// ---------------------------------------------------------------------------
+// LogTypeBadge
+// ---------------------------------------------------------------------------
+
+function LogTypeBadge({ logType }: { logType: LogType }) {
+  const config = LOG_TYPE_COLORS[logType]
+  return (
+    <span
+      className="inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+      style={{ background: config.bg, color: config.text }}
+      aria-label={`Log type: ${config.label}`}
+    >
+      {config.label}
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// StatusIcon
+// ---------------------------------------------------------------------------
+
+function StatusIcon({ success }: { success: boolean | null }) {
+  if (success === null) {
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-[var(--color-text-tertiary)]"
+        aria-label="Status unknown"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+        <path d="M12 17h.01" />
+      </svg>
+    )
+  }
+  if (success) {
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-[var(--color-success)]"
+        aria-label="Success"
+      >
+        <path d="M20 6 9 17l-5-5" />
+      </svg>
+    )
+  }
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="text-[var(--color-error)]"
+      aria-label="Error"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="m15 9-6 6M9 9l6 6" />
+    </svg>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// TableHeader — static column headers
+// ---------------------------------------------------------------------------
+
+function TableHeader() {
+  return (
+    <div
+      role="row"
+      aria-rowindex={1}
+      className="flex h-9 shrink-0 items-center border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]"
+    >
+      <span className="w-[172px] shrink-0">Timestamp</span>
+      <span className="w-16 shrink-0">Type</span>
+      <span className="min-w-0 flex-1">Identifier</span>
+      <span className="w-28 shrink-0 truncate">User</span>
+      <span className="w-20 shrink-0 text-right">Duration</span>
+      <span className="w-8 shrink-0 text-center">St.</span>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// RowData — data passed to each virtualised row
+// ---------------------------------------------------------------------------
+
+interface RowData {
+  entries: LogEntry[]
+  selectedEntryId: string | null
+  onSelectEntry: (id: string) => void
+}
+
+// ---------------------------------------------------------------------------
+// LogRow — single virtualised row
+// ---------------------------------------------------------------------------
+
+function LogRow({ index, style, data }: RowChildProps) {
+  const { entries, selectedEntryId, onSelectEntry } = data
+  const entry = entries[index]
+  if (!entry) return null
+
+  const isSelected = entry.entry_id === selectedEntryId
+  const identifier = getIdentifier(entry)
 
   return (
     <div
       style={style}
+      role="row"
+      aria-rowindex={index + 2} // +2 because header is row 1
+      aria-selected={isSelected}
       tabIndex={0}
-      data-row-index={rowIndex}
-      className={`flex items-center text-[13px] cursor-pointer transition-colors outline-none border-b border-border/40 ${
-        isSelected
-          ? "bg-primary/10 dark:bg-primary/20"
-          : isEven
-          ? "bg-card"
-          : "bg-muted/20"
-      } ${
-        !isSelected ? "hover:bg-accent/50" : ""
-      } ${isFocused ? "ring-2 ring-primary ring-inset" : ""}`}
-      onClick={() => onSelect(hit)}
-      onFocus={() => onFocusRow(rowIndex)}
+      onClick={() => onSelectEntry(entry.entry_id)}
       onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          onSelect(hit);
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelectEntry(entry.entry_id)
         }
       }}
+      className={cn(
+        'flex cursor-pointer items-center border-b border-[var(--color-border-light)] px-3 text-sm transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-primary)]',
+        isSelected
+          ? 'bg-[var(--color-primary-light)]'
+          : 'hover:bg-[var(--color-bg-secondary)]',
+        entry.success === false && !isSelected && 'bg-[var(--color-error-light)]/40',
+      )}
     >
-      <div className="w-[70px] px-3 text-muted-foreground font-mono tabular-nums shrink-0">
-        {fields.line_number || "-"}
-      </div>
-      <div className="w-[90px] px-2 shrink-0">
-        <span
-          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium ${badge.bg} ${badge.text}`}
-        >
-          <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
-          {LOG_TYPE_LABELS[fields.log_type] || fields.log_type || "?"}
-        </span>
-      </div>
-      <div className="w-[110px] px-2 text-muted-foreground tabular-nums font-mono shrink-0 text-[12px]">
-        {fields.timestamp
-          ? new Date(fields.timestamp).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-              fractionalSecondDigits: 3,
-            } as Intl.DateTimeFormatOptions)
-          : "-"}
-      </div>
-      <div className="w-[100px] px-2 font-mono truncate shrink-0">{fields.user || "-"}</div>
-      <div className="w-[140px] px-2 truncate shrink-0">{fields.form || fields.filter_name || fields.esc_name || "-"}</div>
-      <div className="flex-1 px-2 truncate font-mono text-muted-foreground min-w-0">
-        {fields.api_code || fields.sql_statement || fields.raw_text || "-"}
-      </div>
-      <div className="w-[80px] px-2 text-right font-mono tabular-nums shrink-0">
-        {fields.duration_ms != null && fields.duration_ms > 0 ? (
-          <span className={fields.duration_ms > 1000 ? "text-amber-600 dark:text-amber-400 font-semibold" : ""}>
-            {fields.duration_ms >= 1000
-              ? `${(fields.duration_ms / 1000).toFixed(1)}s`
-              : `${fields.duration_ms}ms`}
-          </span>
-        ) : (
-          <span className="text-muted-foreground/40">-</span>
+      {/* Timestamp */}
+      <span
+        className="w-[172px] shrink-0 font-mono text-xs text-[var(--color-text-secondary)]"
+        aria-label={`Timestamp: ${entry.timestamp}`}
+      >
+        {formatTimestamp(entry.timestamp)}
+      </span>
+
+      {/* Log type badge */}
+      <span className="w-16 shrink-0">
+        <LogTypeBadge logType={entry.log_type} />
+      </span>
+
+      {/* Identifier */}
+      <span
+        className="min-w-0 flex-1 truncate font-mono text-xs text-[var(--color-text-primary)]"
+        title={identifier}
+        aria-label={`Identifier: ${identifier}`}
+      >
+        {identifier}
+      </span>
+
+      {/* User */}
+      <span
+        className="w-28 shrink-0 truncate text-xs text-[var(--color-text-secondary)]"
+        title={entry.user}
+        aria-label={`User: ${entry.user}`}
+      >
+        {entry.user || '—'}
+      </span>
+
+      {/* Duration */}
+      <span
+        className={cn(
+          'w-20 shrink-0 text-right font-mono text-xs',
+          entry.duration_ms !== null && entry.duration_ms >= 5000
+            ? 'text-[var(--color-error)]'
+            : entry.duration_ms !== null && entry.duration_ms >= 1000
+              ? 'text-[var(--color-warning)]'
+              : 'text-[var(--color-text-secondary)]',
         )}
-      </div>
-      <div className="w-[50px] px-2 text-center shrink-0">
-        {fields.success != null ? (
-          fields.success ? (
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
-              &#10003;
-            </span>
-          ) : (
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 text-[10px] font-bold">
-              &#10007;
-            </span>
-          )
-        ) : null}
-      </div>
-    </div>
-  );
-}
+        aria-label={`Duration: ${formatDuration(entry.duration_ms)}`}
+      >
+        {formatDuration(entry.duration_ms)}
+      </span>
 
-export function LogTable({
-  hits,
-  onSelect,
-  selectedId,
-  sortBy,
-  sortOrder,
-  onSort,
-  focusedRowIndex,
-  onFocusedRowChange,
-  tableRef,
-}: LogTableProps) {
-  const [internalFocusedRow, setInternalFocusedRow] = useState<number | null>(null);
-  const listContainerRef = useRef<HTMLDivElement>(null);
-  const [listHeight, setListHeight] = useState(400);
-
-  const activeFocusedRow = focusedRowIndex ?? internalFocusedRow;
-
-  const handleFocusRow = useCallback(
-    (index: number) => {
-      setInternalFocusedRow(index);
-      onFocusedRowChange?.(index);
-    },
-    [onFocusedRowChange]
-  );
-
-  useEffect(() => {
-    const container = listContainerRef.current;
-    if (!container) return;
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) {
-        setListHeight(Math.max(entry.contentRect.height, 100));
-      }
-    });
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!tableRef?.current) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        const nextRow = activeFocusedRow === null ? 0 : Math.min(activeFocusedRow + 1, hits.length - 1);
-        handleFocusRow(nextRow);
-        const row = tableRef.current?.querySelector(`[data-row-index="${nextRow}"]`) as HTMLElement;
-        row?.focus();
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        const prevRow = activeFocusedRow === null ? 0 : Math.max(activeFocusedRow - 1, 0);
-        handleFocusRow(prevRow);
-        const row = tableRef.current?.querySelector(`[data-row-index="${prevRow}"]`) as HTMLElement;
-        row?.focus();
-      }
-    };
-
-    const table = tableRef.current;
-    table.addEventListener("keydown", handleKeyDown);
-    return () => table.removeEventListener("keydown", handleKeyDown);
-  }, [activeFocusedRow, hits.length, handleFocusRow, tableRef]);
-
-  if (hits.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm gap-1">
-        <p>No results found</p>
-        <p className="text-xs">Try adjusting your search query or filters</p>
-      </div>
-    );
-  }
-
-  const rowProps = {
-    hits,
-    onSelect,
-    selectedId,
-    focusedRowIndex: activeFocusedRow,
-    onFocusRow: handleFocusRow,
-  };
-
-  const renderSortableHeader = (field: string, label: string, widthClass: string, extraClass?: string) => (
-    <div
-      key={field}
-      className={`${widthClass} px-2 py-2 select-none ${extraClass || ""} ${
-        onSort ? "cursor-pointer hover:bg-muted/80 transition-colors" : ""
-      }`}
-      onClick={() => onSort?.(field)}
-      role={onSort ? "button" : undefined}
-      aria-sort={sortBy === field ? (sortOrder === "asc" ? "ascending" : "descending") : undefined}
-    >
-      <span className="inline-flex items-center gap-1">
-        {label}
-        {sortBy === field ? (
-          <span className="text-primary font-bold">{sortOrder === "asc" ? "↑" : "↓"}</span>
-        ) : (
-          onSort && <span className="text-muted-foreground/40">↕</span>
-        )}
+      {/* Status */}
+      <span
+        className="flex w-8 shrink-0 items-center justify-center"
+        aria-label={`Status: ${entry.success === null ? 'unknown' : entry.success ? 'success' : 'error'}`}
+      >
+        <StatusIcon success={entry.success} />
       </span>
     </div>
-  );
-
-  return (
-    <div className="flex flex-col flex-1 min-h-0 h-full" ref={tableRef} tabIndex={-1}>
-      <div className="flex items-center border-b bg-muted/60 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-        {renderSortableHeader("line_number", "Line", "w-[70px] shrink-0")}
-        {renderSortableHeader("log_type", "Type", "w-[90px] shrink-0")}
-        {renderSortableHeader("timestamp", "Time", "w-[110px] shrink-0")}
-        {renderSortableHeader("user", "User", "w-[100px] shrink-0")}
-        <div className="w-[140px] px-2 py-2 shrink-0">Context</div>
-        <div className="flex-1 px-2 py-2 min-w-0">Details</div>
-        {renderSortableHeader("duration_ms", "Duration", "w-[80px] shrink-0", "text-right")}
-        <div className="w-[50px] px-2 py-2 text-center shrink-0">Status</div>
-      </div>
-      <div className="flex-1 min-h-0 overflow-hidden" ref={listContainerRef}>
-        <FixedSizeList
-          height={listHeight}
-          itemCount={hits.length}
-          itemSize={ROW_HEIGHT}
-          width="100%"
-          itemData={rowProps}
-        >
-          {({ index, style, data }) => (
-            <LogRow
-              index={index}
-              style={style}
-              hits={data.hits}
-              onSelect={data.onSelect}
-              selectedId={data.selectedId}
-              focusedRowIndex={data.focusedRowIndex}
-              onFocusRow={data.onFocusRow}
-            />
-          )}
-        </FixedSizeList>
-      </div>
-    </div>
-  );
+  )
 }
 
-LogRow.displayName = "LogRow";
+// ---------------------------------------------------------------------------
+// AutoSizerWrapper — fills parent div with dynamic height/width
+//
+// Implements a simple ResizeObserver-based auto-sizer so we don't need
+// the react-virtualized-auto-sizer package.
+// ---------------------------------------------------------------------------
+
+interface AutoSizerChildProps {
+  height: number
+  width: number
+}
+
+interface AutoSizerWrapperProps {
+  children: (props: AutoSizerChildProps) => React.ReactNode
+}
+
+function AutoSizerWrapper({ children }: AutoSizerWrapperProps) {
+  const divRef = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState<AutoSizerChildProps>({ height: 0, width: 0 })
+
+  useEffect(() => {
+    const el = divRef.current
+    if (!el) return
+
+    const observer = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect
+      if (rect) {
+        setSize({ height: rect.height, width: rect.width })
+      }
+    })
+
+    observer.observe(el)
+    setSize({ height: el.clientHeight, width: el.clientWidth })
+
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <div ref={divRef} className="h-full w-full">
+      {size.height > 0 && size.width > 0 && children(size)}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// LogTable component
+// ---------------------------------------------------------------------------
+
+export function LogTable({
+  entries,
+  selectedEntryId,
+  onSelectEntry,
+  isLoading,
+  total,
+  className,
+}: LogTableProps) {
+  const handleSelect = useCallback(
+    (entryId: string) => {
+      onSelectEntry(entryId === selectedEntryId ? null : entryId)
+    },
+    [onSelectEntry, selectedEntryId],
+  )
+
+  // Build item data (stable reference avoids re-renders)
+  const itemData: RowData = {
+    entries,
+    selectedEntryId,
+    onSelectEntry: handleSelect,
+  }
+
+  if (isLoading) {
+    return (
+      <div className={cn('flex flex-col overflow-hidden rounded-lg border border-[var(--color-border)]', className)}>
+        <TableHeader />
+        <PageState variant="loading" rows={8} />
+      </div>
+    )
+  }
+
+  if (entries.length === 0) {
+    return (
+      <div className={cn('flex flex-col overflow-hidden rounded-lg border border-[var(--color-border)]', className)}>
+        <TableHeader />
+        <PageState
+          variant="empty"
+          title="No log entries found"
+          description="Try adjusting your search query or filters."
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className={cn(
+        'flex flex-col overflow-hidden rounded-lg border border-[var(--color-border)]',
+        className,
+      )}
+    >
+      {/* Column header */}
+      <TableHeader />
+
+      {/* Footer count */}
+      {total !== undefined && (
+        <div className="shrink-0 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-1 text-[11px] text-[var(--color-text-tertiary)]">
+          Showing {entries.length.toLocaleString()} of {total.toLocaleString()} entries
+        </div>
+      )}
+
+      {/* Virtualized list — fills remaining height */}
+      <div
+        className="flex-1"
+        role="grid"
+        aria-label="Log entries"
+        aria-rowcount={entries.length + 1}
+        aria-colcount={6}
+      >
+        <AutoSizerWrapper>
+          {({ height, width }) => (
+            <List
+              height={height}
+              width={width}
+              itemCount={entries.length}
+              itemSize={ROW_HEIGHT}
+              itemData={itemData}
+              overscanCount={5}
+            >
+              {LogRow}
+            </List>
+          )}
+        </AutoSizerWrapper>
+      </div>
+    </div>
+  )
+}

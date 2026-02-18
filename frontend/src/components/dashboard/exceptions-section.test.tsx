@@ -1,227 +1,289 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { ExceptionsSection } from './exceptions-section';
-import type { ExceptionsResponse, ExceptionEntry } from '@/lib/api';
+/**
+ * T066 — Tests for ExceptionsSection component (T059)
+ */
 
-vi.mock('next/link', () => ({
-  default: ({ children, ...props }: any) => <a {...props}>{children}</a>,
-}));
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { ExceptionsSection } from './exceptions-section'
+import type { ExceptionsResponse, ExceptionEntry } from '@/lib/api-types'
 
-vi.mock('lucide-react', () => ({
-  AlertCircle: (props: any) => <span data-testid="alert-circle" {...props} />,
-  TrendingUp: (props: any) => <span data-testid="trending-up" {...props} />,
-}));
+// ---------------------------------------------------------------------------
+// Module mocks
+// ---------------------------------------------------------------------------
 
-const mockData: ExceptionsResponse = {
-  total_count: 2,
+vi.mock('@/lib/constants', () => ({
+  LOG_TYPE_COLORS: {
+    API:  { bg: '#dbeafe', text: '#1d4ed8', label: 'API',  description: '' },
+    SQL:  { bg: '#fef3c7', text: '#92400e', label: 'SQL',  description: '' },
+    FLTR: { bg: '#d1fae5', text: '#065f46', label: 'FLTR', description: '' },
+    ESCL: { bg: '#fce7f3', text: '#9d174d', label: 'ESCL', description: '' },
+  },
+}))
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+function makeEntry(overrides: Partial<ExceptionEntry> = {}): ExceptionEntry {
+  return {
+    line_number: 42,
+    timestamp: '2024-03-15T10:30:00Z',
+    trace_id: 'trace-abc',
+    rpc_id: 'rpc-001',
+    thread_id: 'thread-1',
+    queue: 'AR System',
+    user: 'admin',
+    log_type: 'API',
+    message: 'NullPointerException in handler',
+    stack_trace: null,
+    form: null,
+    duration_ms: null,
+    ...overrides,
+  }
+}
+
+function makeData(overrides: Partial<ExceptionsResponse> = {}): ExceptionsResponse {
+  return {
+    job_id: 'job-001',
+    exceptions: [],
+    total: 0,
+    ...overrides,
+  }
+}
+
+const threeExceptions: ExceptionsResponse = {
+  job_id: 'job-001',
+  total: 3,
   exceptions: [
-    {
-      error_code: 'ARERR 302',
-      message: 'Entry not found',
-      count: 15,
+    makeEntry({
+      line_number: 10,
+      trace_id: 'trace-1',
       log_type: 'API',
-      first_seen: '2026-02-12T08:00:00Z',
-      last_seen: '2026-02-12T12:00:00Z',
-      sample_line: 100,
-      sample_trace: 'stack trace here',
-      queue: 'Default',
-      form: 'HPD:Help Desk',
-      user: 'Demo',
-    },
-    {
-      error_code: 'ARERR 9801',
-      message: 'SQL timeout',
-      count: 5,
+      user: 'admin',
+      message: 'API error message',
+      stack_trace: 'java.lang.NullPointerException\n\tat com.remedy.Foo.bar(Foo.java:42)',
+    }),
+    makeEntry({
+      line_number: 20,
+      trace_id: 'trace-2',
       log_type: 'SQL',
-      first_seen: '2026-02-12T09:00:00Z',
-      last_seen: '2026-02-12T11:00:00Z',
-      sample_line: 200,
-    },
+      user: 'sysadmin',
+      message: 'SQL error message',
+      stack_trace: null,
+    }),
+    makeEntry({
+      line_number: 30,
+      trace_id: 'trace-3',
+      log_type: 'FLTR',
+      user: '',
+      message: 'Filter error message',
+      stack_trace: 'com.remedy.FilterException\n\tat Filter.run:10',
+    }),
   ],
-  error_rates: { API: 0.5, SQL: 3.2, FLTR: 8.1 },
-  top_codes: ['ARERR 302', 'ARERR 9801', 'ARERR 1234'],
-};
+}
 
-const mockEmptyData: ExceptionsResponse = {
-  total_count: 0,
-  exceptions: [],
-  error_rates: {},
-  top_codes: [],
-};
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 describe('ExceptionsSection', () => {
-  it('renders loading state', () => {
-    render(
-      <ExceptionsSection data={null} loading={true} error={null} refetch={vi.fn()} />
-    );
-    expect(screen.getByText('Exceptions')).toBeInTheDocument();
-    const pulseElements = document.querySelectorAll('.animate-pulse');
-    expect(pulseElements.length).toBeGreaterThan(0);
-  });
+  describe('empty state', () => {
+    it('shows clean log message when exceptions array is empty', () => {
+      render(<ExceptionsSection data={makeData()} />)
+      expect(
+        screen.getByText('No exceptions found — log looks clean.')
+      ).toBeInTheDocument()
+    })
 
-  it('renders error state with retry', () => {
-    const errorMessage = 'Failed to load exceptions';
-    render(
-      <ExceptionsSection
-        data={null}
-        loading={false}
-        error={errorMessage}
-        refetch={vi.fn()}
-      />
-    );
-    expect(screen.getByText(errorMessage)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
-  });
+    it('does not render the exceptions table when empty', () => {
+      render(<ExceptionsSection data={makeData()} />)
+      expect(screen.queryByRole('table')).toBeNull()
+    })
 
-  it('calls refetch on retry button click', () => {
-    const refetchMock = vi.fn();
-    render(
-      <ExceptionsSection
-        data={null}
-        loading={false}
-        error="Test error"
-        refetch={refetchMock}
-      />
-    );
-    const retryButton = screen.getByRole('button', { name: /retry/i });
-    fireEvent.click(retryButton);
-    expect(refetchMock).toHaveBeenCalledTimes(1);
-  });
+    it('does not render the summary bar when empty', () => {
+      render(<ExceptionsSection data={makeData()} />)
+      // Summary bar shows "{N} exceptions found" — check no digit-prefixed exception text
+      expect(screen.queryByText(/^\d+ exception/i)).toBeNull()
+    })
+  })
 
-  it('renders no errors detected when total_count is 0', () => {
-    render(
-      <ExceptionsSection
-        data={mockEmptyData}
-        loading={false}
-        error={null}
-        refetch={vi.fn()}
-      />
-    );
-    expect(screen.getByText('No errors detected')).toBeInTheDocument();
-  });
+  describe('summary bar', () => {
+    it('shows total count in summary for multiple exceptions', () => {
+      render(<ExceptionsSection data={threeExceptions} />)
+      expect(screen.getByText('3 exceptions found')).toBeInTheDocument()
+    })
 
-  it('renders no errors detected when data is null', () => {
-    render(
-      <ExceptionsSection data={null} loading={false} error={null} refetch={vi.fn()} />
-    );
-    expect(screen.getByText('No errors detected')).toBeInTheDocument();
-  });
+    it('uses singular form for exactly 1 exception', () => {
+      render(
+        <ExceptionsSection
+          data={makeData({ total: 1, exceptions: [makeEntry({ trace_id: 'trace-x' })] })}
+        />
+      )
+      expect(screen.getByText('1 exception found')).toBeInTheDocument()
+    })
+  })
 
-  it('renders error rate badges with correct colors (< 1% green, < 5% yellow, >= 5% red)', () => {
-    render(
-      <ExceptionsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    );
+  describe('table structure', () => {
+    it('renders the exceptions table with aria-label', () => {
+      render(<ExceptionsSection data={threeExceptions} />)
+      expect(screen.getByRole('table', { name: 'Exceptions list' })).toBeInTheDocument()
+    })
 
-    // API: 0.5% (green)
-    const apiBadge = screen.getByText(/API: 0.50%/);
-    expect(apiBadge).toHaveClass('bg-green-100', 'text-green-800');
+    it('renders all column headers', () => {
+      render(<ExceptionsSection data={threeExceptions} />)
+      const table = screen.getByRole('table', { name: 'Exceptions list' })
+      expect(within(table).getByText('Line')).toBeInTheDocument()
+      expect(within(table).getByText('Type')).toBeInTheDocument()
+      expect(within(table).getByText('Time')).toBeInTheDocument()
+      expect(within(table).getByText('User')).toBeInTheDocument()
+      expect(within(table).getByText('Message')).toBeInTheDocument()
+      expect(within(table).getByText('Stack')).toBeInTheDocument()
+    })
 
-    // SQL: 3.2% (yellow)
-    const sqlBadge = screen.getByText(/SQL: 3.20%/);
-    expect(sqlBadge).toHaveClass('bg-yellow-100', 'text-yellow-800');
+    it('renders one data row per exception entry', () => {
+      render(<ExceptionsSection data={threeExceptions} />)
+      const table = screen.getByRole('table', { name: 'Exceptions list' })
+      const tbody = within(table).getAllByRole('row')
+      // 1 header row + 3 data rows (expanded trace rows not yet visible)
+      expect(tbody.length).toBeGreaterThanOrEqual(4)
+    })
+  })
 
-    // FLTR: 8.1% (red)
-    const fltrBadge = screen.getByText(/FLTR: 8.10%/);
-    expect(fltrBadge).toHaveClass('bg-red-100', 'text-red-800');
-  });
+  describe('row content', () => {
+    it('renders line number with L prefix', () => {
+      render(<ExceptionsSection data={threeExceptions} />)
+      expect(screen.getByText('L10')).toBeInTheDocument()
+      expect(screen.getByText('L20')).toBeInTheDocument()
+      expect(screen.getByText('L30')).toBeInTheDocument()
+    })
 
-  it('renders top error codes', () => {
-    render(
-      <ExceptionsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    );
-    expect(screen.getByText('Top Error Codes')).toBeInTheDocument();
-    // ARERR 302 and ARERR 9801 appear in both top_codes and exception cards
-    expect(screen.getAllByText('ARERR 302').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText('ARERR 9801').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText('ARERR 1234')).toBeInTheDocument();
-  });
+    it('renders log type badge text for each entry', () => {
+      render(<ExceptionsSection data={threeExceptions} />)
+      expect(screen.getByText('API')).toBeInTheDocument()
+      expect(screen.getByText('SQL')).toBeInTheDocument()
+      expect(screen.getByText('FLTR')).toBeInTheDocument()
+    })
 
-  it('renders exception cards with error code, message, count, log type', () => {
-    render(
-      <ExceptionsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    );
+    it('renders user value in the user cell', () => {
+      render(<ExceptionsSection data={threeExceptions} />)
+      expect(screen.getByText('admin')).toBeInTheDocument()
+      expect(screen.getByText('sysadmin')).toBeInTheDocument()
+    })
 
-    // Error codes appear in both top_codes and exception cards
-    expect(screen.getAllByText('ARERR 302').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Entry not found')).toBeInTheDocument();
-    expect(screen.getByText('× 15')).toBeInTheDocument();
+    it('renders em dash for empty user field', () => {
+      render(<ExceptionsSection data={threeExceptions} />)
+      // The FLTR entry has user: '' — rendered as '—'
+      const dashes = screen.getAllByText('—')
+      expect(dashes.length).toBeGreaterThanOrEqual(1)
+    })
 
-    // Check for log type badges
-    const logTypeBadges = screen.getAllByText('API');
-    expect(logTypeBadges.length).toBeGreaterThan(0);
+    it('renders exception message text', () => {
+      render(<ExceptionsSection data={threeExceptions} />)
+      expect(screen.getByText('API error message')).toBeInTheDocument()
+      expect(screen.getByText('SQL error message')).toBeInTheDocument()
+      expect(screen.getByText('Filter error message')).toBeInTheDocument()
+    })
 
-    // Second exception
-    expect(screen.getAllByText('ARERR 9801').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('SQL timeout')).toBeInTheDocument();
-    expect(screen.getByText('× 5')).toBeInTheDocument();
-    expect(screen.getByText('SQL')).toBeInTheDocument();
-  });
+    it('applies mocked bg color to the log type badge via style', () => {
+      render(<ExceptionsSection data={threeExceptions} />)
+      const apiBadge = screen.getByText('API')
+      expect(apiBadge).toHaveStyle({ backgroundColor: '#dbeafe' })
+    })
+  })
 
-  it('expands exception on click to show sample trace/line/queue/form/user', () => {
-    render(
-      <ExceptionsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    );
+  describe('stack trace expand/collapse', () => {
+    it('renders "Trace" button only for entries with a stack trace', () => {
+      render(<ExceptionsSection data={threeExceptions} />)
+      // entries with stack_trace: trace-1 and trace-3 — 2 buttons
+      const traceButtons = screen.getAllByRole('button', { name: /expand stack trace/i })
+      expect(traceButtons).toHaveLength(2)
+    })
 
-    // Exception should be collapsed initially
-    expect(screen.queryByText('Sample Trace')).not.toBeInTheDocument();
+    it('does not render a stack trace button when stack_trace is null', () => {
+      render(
+        <ExceptionsSection
+          data={makeData({ total: 1, exceptions: [makeEntry({ trace_id: 'trace-y', stack_trace: null })] })}
+        />
+      )
+      expect(screen.queryByRole('button')).toBeNull()
+    })
 
-    // Click to expand
-    const firstException = screen.getByText('Entry not found');
-    fireEvent.click(firstException);
+    it('stack trace is not visible before expand', () => {
+      render(<ExceptionsSection data={threeExceptions} />)
+      expect(
+        screen.queryByText('java.lang.NullPointerException')
+      ).toBeNull()
+    })
 
-    // Now expanded details should be visible
-    expect(screen.getByText('Sample Line #100')).toBeInTheDocument();
-    expect(screen.getByText('Sample Trace')).toBeInTheDocument();
-    expect(screen.getByText('stack trace here')).toBeInTheDocument();
-    expect(screen.getByText(/Queue:/)).toBeInTheDocument();
-    expect(screen.getByText('Default')).toBeInTheDocument();
-    expect(screen.getByText(/Form:/)).toBeInTheDocument();
-    expect(screen.getByText('HPD:Help Desk')).toBeInTheDocument();
-    expect(screen.getByText(/User:/)).toBeInTheDocument();
-    expect(screen.getByText('Demo')).toBeInTheDocument();
-  });
+    it('shows stack trace in a pre block after clicking "Trace" button', async () => {
+      const user = userEvent.setup()
+      render(<ExceptionsSection data={threeExceptions} />)
 
-  it('collapses on second click', () => {
-    render(
-      <ExceptionsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    );
+      const [expandBtn] = screen.getAllByRole('button', { name: /expand stack trace/i })
+      await user.click(expandBtn)
 
-    const firstException = screen.getByText('Entry not found');
+      expect(screen.getByText(/java\.lang\.NullPointerException/)).toBeInTheDocument()
+    })
 
-    // Expand
-    fireEvent.click(firstException);
-    expect(screen.getByText('Sample Trace')).toBeInTheDocument();
+    it('button text changes to "Hide" after expanding', async () => {
+      const user = userEvent.setup()
+      render(<ExceptionsSection data={threeExceptions} />)
 
-    // Collapse
-    fireEvent.click(firstException);
-    expect(screen.queryByText('Sample Trace')).not.toBeInTheDocument();
-  });
+      const [expandBtn] = screen.getAllByRole('button', { name: /expand stack trace/i })
+      await user.click(expandBtn)
 
-  it('renders first seen and last seen timestamps', () => {
-    render(
-      <ExceptionsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    );
-    // Multiple exceptions show First:/Last: timestamps
-    expect(screen.getAllByText(/First:/).length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText(/Last:/).length).toBeGreaterThanOrEqual(2);
-  });
+      expect(screen.getByRole('button', { name: /collapse stack trace/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /collapse stack trace/i })).toHaveTextContent('Hide')
+    })
 
-  it('renders exception without optional fields', () => {
-    render(
-      <ExceptionsSection data={mockData} loading={false} error={null} refetch={vi.fn()} />
-    );
+    it('hides stack trace again after clicking "Hide"', async () => {
+      const user = userEvent.setup()
+      render(<ExceptionsSection data={threeExceptions} />)
 
-    // Click second exception which has no queue/form/user
-    const secondException = screen.getByText('SQL timeout');
-    fireEvent.click(secondException);
+      const [expandBtn] = screen.getAllByRole('button', { name: /expand stack trace/i })
+      await user.click(expandBtn)
+      expect(screen.getByText(/java\.lang\.NullPointerException/)).toBeInTheDocument()
 
-    // Should show sample line
-    expect(screen.getByText('Sample Line #200')).toBeInTheDocument();
+      const hideBtn = screen.getByRole('button', { name: /collapse stack trace/i })
+      await user.click(hideBtn)
+      expect(screen.queryByText(/java\.lang\.NullPointerException/)).toBeNull()
+    })
 
-    // Should not show queue/form/user since they're undefined
-    const expandedSection = screen.getByText('Sample Line #200').closest('div');
-    expect(expandedSection).not.toHaveTextContent('Queue:');
-    expect(expandedSection).not.toHaveTextContent('Form:');
-    expect(expandedSection).not.toHaveTextContent('User:');
-  });
-});
+    it('expanding one row does not expand other rows', async () => {
+      const user = userEvent.setup()
+      render(<ExceptionsSection data={threeExceptions} />)
+
+      const expandBtns = screen.getAllByRole('button', { name: /expand stack trace/i })
+      // Click first button (trace-1)
+      await user.click(expandBtns[0])
+
+      // trace-1 stack is visible
+      expect(screen.getByText(/java\.lang\.NullPointerException/)).toBeInTheDocument()
+      // trace-3 stack is NOT visible
+      expect(screen.queryByText(/com\.remedy\.FilterException/)).toBeNull()
+    })
+
+    it('aria-expanded attribute reflects expanded state', async () => {
+      const user = userEvent.setup()
+      render(<ExceptionsSection data={threeExceptions} />)
+
+      const [expandBtn] = screen.getAllByRole('button', { name: /expand stack trace/i })
+      expect(expandBtn).toHaveAttribute('aria-expanded', 'false')
+
+      await user.click(expandBtn)
+      expect(
+        screen.getByRole('button', { name: /collapse stack trace/i })
+      ).toHaveAttribute('aria-expanded', 'true')
+    })
+  })
+
+  describe('className prop', () => {
+    it('passes className to wrapper when data is present', () => {
+      const { container } = render(
+        <ExceptionsSection data={threeExceptions} className="custom-cls" />
+      )
+      expect(container.firstChild).toHaveClass('custom-cls')
+    })
+  })
+})

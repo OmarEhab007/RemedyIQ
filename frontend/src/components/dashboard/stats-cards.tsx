@@ -1,50 +1,145 @@
-"use client";
+'use client'
 
-import type { GeneralStats } from "@/lib/api";
+/**
+ * StatsCards — T053
+ *
+ * Row of stat cards: total entries, API/SQL/Filter/Esc counts, error rate.
+ * Each card is color-coded using LOG_TYPE_COLORS.
+ *
+ * Usage:
+ *   <StatsCards stats={dashboardData.general_stats} distribution={dashboardData.distribution} />
+ */
+
+import { cn } from '@/lib/utils'
+import { LOG_TYPE_COLORS } from '@/lib/constants'
+import type { GeneralStatistics, Distribution } from '@/lib/api-types'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface StatsCardsProps {
-  stats: GeneralStats;
+  stats: GeneralStatistics
+  distribution?: Distribution
+  className?: string
 }
 
-function formatNumber(n: number): string {
-  return n.toLocaleString();
+interface StatCardProps {
+  label: string
+  value: number | string
+  accentColor: string
+  textColor?: string
+  description?: string
+  className?: string
 }
 
-export function StatsCards({ stats }: StatsCardsProps) {
-  const cards = [
-    { label: "API Calls", value: stats.api_count, color: "text-blue-600" },
-    { label: "SQL Operations", value: stats.sql_count, color: "text-green-600" },
-    { label: "Filter Executions", value: stats.filter_count, color: "text-purple-600" },
-    { label: "Escalations", value: stats.esc_count, color: "text-orange-600" },
-  ];
+// ---------------------------------------------------------------------------
+// StatCard
+// ---------------------------------------------------------------------------
+
+function StatCard({
+  label,
+  value,
+  accentColor,
+  textColor,
+  description,
+  className,
+}: StatCardProps) {
+  return (
+    <div
+      className={cn(
+        'flex flex-col gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm',
+        className
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <div
+          className="h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: accentColor }}
+          aria-hidden="true"
+        />
+        <span className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider truncate">
+          {label}
+        </span>
+      </div>
+      <span
+        className="text-2xl font-bold tabular-nums text-[var(--color-text-primary)]"
+        style={textColor ? { color: textColor } : undefined}
+      >
+        {typeof value === 'number' ? value.toLocaleString() : value}
+      </span>
+      {description && (
+        <span className="text-[11px] text-[var(--color-text-tertiary)] leading-tight">
+          {description}
+        </span>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// StatsCards
+// ---------------------------------------------------------------------------
+
+export function StatsCards({ stats, distribution, className }: StatsCardsProps) {
+  const errorRate = distribution?.error_rate ?? 0
+  const errorRateDisplay = `${(errorRate * 100).toFixed(1)}%`
+
+  const totalEntries =
+    stats.api_count + stats.sql_count + stats.filter_count + stats.esc_count
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      {cards.map((card) => (
-        <div key={card.label} className="border rounded-lg p-4 bg-card">
-          <p className="text-sm text-muted-foreground">{card.label}</p>
-          <p className={`text-2xl font-bold mt-1 ${card.color}`}>
-            {formatNumber(card.value)}
-          </p>
-        </div>
-      ))}
+    <div
+      className={cn(
+        'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6',
+        className
+      )}
+      role="region"
+      aria-label="Summary statistics"
+    >
+      <StatCard
+        label="Total Entries"
+        value={totalEntries}
+        accentColor="var(--color-text-tertiary)"
+        description={stats.log_duration ?? undefined}
+        className="sm:col-span-1"
+      />
 
-      <div className="border rounded-lg p-4 bg-card">
-        <p className="text-sm text-muted-foreground">Total Lines</p>
-        <p className="text-2xl font-bold mt-1">{formatNumber(stats.total_lines)}</p>
-      </div>
-      <div className="border rounded-lg p-4 bg-card">
-        <p className="text-sm text-muted-foreground">Unique Users</p>
-        <p className="text-2xl font-bold mt-1">{stats.unique_users}</p>
-      </div>
-      <div className="border rounded-lg p-4 bg-card">
-        <p className="text-sm text-muted-foreground">Unique Forms</p>
-        <p className="text-2xl font-bold mt-1">{stats.unique_forms}</p>
-      </div>
-      <div className="border rounded-lg p-4 bg-card">
-        <p className="text-sm text-muted-foreground">Duration</p>
-        <p className="text-lg font-bold mt-1">{stats.log_duration}</p>
-      </div>
+      <StatCard
+        label="API"
+        value={stats.api_count}
+        accentColor={LOG_TYPE_COLORS.API.bg}
+        description="AR Server API calls"
+      />
+
+      <StatCard
+        label="SQL"
+        value={stats.sql_count}
+        accentColor={LOG_TYPE_COLORS.SQL.bg}
+        description="Database queries"
+      />
+
+      <StatCard
+        label="Filter"
+        value={stats.filter_count}
+        accentColor={LOG_TYPE_COLORS.FLTR.bg}
+        description="Filter executions"
+      />
+
+      <StatCard
+        label="Escalation"
+        value={stats.esc_count}
+        accentColor={LOG_TYPE_COLORS.ESCL.bg}
+        description="Escalation events"
+      />
+
+      <StatCard
+        label="Error Rate"
+        value={errorRateDisplay}
+        accentColor="var(--color-error)"
+        textColor={errorRate > 0.05 ? 'var(--color-error)' : undefined}
+        description={`${stats.unique_users} unique users`}
+      />
     </div>
-  );
+  )
 }

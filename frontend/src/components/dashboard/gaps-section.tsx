@@ -1,396 +1,211 @@
-"use client";
+'use client'
 
-import { useState } from "react";
-import type { GapsResponse, GapEntry, JARGapsResponse, JARGapEntry } from "@/lib/api";
+/**
+ * GapsSection — T060
+ *
+ * Renders GapsResponse: a gap list with duration, line numbers, and a
+ * queue health summary table.
+ *
+ * Usage:
+ *   <GapsSection data={gapsData} />
+ */
+
+import { cn } from '@/lib/utils'
+import type { GapsResponse, GapEntry, QueueHealthSummary } from '@/lib/api-types'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface GapsSectionProps {
-  data: GapsResponse | JARGapsResponse | null;
-  loading: boolean;
-  error: string | null;
-  refetch: () => void;
-  headless?: boolean;
+  data: GapsResponse
+  className?: string
 }
 
-// Type guard to detect JAR-parsed response
-function isJARGaps(data: any): data is JARGapsResponse {
-  return data && data.source === "jar_parsed";
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function formatDuration(ms: number): string {
+  if (ms >= 60_000) return `${(ms / 60_000).toFixed(1)}m`
+  if (ms >= 1000) return `${(ms / 1000).toFixed(2)}s`
+  return `${ms}ms`
 }
 
-export function GapsSection({ data, loading, error, refetch, headless }: GapsSectionProps) {
-  const [activeTab, setActiveTab] = useState<"line" | "thread">("line");
-  const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set());
+// ---------------------------------------------------------------------------
+// GapRow
+// ---------------------------------------------------------------------------
 
-  const formatDuration = (ms: number): string => {
-    if (ms < 1000) return `${ms.toFixed(0)}ms`;
-    if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`;
-    return `${(ms / 60000).toFixed(2)}min`;
-  };
-
-  const formatJARDuration = (seconds: number): string => {
-    if (seconds < 1) return `${(seconds * 1000).toFixed(0)}ms`;
-    if (seconds < 60) return `${seconds.toFixed(2)}s`;
-    return `${(seconds / 60).toFixed(2)}min`;
-  };
-
-  const isCritical = (ms: number): boolean => ms > 60000;
-  const isJARCritical = (seconds: number): boolean => seconds > 1;
-
-  const [activeGapTab, setActiveGapTab] = useState("line_gaps");
-
-  const toggleDetails = (index: number) => {
-    const key = `${activeGapTab}:${index}`;
-    const newExpanded = new Set(expandedDetails);
-    if (newExpanded.has(key)) {
-      newExpanded.delete(key);
-    } else {
-      newExpanded.add(key);
-    }
-    setExpandedDetails(newExpanded);
-  };
-
-  const isDetailExpanded = (index: number): boolean => {
-    return expandedDetails.has(`${activeGapTab}:${index}`);
-  };
-
-  if (loading) {
-    return (
-      <div className={headless ? "" : "border rounded-lg p-6 bg-card"}>
-        {!headless && <h3 className="text-lg font-semibold mb-4">Gap Analysis</h3>}
-        <div className="animate-pulse space-y-4">
-          <div className="h-10 bg-gray-200 rounded"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className={headless ? "" : "border rounded-lg p-6 bg-card"}>
-        {!headless && <h3 className="text-lg font-semibold mb-4">Gap Analysis</h3>}
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800 mb-3">{error}</p>
-          <button
-            onClick={refetch}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Check if data exists and determine type
-  const isJAR = data && isJARGaps(data);
-
-  // Handle empty data
-  if (!data) {
-    return (
-      <div className={headless ? "" : "border rounded-lg p-6 bg-card"}>
-        {!headless && <h3 className="text-lg font-semibold mb-4">Gap Analysis</h3>}
-        <div className="flex items-center justify-center py-8 text-green-600">
-          <svg
-            className="w-12 h-12 mr-3"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <span className="text-lg font-medium">No significant gaps detected</span>
-        </div>
-      </div>
-    );
-  }
-
-  // Determine gaps arrays based on data type
-  let lineGaps: GapEntry[] | JARGapEntry[] = [];
-  let threadGaps: GapEntry[] | JARGapEntry[] = [];
-
-  if (isJAR) {
-    lineGaps = data.line_gaps;
-    threadGaps = data.thread_gaps;
-  } else {
-    const computedData = data as GapsResponse;
-    lineGaps = computedData.gaps.filter((gap) => !gap.thread_id);
-    threadGaps = computedData.gaps.filter((gap) => gap.thread_id);
-  }
-
-  // Check if all gaps are empty
-  if (lineGaps.length === 0 && threadGaps.length === 0) {
-    return (
-      <div className={headless ? "" : "border rounded-lg p-6 bg-card"}>
-        {!headless && <h3 className="text-lg font-semibold mb-4">Gap Analysis</h3>}
-        <div className="flex items-center justify-center py-8 text-green-600">
-          <svg
-            className="w-12 h-12 mr-3"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <span className="text-lg font-medium">No significant gaps detected</span>
-        </div>
-      </div>
-    );
-  }
-
-  const currentGaps = activeTab === "line" ? lineGaps : threadGaps;
+function GapRow({ gap, index }: { gap: GapEntry; index: number }) {
+  const severity = gap.duration_ms > 30_000 ? 'critical' : gap.duration_ms > 5_000 ? 'warning' : 'ok'
 
   return (
-    <div className={headless ? "" : "border rounded-lg p-6 bg-card"}>
-      {!headless && <h3 className="text-lg font-semibold mb-4">Gap Analysis</h3>}
-
-      {/* Re-analyze banner for computed data */}
-      {!isJAR && (
-        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-          <div className="flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>Computed data - Re-analyze for full JAR-parsed gap details</span>
-          </div>
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div className="flex gap-2 mb-4 border-b">
-        <button
-          onClick={() => setActiveTab("line")}
-          className={`px-4 py-2 font-medium text-sm transition-colors ${
-            activeTab === "line"
-              ? "border-b-2 border-blue-600 text-blue-600"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
+    <tr className={cn(
+      'border-b border-[var(--color-border-light)] hover:bg-[var(--color-bg-secondary)] transition-colors',
+      severity === 'critical' && 'bg-[var(--color-error-light)]/20',
+      severity === 'warning' && 'bg-[var(--color-warning-light)]/20',
+    )}>
+      <td className="px-4 py-2 font-mono text-[10px] text-[var(--color-text-tertiary)] whitespace-nowrap">
+        #{index + 1}
+      </td>
+      <td className="px-4 py-2 whitespace-nowrap">
+        <span
+          className={cn(
+            'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold',
+            severity === 'critical' && 'bg-[var(--color-error-light)] text-[var(--color-error)]',
+            severity === 'warning' && 'bg-[var(--color-warning-light)] text-[var(--color-warning)]',
+            severity === 'ok' && 'bg-[var(--color-success-light)] text-[var(--color-success)]',
+          )}
         >
-          Line Gaps ({lineGaps.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("thread")}
-          className={`px-4 py-2 font-medium text-sm transition-colors ${
-            activeTab === "thread"
-              ? "border-b-2 border-blue-600 text-blue-600"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
+          {formatDuration(gap.duration_ms)}
+        </span>
+      </td>
+      <td className="px-4 py-2 font-mono text-xs text-[var(--color-text-secondary)] whitespace-nowrap">
+        {new Date(gap.start_time).toLocaleTimeString()}
+      </td>
+      <td className="px-4 py-2 font-mono text-xs text-[var(--color-text-secondary)] whitespace-nowrap">
+        {new Date(gap.end_time).toLocaleTimeString()}
+      </td>
+      <td className="px-4 py-2 font-mono text-xs text-[var(--color-text-tertiary)] whitespace-nowrap">
+        L{gap.before_line} → L{gap.after_line}
+      </td>
+      <td className="max-w-0 px-4 py-2 text-xs text-[var(--color-text-secondary)]">
+        <span className="block truncate" title={gap.description}>
+          {gap.description || '—'}
+        </span>
+      </td>
+    </tr>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// QueueHealthTable
+// ---------------------------------------------------------------------------
+
+function QueueHealthTable({ health }: { health: QueueHealthSummary[] }) {
+  if (health.length === 0) return null
+
+  return (
+    <div className="border-t border-[var(--color-border)]">
+      <div className="px-5 py-3">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
+          Queue Health Summary
+        </h4>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs" aria-label="Queue health summary">
+          <thead>
+            <tr className="bg-[var(--color-bg-secondary)]">
+              {['Queue', 'Requests', 'Errors', 'Avg Duration', 'Max Duration', 'Gaps'].map((h) => (
+                <th
+                  key={h}
+                  scope="col"
+                  className="border-b border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap"
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {health.map((q) => (
+              <tr
+                key={q.queue}
+                className="border-b border-[var(--color-border-light)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+              >
+                <td className="px-4 py-2 font-mono font-medium text-[var(--color-text-primary)] whitespace-nowrap">
+                  {q.queue}
+                </td>
+                <td className="px-4 py-2 font-mono text-[var(--color-text-secondary)] whitespace-nowrap">
+                  {q.total_requests.toLocaleString()}
+                </td>
+                <td className="px-4 py-2 font-mono whitespace-nowrap">
+                  <span className={q.error_count > 0 ? 'text-[var(--color-error)] font-semibold' : 'text-[var(--color-text-secondary)]'}>
+                    {q.error_count.toLocaleString()}
+                  </span>
+                </td>
+                <td className="px-4 py-2 font-mono text-[var(--color-text-secondary)] whitespace-nowrap">
+                  {formatDuration(q.avg_duration_ms)}
+                </td>
+                <td className="px-4 py-2 font-mono text-[var(--color-text-secondary)] whitespace-nowrap">
+                  {formatDuration(q.max_duration_ms)}
+                </td>
+                <td className="px-4 py-2 font-mono whitespace-nowrap">
+                  <span className={q.gap_count > 0 ? 'text-[var(--color-warning)] font-semibold' : 'text-[var(--color-text-secondary)]'}>
+                    {q.gap_count}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// GapsSection
+// ---------------------------------------------------------------------------
+
+export function GapsSection({ data, className }: GapsSectionProps) {
+  if ((!data.gaps || data.gaps.length === 0) && (!data.queue_health || data.queue_health.length === 0)) {
+    return (
+      <div className="px-5 py-8 text-center text-sm text-[var(--color-success)]">
+        No timing gaps detected — log coverage is continuous.
+      </div>
+    )
+  }
+
+  return (
+    <div className={className}>
+      {/* Summary */}
+      <div className="flex items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-warning-light)]/40 px-5 py-3">
+        <svg
+          className="h-4 w-4 shrink-0 text-[var(--color-warning)]"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          aria-hidden="true"
         >
-          Thread Gaps ({threadGaps.length})
-        </button>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        <span className="text-xs font-semibold text-[var(--color-warning)]">
+          {data.total_gaps ?? data.gaps?.length ?? 0} timing gap{(data.total_gaps ?? data.gaps?.length ?? 0) !== 1 ? 's' : ''} detected
+        </span>
       </div>
 
-      {/* Table */}
-      {currentGaps.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">
-          No {activeTab} gaps detected
-        </div>
-      ) : isJAR ? (
-        // JAR-parsed data table
+      {/* Gap list */}
+      {data.gaps && data.gaps.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Rank
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Gap Duration
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Line #
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Trace ID
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Timestamp
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Details
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {(currentGaps as JARGapEntry[]).map((gap: JARGapEntry, idx: number) => {
-                const critical = isJARCritical(gap.gap_duration);
-                const isExpanded = isDetailExpanded(idx);
-                const shouldTruncate = gap.details.length > 100;
-                const displayDetails = isExpanded || !shouldTruncate
-                  ? gap.details
-                  : gap.details.substring(0, 100) + "...";
-
-                return (
-                  <tr
-                    key={idx}
-                    className={`hover:bg-gray-50 ${
-                      critical ? "border-l-4 border-l-red-500 bg-red-50" : ""
-                    }`}
+          <table className="w-full text-xs" aria-label="Timing gaps">
+            <thead>
+              <tr className="bg-[var(--color-bg-secondary)]">
+                {['#', 'Duration', 'Start', 'End', 'Lines', 'Description'].map((h) => (
+                  <th
+                    key={h}
+                    scope="col"
+                    className="border-b border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap"
                   >
-                    <td className="px-4 py-3 text-sm text-foreground">
-                      <div className="flex items-center gap-2">
-                        {critical && (
-                          <svg
-                            className="w-4 h-4 text-red-500"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                            />
-                          </svg>
-                        )}
-                        {idx + 1}
-                      </div>
-                    </td>
-                    <td
-                      className={`px-4 py-3 text-sm font-medium ${
-                        critical ? "text-red-600" : "text-foreground"
-                      }`}
-                    >
-                      {formatJARDuration(gap.gap_duration)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-foreground font-mono">
-                      {gap.line_number}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-foreground font-mono">
-                      {gap.trace_id}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-foreground">
-                      {gap.timestamp}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-foreground">
-                      <div className="max-w-md">
-                        <span className="break-words">{displayDetails}</span>
-                        {shouldTruncate && (
-                          <button
-                            onClick={() => toggleDetails(idx)}
-                            className="ml-2 text-blue-600 hover:text-blue-800 text-xs font-medium"
-                          >
-                            {isExpanded ? "Show less" : "Show more"}
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        // Computed data table (existing format)
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Rank
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Gap Duration
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Start Time
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  End Time
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Before Line
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  After Line
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Log Type
-                </th>
-                {activeTab === "thread" && (
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Thread ID
+                    {h}
                   </th>
-                )}
+                ))}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {(currentGaps as GapEntry[]).map((gap: GapEntry, idx: number) => {
-                const critical = isCritical(gap.duration_ms);
-                return (
-                  <tr
-                    key={idx}
-                    className={`hover:bg-gray-50 ${
-                      critical ? "border-l-4 border-l-red-500 bg-red-50" : ""
-                    }`}
-                  >
-                    <td className="px-4 py-3 text-sm text-foreground">
-                      <div className="flex items-center gap-2">
-                        {critical && (
-                          <svg
-                            className="w-4 h-4 text-red-500"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                            />
-                          </svg>
-                        )}
-                        {idx + 1}
-                      </div>
-                    </td>
-                    <td
-                      className={`px-4 py-3 text-sm font-medium ${
-                        critical ? "text-red-600" : "text-foreground"
-                      }`}
-                    >
-                      {formatDuration(gap.duration_ms)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-foreground">
-                      {new Date(gap.start_time).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-foreground">
-                      {new Date(gap.end_time).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-foreground">
-                      {gap.before_line}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-foreground">
-                      {gap.after_line}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-foreground">
-                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">
-                        {gap.log_type}
-                      </span>
-                    </td>
-                    {activeTab === "thread" && (
-                      <td className="px-4 py-3 text-sm font-mono text-foreground">
-                        {gap.thread_id}
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
+            <tbody>
+              {data.gaps.map((gap, idx) => (
+                <GapRow key={idx} gap={gap} index={idx} />
+              ))}
             </tbody>
           </table>
         </div>
       )}
+
+      {/* Queue health */}
+      <QueueHealthTable health={data.queue_health ?? []} />
     </div>
-  );
+  )
 }

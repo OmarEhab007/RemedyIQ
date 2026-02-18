@@ -1,148 +1,167 @@
-import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+/**
+ * Tests for SearchBar component.
+ *
+ * Covers: rendering, typing, autocomplete dropdown, keyboard navigation,
+ * submit on Enter, clear button.
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { SearchBar } from './search-bar'
 
+// ---------------------------------------------------------------------------
+// Mock useAutocomplete
+// ---------------------------------------------------------------------------
+
+vi.mock('@/hooks/use-api', () => ({
+  useAutocomplete: vi.fn(),
+}))
+
+import { useAutocomplete } from '@/hooks/use-api'
+
+const mockUseAutocomplete = useAutocomplete as ReturnType<typeof vi.fn>
+
+// ---------------------------------------------------------------------------
+// Default props
+// ---------------------------------------------------------------------------
+
+const defaultProps = {
+  value: '',
+  onChange: vi.fn(),
+  onSubmit: vi.fn(),
+  jobId: 'job-test-123',
+}
+
+function setup(props = defaultProps) {
+  const user = userEvent.setup()
+  const result = render(<SearchBar {...props} />)
+  return { user, ...result }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
 describe('SearchBar', () => {
-  it('renders search input with placeholder', () => {
-    render(<SearchBar value="" onChange={vi.fn()} />)
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockUseAutocomplete.mockReturnValue({ data: undefined })
+  })
 
-    const input = screen.getByPlaceholderText(/Search logs/)
+  it('renders the search input with placeholder', () => {
+    setup()
+    const input = screen.getByRole('combobox')
     expect(input).toBeInTheDocument()
+    expect(input).toHaveAttribute('placeholder', expect.stringContaining('Search logs'))
   })
 
-  it('displays current value in input', () => {
-    render(<SearchBar value="type:API" onChange={vi.fn()} />)
-
-    const input = screen.getByDisplayValue('type:API')
-    expect(input).toBeInTheDocument()
-  })
-
-  it('calls onChange when input value changes', () => {
+  it('calls onChange when typing', async () => {
     const onChange = vi.fn()
-    render(<SearchBar value="" onChange={onChange} />)
-
-    const input = screen.getByPlaceholderText(/Search logs/)
-    fireEvent.change(input, { target: { value: 'duration:>1000' } })
-
-    expect(onChange).toHaveBeenCalledWith('duration:>1000')
+    const { user } = setup({ ...defaultProps, onChange })
+    const input = screen.getByRole('combobox')
+    await user.type(input, 'error')
+    expect(onChange).toHaveBeenCalled()
   })
 
-  it('renders search icon', () => {
-    const { container } = render(<SearchBar value="" onChange={vi.fn()} />)
-
-    const searchIcon = container.querySelector('svg')
-    expect(searchIcon).toBeInTheDocument()
-  })
-
-  it('has correct aria-label for accessibility', () => {
-    render(<SearchBar value="" onChange={vi.fn()} />)
-
-    const input = screen.getByLabelText('Search logs')
-    expect(input).toBeInTheDocument()
-  })
-
-  it('renders all search hint buttons when empty', () => {
-    render(<SearchBar value="" onChange={vi.fn()} />)
-
-    expect(screen.getByText('type:API')).toBeInTheDocument()
-    expect(screen.getByText('type:SQL')).toBeInTheDocument()
-    expect(screen.getByText('duration:>1000')).toBeInTheDocument()
-    expect(screen.getByText('status:false')).toBeInTheDocument()
-  })
-
-  it('appends hint to empty search value with AND', () => {
-    const onChange = vi.fn()
-    render(<SearchBar value="" onChange={onChange} />)
-
-    const hintButton = screen.getByText('type:API')
-    fireEvent.click(hintButton)
-
-    expect(onChange).toHaveBeenCalledWith('type:API')
-  })
-
-  it('shows refine hints when value exists and appends on click', () => {
-    const onChange = vi.fn()
-    render(<SearchBar value="user:Admin" onChange={onChange} />)
-
-    const hintButton = screen.getByText('+ duration:>1000')
-    fireEvent.click(hintButton)
-
-    expect(onChange).toHaveBeenCalledWith('user:Admin AND duration:>1000')
-  })
-
-  it('focuses input after clicking hint button', () => {
-    render(<SearchBar value="" onChange={vi.fn()} />)
-
-    const input = screen.getByPlaceholderText(/Search logs/) as HTMLInputElement
-    const hintButton = screen.getByText('type:API')
-
-    // Blur input first
-    input.blur()
-    expect(document.activeElement).not.toBe(input)
-
-    // Click hint button
-    fireEvent.click(hintButton)
-
-    // Input should be focused (we verify the focus call happened)
-    // Note: jsdom doesn't fully simulate focus, so we just verify the component tries to focus
-  })
-
-  it('blurs input on Escape key', () => {
-    render(<SearchBar value="test" onChange={vi.fn()} />)
-
-    const input = screen.getByPlaceholderText(/Search logs/) as HTMLInputElement
+  it('calls onSubmit when Enter is pressed', async () => {
+    const onSubmit = vi.fn()
+    const { user } = setup({ ...defaultProps, value: 'user:john', onSubmit })
+    const input = screen.getByRole('combobox')
     input.focus()
-
-    fireEvent.keyDown(input, { key: 'Escape' })
-
-    // Verify blur was attempted (jsdom limitation - actual blur may not work)
-    expect(input).toBeInTheDocument()
+    await user.keyboard('{Enter}')
+    expect(onSubmit).toHaveBeenCalledWith('user:john')
   })
 
-  it('does not blur input on other keys', () => {
-    render(<SearchBar value="test" onChange={vi.fn()} />)
-
-    const input = screen.getByPlaceholderText(/Search logs/) as HTMLInputElement
-    input.focus()
-
-    fireEvent.keyDown(input, { key: 'Enter' })
-    fireEvent.keyDown(input, { key: 'a' })
-
-    expect(input).toBeInTheDocument()
+  it('calls onSubmit when Search button is clicked', async () => {
+    const onSubmit = vi.fn()
+    const { user } = setup({ ...defaultProps, value: 'form:HPD', onSubmit })
+    const button = screen.getByRole('button', { name: /submit search/i })
+    await user.click(button)
+    expect(onSubmit).toHaveBeenCalledWith('form:HPD')
   })
 
-  it('applies correct CSS classes to input', () => {
-    render(<SearchBar value="" onChange={vi.fn()} />)
-
-    const input = screen.getByPlaceholderText(/Search logs/)
-    expect(input).toHaveClass('w-full', 'pl-10', 'pr-4', 'py-2', 'border', 'rounded-md')
+  it('shows a clear button when value is non-empty', () => {
+    setup({ ...defaultProps, value: 'some query' })
+    expect(screen.getByRole('button', { name: /clear search/i })).toBeInTheDocument()
   })
 
-  it('applies correct CSS classes to hint buttons', () => {
-    render(<SearchBar value="" onChange={vi.fn()} />)
-
-    const hintButton = screen.getByText('type:API')
-    expect(hintButton).toHaveClass('font-mono', 'py-0.5')
+  it('does not show clear button when value is empty', () => {
+    setup({ ...defaultProps, value: '' })
+    expect(screen.queryByRole('button', { name: /clear search/i })).not.toBeInTheDocument()
   })
 
-  it('handles multiple rapid onChange calls', () => {
+  it('calls onChange and onSubmit with empty string when clear button clicked', async () => {
     const onChange = vi.fn()
-    render(<SearchBar value="" onChange={onChange} />)
-
-    const input = screen.getByPlaceholderText(/Search logs/)
-
-    fireEvent.change(input, { target: { value: 't' } })
-    fireEvent.change(input, { target: { value: 'ty' } })
-    fireEvent.change(input, { target: { value: 'typ' } })
-    fireEvent.change(input, { target: { value: 'type' } })
-
-    expect(onChange).toHaveBeenCalledTimes(4)
+    const onSubmit = vi.fn()
+    const { user } = setup({ ...defaultProps, value: 'query', onChange, onSubmit })
+    const clearBtn = screen.getByRole('button', { name: /clear search/i })
+    await user.click(clearBtn)
+    expect(onChange).toHaveBeenCalledWith('')
+    expect(onSubmit).toHaveBeenCalledWith('')
   })
 
-  it('preserves input ref functionality', () => {
-    render(<SearchBar value="" onChange={vi.fn()} />)
+  it('renders autocomplete dropdown when suggestions are available', async () => {
+    mockUseAutocomplete.mockReturnValue({
+      data: {
+        field: 'query',
+        suggestions: [
+          { value: 'user:john', count: 42 },
+          { value: 'user:jane', count: 17 },
+        ],
+      },
+    })
 
-    const input = screen.getByPlaceholderText(/Search logs/)
-    expect(input).toBeInstanceOf(HTMLInputElement)
+    setup({ ...defaultProps, value: 'user' })
+
+    await waitFor(() => {
+      expect(screen.getByRole('listbox')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('user:john')).toBeInTheDocument()
+    expect(screen.getByText('user:jane')).toBeInTheDocument()
+  })
+
+  it('navigates autocomplete with arrow keys', async () => {
+    mockUseAutocomplete.mockReturnValue({
+      data: {
+        field: 'query',
+        suggestions: [
+          { value: 'form:HPD', count: 10 },
+          { value: 'form:CHG', count: 5 },
+        ],
+      },
+    })
+
+    const { user } = setup({ ...defaultProps, value: 'form' })
+    const input = screen.getByRole('combobox')
+
+    await waitFor(() => screen.getByRole('listbox'))
+
+    await user.click(input)
+    await user.keyboard('{ArrowDown}')
+    const opts = screen.getAllByRole('option')
+    expect(opts[0]).toHaveAttribute('aria-selected', 'true')
+
+    await user.keyboard('{ArrowDown}')
+    expect(opts[1]).toHaveAttribute('aria-selected', 'true')
+
+    // Escape closes the list
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('has accessible combobox role', () => {
+    setup({ ...defaultProps })
+    expect(screen.getByRole('combobox')).toHaveAttribute('aria-label', 'Search logs')
+  })
+
+  it('passes jobId to useAutocomplete', () => {
+    setup({ ...defaultProps, value: 'test', jobId: 'job-abc' })
+    expect(mockUseAutocomplete).toHaveBeenCalledWith(
+      'query',
+      expect.any(String),
+      'job-abc',
+    )
   })
 })

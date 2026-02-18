@@ -1,132 +1,339 @@
-"use client";
+'use client'
 
-import { useState, useRef, useEffect } from "react";
-import { Streamdown } from "streamdown";
-import type { Message, StreamState } from "@/lib/ai-types";
-import { cn } from "@/lib/utils";
+/**
+ * chat-panel.tsx — Main AI chat area.
+ *
+ * - Message list (scrollable, auto-scroll to bottom)
+ * - SkillSelector above the input
+ * - ChatInput at the bottom
+ * - Streaming via streamAI() async generator from api.ts
+ * - Renders StreamingMessage for in-progress tokens
+ *
+ * Usage:
+ *   <ChatPanel jobId={jobId} conversationId={activeConversationId} />
+ */
+
+import { useRef, useEffect, useCallback, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '@clerk/nextjs'
+import { cn } from '@/lib/utils'
+
+const IS_DEV_MODE = process.env.NEXT_PUBLIC_DEV_MODE === 'true'
+
+function useGetToken() {
+  if (IS_DEV_MODE) {
+    return () => Promise.resolve(null as string | null)
+  }
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const { getToken } = useAuth()
+  return getToken
+}
+import { streamAI } from '@/lib/api'
+import { queryKeys } from '@/hooks/use-api'
+import { useConversation } from '@/hooks/use-api'
+import { useAIStore } from '@/stores/ai-store'
+import { MessageView, StreamingMessage } from './message-view'
+import { ChatInput } from './chat-input'
+import { SkillSelector } from './skill-selector'
+import { FollowUpSuggestions } from './follow-up-suggestions'
+import { PageState } from '@/components/ui/page-state'
+import type { Message } from '@/lib/api-types'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface ChatPanelProps {
-  messages: Message[];
-  streamState: StreamState;
-  onSend: (message: string) => void;
-  onStop: () => void;
+  jobId: string
+  conversationId: string | null
+  className?: string
 }
 
-const skillColors: Record<string, string> = {
-  performance: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  root_cause: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-  error_explainer: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-  anomaly_narrator: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-  summarizer: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  nl_query: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
-};
+// ---------------------------------------------------------------------------
+// Empty state
+// ---------------------------------------------------------------------------
 
-export function ChatPanel({ messages, streamState, onSend, onStop }: ChatPanelProps) {
-  const [input, setInput] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamState.content]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || streamState.isStreaming) return;
-    onSend(input.trim());
-    setInput("");
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape" && streamState.isStreaming) {
-      onStop();
-    }
-  };
+function EmptyChat({ onSuggest }: { onSuggest: (msg: string) => void }) {
+  const starters = [
+    'What are the slowest SQL queries?',
+    'Summarize the top errors in this log.',
+    'Are there any performance anomalies?',
+    'Which users had the most API calls?',
+  ]
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && !streamState.isStreaming && (
-          <div className="text-center text-muted-foreground text-sm py-12">
-            Ask a question about your log analysis
-          </div>
-        )}
-
-        {messages.map((msg) => (
-          <div key={msg.id} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
-            <div className={cn("max-w-[80%] rounded-lg px-4 py-2", msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted")}>
-              {msg.role !== "user" && msg.skill_name && (
-                <div className="mb-1">
-                  <span className={cn("inline-block px-2 py-0.5 text-xs font-medium rounded", skillColors[msg.skill_name] || skillColors.nl_query)}>
-                    {msg.skill_name.replace("_", " ")}
-                  </span>
-                </div>
-              )}
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                {msg.role === "user" ? (
-                  <p className="whitespace-pre-wrap m-0">{msg.content}</p>
-                ) : (
-                  <Streamdown>{msg.content}</Streamdown>
-                )}
-              </div>
-              {msg.follow_ups && msg.follow_ups.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {msg.follow_ups.map((q, i) => (
-                    <button key={i} className="text-xs px-2 py-1 bg-muted/50 hover:bg-muted rounded" onClick={() => onSend(q)} disabled={streamState.isStreaming}>
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {msg.role === "assistant" && msg.latency_ms != null && msg.tokens_used != null && (
-                <div className="mt-1 text-[10px] text-muted-foreground">{msg.latency_ms}ms | {msg.tokens_used} tokens</div>
-              )}
-            </div>
-          </div>
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--color-primary-light)] text-3xl" aria-hidden="true">
+        🤖
+      </div>
+      <div>
+        <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">RemedyIQ AI Assistant</h2>
+        <p className="mt-1 max-w-sm text-sm text-[var(--color-text-secondary)]">
+          Ask anything about your AR Server logs. I can analyze performance, errors, traces, and more.
+        </p>
+      </div>
+      <div className="flex flex-col gap-2 w-full max-w-sm">
+        {starters.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => onSuggest(s)}
+            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-2.5 text-left text-sm text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+          >
+            {s}
+          </button>
         ))}
+      </div>
+    </div>
+  )
+}
 
-        {streamState.isStreaming && (
-          <div className="flex justify-start">
-            <div className="max-w-[80%] rounded-lg px-4 py-2 bg-muted">
-              {streamState.skillName && (
-                <div className="mb-1">
-                  <span className={cn("inline-block px-2 py-0.5 text-xs font-medium rounded", skillColors[streamState.skillName] || skillColors.nl_query)}>
-                    {streamState.skillName.replace("_", " ")}
-                  </span>
-                </div>
-              )}
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <Streamdown>{streamState.content}</Streamdown>
-                <span className="animate-pulse">▊</span>
-              </div>
-            </div>
-          </div>
+// ---------------------------------------------------------------------------
+// ChatPanel
+// ---------------------------------------------------------------------------
+
+export function ChatPanel({ jobId, conversationId, className }: ChatPanelProps) {
+  const getToken = useGetToken()
+  const queryClient = useQueryClient()
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<(() => void) | null>(null)
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null)
+  const [streamError, setStreamError] = useState<string | null>(null)
+
+  const {
+    isStreaming,
+    streamContent,
+    selectedSkill,
+    startStreaming,
+    appendToken,
+    stopStreaming,
+    setSkill,
+  } = useAIStore()
+
+  const { data: conversation, isLoading, isError, refetch } = useConversation(conversationId)
+  const messages: Message[] = conversation?.messages ?? []
+
+  // Auto-scroll to bottom
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [])
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages.length, streamContent, scrollToBottom])
+
+  // Get last message's follow-ups
+  const lastAssistantMessage = [...messages].reverse().find((m) => m.role === 'assistant' && m.follow_ups?.length > 0)
+
+  const handleSend = useCallback(
+    async (text: string) => {
+      if (!conversationId || isStreaming) return
+
+      // Optimistically show user message
+      setPendingMessage(text)
+      setStreamError(null)
+      startStreaming()
+
+      try {
+        const token = await getToken()
+        const gen = streamAI(jobId, conversationId, text, selectedSkill ?? undefined, token ?? undefined)
+
+        // Set up abort capability
+        let aborted = false
+        abortRef.current = () => {
+          aborted = true
+        }
+
+        for await (const event of gen) {
+          if (aborted) break
+
+          if (event.type === 'token' && event.content) {
+            appendToken(event.content)
+          } else if (event.type === 'done') {
+            break
+          } else if (event.type === 'error') {
+            setStreamError(event.error ?? 'An error occurred while streaming.')
+            break
+          }
+          // start, skill, metadata events are informational — ignore
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to connect to AI service.'
+        setStreamError(message)
+      } finally {
+        stopStreaming()
+        abortRef.current = null
+        // Keep pendingMessage visible until server state is refreshed
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.conversation(conversationId ?? ''),
+        }).then(() => {
+          setPendingMessage(null)
+        })
+      }
+    },
+    [
+      conversationId,
+      isStreaming,
+      jobId,
+      selectedSkill,
+      getToken,
+      startStreaming,
+      appendToken,
+      stopStreaming,
+      queryClient,
+    ],
+  )
+
+  const handleStop = useCallback(() => {
+    abortRef.current?.()
+    stopStreaming()
+    setPendingMessage(null)
+  }, [stopStreaming])
+
+  // No conversation selected
+  if (!conversationId) {
+    return (
+      <div
+        className={cn(
+          'flex flex-1 flex-col items-center justify-center p-8 text-center text-sm text-[var(--color-text-secondary)]',
+          className,
         )}
+      >
+        <p>Select a conversation from the sidebar or create a new one to start chatting.</p>
+      </div>
+    )
+  }
 
-        <div ref={messagesEndRef} />
+  // Loading
+  if (isLoading) {
+    return <PageState variant="loading" rows={5} />
+  }
+
+  // Error
+  if (isError) {
+    return (
+      <PageState
+        variant="error"
+        message="Failed to load conversation."
+        onRetry={() => void refetch()}
+      />
+    )
+  }
+
+  return (
+    <div
+      className={cn('flex flex-col h-full overflow-hidden', className)}
+      aria-label="AI chat"
+      role="main"
+    >
+      {/* Skill selector */}
+      <div className="shrink-0 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-2">
+        <SkillSelector selectedSkill={selectedSkill} onSelectSkill={setSkill} />
       </div>
 
-      <form onSubmit={handleSubmit} className="border-t p-4">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask about your logs..."
-            className="flex-1 px-3 py-2 border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-            disabled={streamState.isStreaming}
+      {/* Messages area */}
+      <div
+        className="flex-1 overflow-y-auto"
+        role="log"
+        aria-label="Chat messages"
+        aria-live="polite"
+        aria-relevant="additions"
+      >
+        {/* Empty state with starters */}
+        {messages.length === 0 && !isStreaming && !pendingMessage && (
+          <EmptyChat onSuggest={(s) => void handleSend(s)} />
+        )}
+
+        {/* Message list */}
+        {messages.map((msg) => (
+          <MessageView key={msg.id} message={msg} />
+        ))}
+
+        {/* Optimistic user message */}
+        {pendingMessage && (
+          <MessageView
+            message={{
+              id: '__pending_user__',
+              conversation_id: conversationId,
+              role: 'user',
+              content: pendingMessage,
+              skill_name: null,
+              follow_ups: [],
+              tokens_used: null,
+              latency_ms: null,
+              status: 'pending',
+              error_message: null,
+              created_at: new Date().toISOString(),
+            }}
           />
-          {streamState.isStreaming ? (
-            <button type="button" onClick={onStop} className="px-4 py-2 bg-destructive text-destructive-foreground rounded-md text-sm font-medium hover:bg-destructive/90">
-              Stop
-            </button>
-          ) : (
-            <button type="submit" disabled={!input.trim()} className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
-              Send
-            </button>
-          )}
-        </div>
-      </form>
+        )}
+
+        {/* Streaming response */}
+        {isStreaming && streamContent && (
+          <StreamingMessage content={streamContent} skillName={selectedSkill} />
+        )}
+
+        {/* Streaming indicator (no content yet) */}
+        {isStreaming && !streamContent && (
+          <div className="flex gap-3 px-4 py-3" aria-label="AI is thinking" aria-live="polite">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-bg-tertiary)] text-xs font-bold text-[var(--color-text-secondary)]" aria-hidden="true">
+              AI
+            </div>
+            <div className="flex items-center gap-1 rounded-2xl rounded-bl-sm border border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-4 py-3">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="inline-block h-2 w-2 animate-bounce rounded-full bg-[var(--color-text-tertiary)]"
+                  style={{ animationDelay: `${i * 150}ms` }}
+                  aria-hidden="true"
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Stream error */}
+        {streamError && !isStreaming && (
+          <div className="flex gap-3 px-4 py-3" role="alert">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-error-light)] text-xs font-bold text-[var(--color-error)]" aria-hidden="true">
+              !
+            </div>
+            <div className="flex flex-col gap-1.5 rounded-2xl rounded-bl-sm border border-[var(--color-error-light)] bg-[var(--color-error-light)] px-4 py-3">
+              <p className="text-sm font-medium text-[var(--color-error)]">Failed to get AI response</p>
+              <p className="text-xs text-[var(--color-error)]">{streamError}</p>
+              <button
+                type="button"
+                onClick={() => setStreamError(null)}
+                className="self-start rounded px-2 py-1 text-xs font-medium text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-white transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Follow-up suggestions */}
+        {lastAssistantMessage && !isStreaming && (
+          <FollowUpSuggestions
+            suggestions={lastAssistantMessage.follow_ups}
+            onSelect={(s) => void handleSend(s)}
+            disabled={isStreaming}
+          />
+        )}
+
+        {/* Scroll anchor */}
+        <div ref={messagesEndRef} aria-hidden="true" />
+      </div>
+
+      {/* Input */}
+      <div className="shrink-0 border-t border-[var(--color-border)] p-3">
+        <ChatInput
+          onSubmit={(text) => void handleSend(text)}
+          onStop={handleStop}
+          isStreaming={isStreaming}
+          disabled={!conversationId}
+        />
+      </div>
     </div>
-  );
+  )
 }

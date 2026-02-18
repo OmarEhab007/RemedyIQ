@@ -1,173 +1,410 @@
-"use client";
+'use client'
 
-import { useState, useEffect } from "react";
-import { getApiHeaders } from "@/lib/api";
+/**
+ * SavedSearches — dropdown with saved search management.
+ *
+ * Features:
+ *   - Lists saved searches, pinned first
+ *   - Load a saved search → restores query + filters in the explorer store
+ *   - "Save Current Search" dialog with a name input
+ *   - Delete a saved search with confirmation
+ *
+ * Usage:
+ *   <SavedSearches
+ *     currentQuery={query}
+ *     currentFilters={filters}
+ *     onLoad={(query, filters) => { setQuery(query); replaceFilters(filters) }}
+ *   />
+ */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
+import { useRef, useState, useCallback } from 'react'
+import { useSavedSearches, useDeleteSavedSearch, useSaveSearch } from '@/hooks/use-api'
+import type { ExplorerFilter } from '@/stores/explorer-store'
+import type { SavedSearch } from '@/lib/api-types'
+import { cn } from '@/lib/utils'
 
-interface SavedSearch {
-  id: string;
-  name: string;
-  kql_query: string;
-  created_at: string;
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface SavedSearchesProps {
+  currentQuery: string
+  currentFilters: ExplorerFilter[]
+  onLoad: (query: string, filters: ExplorerFilter[]) => void
+  className?: string
 }
 
-interface SavedSearchesProps {
-  jobId?: string;
-  onLoadSearch: (query: string) => void;
+// ---------------------------------------------------------------------------
+// Helper: convert SavedSearch.filters Record<string,string> → ExplorerFilter[]
+// ---------------------------------------------------------------------------
+
+function recordToFilters(record: Record<string, string>): ExplorerFilter[] {
+  return Object.entries(record).map(([field, value]) => ({
+    field,
+    value,
+    operator: 'eq',
+  }))
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function SavedSearches({ jobId: _jobId, onLoadSearch }: SavedSearchesProps) {
-  const [searches, setSearches] = useState<SavedSearch[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [showSaveForm, setShowSaveForm] = useState(false);
-  const [currentQuery, setCurrentQuery] = useState("");
-  const [saveName, setSaveName] = useState("");
-  const [saving, setSaving] = useState(false);
+// ---------------------------------------------------------------------------
+// Helper: convert ExplorerFilter[] → Record<string,string>
+// ---------------------------------------------------------------------------
 
-  useEffect(() => {
-    fetchSearches();
-  }, []);
+function filtersToRecord(filters: ExplorerFilter[]): Record<string, string> {
+  return Object.fromEntries(filters.map((f) => [f.field, f.value]))
+}
 
-  const fetchSearches = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/search/saved`, {
-        headers: getApiHeaders(),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setSearches(Array.isArray(data) ? data : []);
-      }
-    } catch (err) {
-      console.error("Failed to fetch saved searches:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+// ---------------------------------------------------------------------------
+// SaveCurrentDialog — small modal to name a new saved search
+// ---------------------------------------------------------------------------
 
-  const handleSave = async () => {
-    if (!saveName.trim() || !currentQuery.trim()) return;
+interface SaveCurrentDialogProps {
+  isOpen: boolean
+  onClose: () => void
+  onSave: (name: string) => void
+  isSaving: boolean
+}
 
-    setSaving(true);
-    try {
-      const res = await fetch(`${API_BASE}/search/saved`, {
-        method: "POST",
-        headers: {
-          ...getApiHeaders(),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: saveName.trim(),
-          kql_query: currentQuery.trim(),
-        }),
-      });
+function SaveCurrentDialog({ isOpen, onClose, onSave, isSaving }: SaveCurrentDialogProps) {
+  const [name, setName] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
 
-      if (res.ok) {
-        setSaveName("");
-        setCurrentQuery("");
-        setShowSaveForm(false);
-        fetchSearches();
-      }
-    } catch (err) {
-      console.error("Failed to save search:", err);
-    } finally {
-      setSaving(false);
-    }
-  };
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault()
+      const trimmed = name.trim()
+      if (!trimmed) return
+      onSave(trimmed)
+      setName('')
+    },
+    [name, onSave],
+  )
 
-  const handleDelete = async (id: string) => {
-    try {
-      const res = await fetch(`${API_BASE}/search/saved/${id}`, {
-        method: "DELETE",
-        headers: getApiHeaders(),
-      });
-      if (res.ok) {
-        setSearches(searches.filter((s) => s.id !== id));
-      }
-    } catch (err) {
-      console.error("Failed to delete search:", err);
-    }
-  };
+  if (!isOpen) return null
 
   return (
-    <div className="p-2 border rounded-lg bg-card">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide">Saved Searches</h3>
-        <button
-          onClick={() => setShowSaveForm(!showSaveForm)}
-          className="text-xs text-primary hover:text-primary/80"
-        >
-          + Save Current
-        </button>
-      </div>
-
-      {showSaveForm && (
-        <div className="mb-3 p-2 border rounded bg-muted/50">
-          <input
-            type="text"
-            placeholder="Query to save"
-            value={currentQuery}
-            onChange={(e) => setCurrentQuery(e.target.value)}
-            className="w-full text-xs px-2 py-1 border rounded mb-2"
-          />
-          <input
-            type="text"
-            placeholder="Search name"
-            value={saveName}
-            onChange={(e) => setSaveName(e.target.value)}
-            className="w-full text-xs px-2 py-1 border rounded mb-2"
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={handleSave}
-              disabled={saving || !saveName.trim() || !currentQuery.trim()}
-              className="text-xs px-2 py-1 bg-primary text-primary-foreground rounded disabled:opacity-50"
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Save search"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="w-full max-w-sm rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-primary)] p-5 shadow-xl">
+        <h2 className="mb-3 text-sm font-semibold text-[var(--color-text-primary)]">
+          Save current search
+        </h2>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <div>
+            <label
+              htmlFor="saved-search-name"
+              className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]"
             >
-              {saving ? "Saving..." : "Save"}
-            </button>
+              Name
+            </label>
+            <input
+              ref={inputRef}
+              id="saved-search-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Slow API calls"
+              autoFocus
+              required
+              className={cn(
+                'h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-primary)] px-3 text-sm text-[var(--color-text-primary)]',
+                'focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20',
+              )}
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2">
             <button
-              onClick={() => setShowSaveForm(false)}
-              className="text-xs px-2 py-1 border rounded"
+              type="button"
+              onClick={onClose}
+              className="rounded-md px-3 py-1.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] transition-colors"
             >
               Cancel
             </button>
-          </div>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="text-xs text-muted-foreground">Loading...</div>
-      ) : searches.length === 0 ? (
-        <div className="text-xs text-muted-foreground">No saved searches</div>
-      ) : (
-        <ul className="space-y-1">
-          {searches.map((search) => (
-            <li
-              key={search.id}
-              className="flex items-center justify-between text-xs group"
+            <button
+              type="submit"
+              disabled={isSaving || !name.trim()}
+              className="rounded-md bg-[var(--color-primary)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-primary-dark)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-50 transition-colors"
             >
-              <button
-                onClick={() => onLoadSearch(search.kql_query)}
-                className="flex-1 text-left hover:text-primary truncate mr-2"
-                title={search.kql_query}
-              >
-                {search.name}
-              </button>
-              <button
-                onClick={() => handleDelete(search.id)}
-                className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Delete"
-              >
-                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+              {isSaving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
-  );
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SavedSearchItem
+// ---------------------------------------------------------------------------
+
+interface SavedSearchItemProps {
+  search: SavedSearch
+  onLoad: () => void
+  onDelete: () => void
+  isDeleting: boolean
+}
+
+function SavedSearchItem({ search, onLoad, onDelete, isDeleting }: SavedSearchItemProps) {
+  return (
+    <li className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-[var(--color-bg-tertiary)] transition-colors">
+      <button
+        type="button"
+        onClick={onLoad}
+        className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-primary)] rounded"
+      >
+        {search.is_pinned && (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="11"
+            height="11"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            stroke="currentColor"
+            strokeWidth="1"
+            className="shrink-0 text-[var(--color-warning)]"
+            aria-label="Pinned"
+          >
+            <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+          </svg>
+        )}
+        <span className="min-w-0 truncate text-sm text-[var(--color-text-primary)]">
+          {search.name}
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={isDeleting}
+        aria-label={`Delete saved search: ${search.name}`}
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--color-text-tertiary)] hover:bg-[var(--color-error-light)] hover:text-[var(--color-error)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-error)] disabled:opacity-40 transition-colors"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+        </svg>
+      </button>
+    </li>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SavedSearches component
+// ---------------------------------------------------------------------------
+
+export function SavedSearches({
+  currentQuery,
+  currentFilters,
+  onLoad,
+  className,
+}: SavedSearchesProps) {
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  const { data: savedData, isLoading } = useSavedSearches()
+  const deleteMutation = useDeleteSavedSearch()
+  const saveMutation = useSaveSearch()
+
+  const savedSearches = savedData?.saved_searches ?? []
+  // Sort: pinned first, then by created_at descending
+  const sorted = [...savedSearches].sort((a, b) => {
+    if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  })
+
+  const handleLoad = useCallback(
+    (search: SavedSearch) => {
+      const filters = recordToFilters(search.filters ?? {})
+      onLoad(search.kql_query, filters)
+      setDropdownOpen(false)
+    },
+    [onLoad],
+  )
+
+  const handleDelete = useCallback(
+    async (search: SavedSearch) => {
+      setDeletingId(search.id)
+      try {
+        await deleteMutation.mutateAsync(search.id)
+      } finally {
+        setDeletingId(null)
+      }
+    },
+    [deleteMutation],
+  )
+
+  const handleSave = useCallback(
+    async (name: string) => {
+      const filters = filtersToRecord(currentFilters)
+      await saveMutation.mutateAsync({
+        name,
+        query: currentQuery,
+        filters,
+      })
+      setDialogOpen(false)
+    },
+    [currentQuery, currentFilters, saveMutation],
+  )
+
+  return (
+    <>
+      <div className={cn('relative', className)}>
+        {/* Trigger button */}
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={() => setDropdownOpen((prev) => !prev)}
+          aria-label="Saved searches"
+          aria-haspopup="true"
+          aria-expanded={dropdownOpen}
+          className={cn(
+            'flex h-9 items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-primary)] px-3 text-sm text-[var(--color-text-secondary)]',
+            'hover:bg-[var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] transition-colors',
+            dropdownOpen && 'bg-[var(--color-bg-secondary)]',
+          )}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+          </svg>
+          <span>Saved</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={cn('transition-transform', dropdownOpen && 'rotate-180')}
+            aria-hidden="true"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+
+        {/* Dropdown */}
+        {dropdownOpen && (
+          <div
+            className={cn(
+              'absolute left-0 top-full z-40 mt-1 w-72',
+              'rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] shadow-lg',
+            )}
+            role="menu"
+          >
+            {/* Save current search action */}
+            <div className="border-b border-[var(--color-border)] p-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDropdownOpen(false)
+                  setDialogOpen(true)
+                }}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-primary)]',
+                  'hover:bg-[var(--color-primary-light)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-primary)] transition-colors',
+                )}
+                role="menuitem"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17 21 17 13 7 13 7 21" />
+                  <polyline points="7 3 7 8 15 8" />
+                </svg>
+                Save current search
+              </button>
+            </div>
+
+            {/* Saved searches list */}
+            <div className="max-h-64 overflow-y-auto p-2">
+              {isLoading && (
+                <p className="py-4 text-center text-xs text-[var(--color-text-tertiary)]">
+                  Loading…
+                </p>
+              )}
+              {!isLoading && sorted.length === 0 && (
+                <p className="py-4 text-center text-xs text-[var(--color-text-tertiary)]">
+                  No saved searches yet.
+                </p>
+              )}
+              {!isLoading && sorted.length > 0 && (
+                <ul
+                  role="list"
+                  aria-label="Saved searches list"
+                  className="space-y-0.5"
+                >
+                  {sorted.map((search) => (
+                    <SavedSearchItem
+                      key={search.id}
+                      search={search}
+                      onLoad={() => handleLoad(search)}
+                      onDelete={() => void handleDelete(search)}
+                      isDeleting={deletingId === search.id}
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Backdrop to close dropdown */}
+        {dropdownOpen && (
+          <div
+            className="fixed inset-0 z-30"
+            onClick={() => setDropdownOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+      </div>
+
+      {/* Save dialog */}
+      <SaveCurrentDialog
+        isOpen={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onSave={(name) => void handleSave(name)}
+        isSaving={saveMutation.isPending}
+      />
+    </>
+  )
 }
