@@ -218,6 +218,41 @@ func (p *Pipeline) ProcessJob(ctx context.Context, job domain.AnalysisJob) error
 				logger.Warn("redis cache set failed", "section", "filters", "error", err)
 			}
 		}
+
+		// Queued API calls: supplementary data from JAR output.
+		if len(parseResult.QueuedAPICalls) > 0 {
+			resp := domain.QueuedCallsResponse{
+				JobID:          jobID,
+				QueuedAPICalls: parseResult.QueuedAPICalls,
+				Total:          len(parseResult.QueuedAPICalls),
+			}
+			if err := p.redis.Set(ctx, cachePrefix+":queued", resp, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "queued", "error", err)
+			}
+		}
+
+		// Logging activities: parsed from JAR output.
+		if len(parseResult.LoggingActivities) > 0 {
+			resp := domain.LoggingActivityResponse{
+				JobID:      jobID,
+				Activities: parseResult.LoggingActivities,
+			}
+			if err := p.redis.Set(ctx, cachePrefix+":logging-activity", resp, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "logging-activity", "error", err)
+			}
+		}
+
+		// File metadata: parsed from JAR output.
+		if len(parseResult.FileMetadataList) > 0 {
+			resp := domain.FileMetadataResponse{
+				JobID: jobID,
+				Files: parseResult.FileMetadataList,
+				Total: len(parseResult.FileMetadataList),
+			}
+			if err := p.redis.Set(ctx, cachePrefix+":file-metadata", resp, sectionTTL); err != nil {
+				logger.Warn("redis cache set failed", "section", "file-metadata", "error", err)
+			}
+		}
 	}
 
 	// 6. Update status to storing.

@@ -25,7 +25,7 @@ interface ThreadsSectionProps {
 
 type SortKey = keyof Pick<
   ThreadStatsEntry,
-  'thread_id' | 'total_requests' | 'error_count' | 'avg_duration_ms' | 'max_duration_ms'
+  'thread_id' | 'total_requests' | 'error_count' | 'avg_duration_ms' | 'max_duration_ms' | 'busy_pct'
 >
 type SortDir = 'asc' | 'desc'
 
@@ -60,6 +60,8 @@ export function ThreadsSection({ data, className }: ThreadsSectionProps) {
       let cmp = 0
       if (sortKey === 'thread_id') {
         cmp = a.thread_id.localeCompare(b.thread_id)
+      } else if (sortKey === 'busy_pct') {
+        cmp = (a.busy_pct ?? -1) - (b.busy_pct ?? -1)
       } else {
         cmp = (a[sortKey] as number) - (b[sortKey] as number)
       }
@@ -75,12 +77,16 @@ export function ThreadsSection({ data, className }: ThreadsSectionProps) {
     )
   }
 
+  // Check if any thread has busy_pct data
+  const hasBusyPct = (data.thread_stats ?? []).some((t) => t.busy_pct != null)
+
   const columns: Array<{ key: SortKey; label: string; align?: 'left' | 'right' }> = [
     { key: 'thread_id', label: 'Thread ID', align: 'left' },
     { key: 'total_requests', label: 'Requests', align: 'right' },
     { key: 'error_count', label: 'Errors', align: 'right' },
     { key: 'avg_duration_ms', label: 'Avg Duration', align: 'right' },
     { key: 'max_duration_ms', label: 'Max Duration', align: 'right' },
+    ...(hasBusyPct ? [{ key: 'busy_pct' as SortKey, label: 'Busy %', align: 'right' as const }] : []),
   ]
 
   return (
@@ -183,6 +189,42 @@ export function ThreadsSection({ data, className }: ThreadsSectionProps) {
                     {formatDuration(thread.max_duration_ms)}
                   </span>
                 </td>
+                {hasBusyPct && (
+                  <td className="px-4 py-2 text-right whitespace-nowrap">
+                    {thread.busy_pct != null ? (
+                      <div className="flex items-center justify-end gap-2" aria-label={`Busy: ${thread.busy_pct.toFixed(1)}%`}>
+                        <div className="w-16 h-2 rounded-full bg-[var(--color-bg-tertiary)] overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${Math.min(thread.busy_pct, 100)}%`,
+                              backgroundColor:
+                                thread.busy_pct > 80
+                                  ? 'var(--color-error)'
+                                  : thread.busy_pct >= 50
+                                    ? 'var(--color-warning)'
+                                    : 'var(--color-success)',
+                            }}
+                          />
+                        </div>
+                        <span
+                          className={cn(
+                            'font-mono text-[11px] tabular-nums w-10 text-right',
+                            thread.busy_pct > 80
+                              ? 'text-[var(--color-error)] font-semibold'
+                              : thread.busy_pct >= 50
+                                ? 'text-[var(--color-warning)]'
+                                : 'text-[var(--color-text-secondary)]'
+                          )}
+                        >
+                          {thread.busy_pct.toFixed(1)}%
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-[var(--color-text-tertiary)]">—</span>
+                    )}
+                  </td>
+                )}
                 <td className="px-4 py-2 text-right font-mono text-[var(--color-text-tertiary)] whitespace-nowrap">
                   {thread.queue || '—'}
                 </td>

@@ -20,6 +20,7 @@ import { useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { LOG_TYPE_COLORS } from '@/lib/constants'
 import type { SpanNode } from '@/lib/api-types'
+import { ApiCodeBadge } from '@/components/shared/api-code-badge'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -96,9 +97,16 @@ export function WaterfallRowStandalone({
         >
           {config.label}
         </span>
-        <span className="truncate text-xs text-[var(--color-text-primary)]" title={span.operation}>
-          {span.operation || span.id.slice(0, 8)}
-        </span>
+        {span.log_type === 'API' && span.operation ? (
+          <ApiCodeBadge
+            code={span.operation}
+            className="truncate text-xs text-[var(--color-text-primary)]"
+          />
+        ) : (
+          <span className="truncate text-xs text-[var(--color-text-primary)]" title={span.operation}>
+            {span.operation || span.id.slice(0, 8)}
+          </span>
+        )}
       </div>
 
       {/* Bar */}

@@ -183,6 +183,59 @@ func getOrComputeFilters(ctx context.Context, redis storage.RedisCache, tenantID
 	return result.Filters, nil
 }
 
+func getOrComputeQueuedCalls(ctx context.Context, redis storage.RedisCache, tenantID, jobID string) (*domain.QueuedCallsResponse, error) {
+	cacheKey := redis.TenantKey(tenantID, "dashboard", jobID) + ":queued"
+	cached, err := redis.Get(ctx, cacheKey)
+	if err == nil && cached != "" {
+		var data domain.QueuedCallsResponse
+		if err := json.Unmarshal([]byte(cached), &data); err == nil {
+			return &data, nil
+		}
+	}
+
+	// No computed fallback — queued calls data only comes from JAR output.
+	return &domain.QueuedCallsResponse{
+		JobID:          jobID,
+		QueuedAPICalls: []domain.TopNEntry{},
+		Total:          0,
+	}, nil
+}
+
+func getOrComputeLoggingActivity(ctx context.Context, redis storage.RedisCache, tenantID, jobID string) (*domain.LoggingActivityResponse, error) {
+	cacheKey := redis.TenantKey(tenantID, "dashboard", jobID) + ":logging-activity"
+	cached, err := redis.Get(ctx, cacheKey)
+	if err == nil && cached != "" {
+		var data domain.LoggingActivityResponse
+		if err := json.Unmarshal([]byte(cached), &data); err == nil {
+			return &data, nil
+		}
+	}
+
+	// No computed fallback — logging activity data only comes from JAR output.
+	return &domain.LoggingActivityResponse{
+		JobID:      jobID,
+		Activities: []domain.LoggingActivity{},
+	}, nil
+}
+
+func getOrComputeFileMetadata(ctx context.Context, redis storage.RedisCache, tenantID, jobID string) (*domain.FileMetadataResponse, error) {
+	cacheKey := redis.TenantKey(tenantID, "dashboard", jobID) + ":file-metadata"
+	cached, err := redis.Get(ctx, cacheKey)
+	if err == nil && cached != "" {
+		var data domain.FileMetadataResponse
+		if err := json.Unmarshal([]byte(cached), &data); err == nil {
+			return &data, nil
+		}
+	}
+
+	// No computed fallback — file metadata only comes from JAR output.
+	return &domain.FileMetadataResponse{
+		JobID: jobID,
+		Files: []domain.FileMetadata{},
+		Total: 0,
+	}, nil
+}
+
 func getDashboardFromCache(ctx context.Context, redis storage.RedisCache, tenantID, jobID string) (*domain.DashboardData, error) {
 	cacheKey := redis.TenantKey(tenantID, "dashboard", jobID)
 	cached, err := redis.Get(ctx, cacheKey)

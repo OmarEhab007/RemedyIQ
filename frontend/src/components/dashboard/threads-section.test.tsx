@@ -341,6 +341,89 @@ describe('ThreadsSection', () => {
     })
   })
 
+  describe('busy % column', () => {
+    const threadsWithBusy: ThreadStatsResponse = {
+      job_id: 'job-busy',
+      total_threads: 3,
+      thread_stats: [
+        makeThread({
+          thread_id: 'thread-low',
+          total_requests: 100,
+          busy_pct: 25.5,
+        }),
+        makeThread({
+          thread_id: 'thread-med',
+          total_requests: 80,
+          busy_pct: 65.0,
+        }),
+        makeThread({
+          thread_id: 'thread-high',
+          total_requests: 60,
+          busy_pct: 92.3,
+        }),
+      ],
+    }
+
+    it('shows Busy % column header when any thread has busy_pct', () => {
+      render(<ThreadsSection data={threadsWithBusy} />)
+      expect(screen.getByText('Busy %')).toBeInTheDocument()
+    })
+
+    it('does not show Busy % column when no threads have busy_pct', () => {
+      render(<ThreadsSection data={twoThreads} />)
+      expect(screen.queryByText('Busy %')).toBeNull()
+    })
+
+    it('renders busy_pct values with percentage', () => {
+      render(<ThreadsSection data={threadsWithBusy} />)
+      expect(screen.getByText('25.5%')).toBeInTheDocument()
+      expect(screen.getByText('65.0%')).toBeInTheDocument()
+      expect(screen.getByText('92.3%')).toBeInTheDocument()
+    })
+
+    it('renders progress bar with green color for low utilization (<50%)', () => {
+      render(<ThreadsSection data={threadsWithBusy} />)
+      const lowLabel = screen.getByLabelText('Busy: 25.5%')
+      const bar = lowLabel.querySelector('[style]')
+      expect(bar).toBeTruthy()
+      expect(bar?.getAttribute('style')).toContain('var(--color-success)')
+    })
+
+    it('renders progress bar with amber/warning color for medium utilization (50-80%)', () => {
+      render(<ThreadsSection data={threadsWithBusy} />)
+      const medLabel = screen.getByLabelText('Busy: 65.0%')
+      const bar = medLabel.querySelector('[style]')
+      expect(bar).toBeTruthy()
+      expect(bar?.getAttribute('style')).toContain('var(--color-warning)')
+    })
+
+    it('renders progress bar with red/error color for high utilization (>80%)', () => {
+      render(<ThreadsSection data={threadsWithBusy} />)
+      const highLabel = screen.getByLabelText('Busy: 92.3%')
+      const bar = highLabel.querySelector('[style]')
+      expect(bar).toBeTruthy()
+      expect(bar?.getAttribute('style')).toContain('var(--color-error)')
+    })
+
+    it('renders em dash when busy_pct is undefined', () => {
+      const mixed: ThreadStatsResponse = {
+        job_id: 'job-mixed',
+        total_threads: 2,
+        thread_stats: [
+          makeThread({ thread_id: 'with-busy', busy_pct: 50 }),
+          makeThread({ thread_id: 'without-busy' }),
+        ],
+      }
+      render(<ThreadsSection data={mixed} />)
+      // Should show the column (one thread has data) and em-dash for the other
+      expect(screen.getByText('Busy %')).toBeInTheDocument()
+      expect(screen.getByText('50.0%')).toBeInTheDocument()
+      // The em-dash should be present for the thread without busy_pct
+      const dashes = screen.getAllByText('—')
+      expect(dashes.length).toBeGreaterThanOrEqual(1)
+    })
+  })
+
   describe('className prop', () => {
     it('passes className to wrapper when data is present', () => {
       const { container } = render(

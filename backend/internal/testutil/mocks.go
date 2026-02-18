@@ -288,6 +288,14 @@ func (m *MockClickHouseStore) SearchTransactions(ctx context.Context, tenantID, 
 	return args.Get(0).(*domain.TransactionSearchResponse), args.Error(1)
 }
 
+func (m *MockClickHouseStore) QueryDelayedEscalations(ctx context.Context, tenantID, jobID string, minDelayMS int, limit int) ([]domain.DelayedEscalationEntry, error) {
+	args := m.Called(ctx, tenantID, jobID, minDelayMS, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.DelayedEscalationEntry), args.Error(1)
+}
+
 func (m *MockClickHouseStore) Close() error {
 	args := m.Called()
 	return args.Error(0)

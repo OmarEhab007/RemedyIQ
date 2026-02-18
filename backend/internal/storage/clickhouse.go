@@ -2027,3 +2027,66 @@ func (c *ClickHouseClient) SearchTransactions(ctx context.Context, tenantID, job
 		TookMS:       int(time.Since(start).Milliseconds()),
 	}, nil
 }
+
+// QueryDelayedEscalations returns escalation entries whose delay_ms exceeds the
+// given threshold, ordered by delay descending.
+func (c *ClickHouseClient) QueryDelayedEscalations(ctx context.Context, tenantID, jobID string, minDelayMS int, limit int) ([]domain.DelayedEscalationEntry, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	if minDelayMS < 0 {
+		minDelayMS = 0
+	}
+
+	rows, err := c.conn.Query(ctx, `
+		SELECT
+			esc_name,
+			esc_pool,
+			scheduled_time,
+			timestamp,
+			delay_ms,
+			thread_id,
+			trace_id,
+			line_number
+		FROM log_entries
+		WHERE tenant_id = @tenantID
+			AND job_id = @jobID
+			AND log_type = 'ESCL'
+			AND delay_ms > @minDelayMS
+		ORDER BY delay_ms DESC
+		LIMIT @limit
+	`,
+		clickhouse.Named("tenantID", tenantID),
+		clickhouse.Named("jobID", jobID),
+		clickhouse.Named("minDelayMS", minDelayMS),
+		clickhouse.Named("limit", limit),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("clickhouse: query delayed escalations: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []domain.DelayedEscalationEntry
+	for rows.Next() {
+		var e domain.DelayedEscalationEntry
+		var scheduledTime time.Time
+		var lineNumber uint32
+		if err := rows.Scan(
+			&e.EscName, &e.EscPool, &scheduledTime, &e.ActualTime,
+			&e.DelayMS, &e.ThreadID, &e.TraceID, &lineNumber,
+		); err != nil {
+			return nil, fmt.Errorf("clickhouse: scan delayed escalation: %w", err)
+		}
+		if !scheduledTime.IsZero() {
+			e.ScheduledTime = &scheduledTime
+		}
+		e.LineNumber = int64(lineNumber)
+		entries = append(entries, e)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("clickhouse: delayed escalations rows: %w", err)
+	}
+
+	return entries, nil
+}

@@ -399,6 +399,116 @@ describe('FiltersSection', () => {
     })
   })
 
+  describe('filters per second column', () => {
+    const dataWithFps: FilterComplexityResponse = {
+      ...fullData,
+      filters_per_transaction: [
+        makePerTxn({ trace_id: 'fps-normal', filter_count: 10, filters_per_sec: 25.5 }),
+        makePerTxn({ trace_id: 'fps-high', filter_count: 200, filters_per_sec: 150.3 }),
+        makePerTxn({ trace_id: 'fps-missing', filter_count: 5 }),
+      ],
+    }
+
+    it('shows Filters/sec column header when FPS data is present', () => {
+      render(<FiltersSection data={dataWithFps} />)
+      const table = screen.getByRole('table', { name: 'Filters per transaction' })
+      expect(within(table).getByText('Filters/sec')).toBeInTheDocument()
+    })
+
+    it('does not show Filters/sec column when no FPS data', () => {
+      render(<FiltersSection data={fullData} />)
+      expect(screen.queryByText('Filters/sec')).toBeNull()
+    })
+
+    it('renders FPS values with one decimal place', () => {
+      render(<FiltersSection data={dataWithFps} />)
+      expect(screen.getByText('25.5')).toBeInTheDocument()
+      expect(screen.getByText('150.3')).toBeInTheDocument()
+    })
+
+    it('highlights FPS > 100 with warning color', () => {
+      render(<FiltersSection data={dataWithFps} />)
+      const highFps = screen.getByText('150.3')
+      expect(highFps.className).toMatch(/color-warning/)
+    })
+
+    it('normal FPS values do not get warning color', () => {
+      render(<FiltersSection data={dataWithFps} />)
+      const normalFps = screen.getByText('25.5')
+      expect(normalFps.className).not.toMatch(/color-warning/)
+    })
+
+    it('renders em dash when filters_per_sec is missing', () => {
+      render(<FiltersSection data={dataWithFps} />)
+      const table = screen.getByRole('table', { name: 'Filters per transaction' })
+      const dashes = within(table).getAllByText('—')
+      expect(dashes.length).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  describe('filter levels sub-table', () => {
+    const dataWithLevels: FilterComplexityResponse = {
+      ...fullData,
+      filter_levels: [
+        { line_number: 100, filter_level: 2, operation: 'SET', form: 'HPD:Help Desk', trace_id: 'trace-1', request_id: 'req-1' },
+        { line_number: 250, filter_level: 7, operation: 'GET', form: 'CHG:Change Request', trace_id: 'trace-2', request_id: 'req-2' },
+        { line_number: 500, filter_level: 3, operation: 'MODIFY', form: '', trace_id: 'trace-3', request_id: 'req-3' },
+      ],
+    }
+
+    it('renders filter levels table when data is present', () => {
+      render(<FiltersSection data={dataWithLevels} />)
+      expect(screen.getByRole('table', { name: 'Filter nesting levels' })).toBeInTheDocument()
+    })
+
+    it('renders Filter Levels heading', () => {
+      render(<FiltersSection data={dataWithLevels} />)
+      expect(screen.getByText('Filter Levels (Nesting Depth)')).toBeInTheDocument()
+    })
+
+    it('renders column headers for filter levels', () => {
+      render(<FiltersSection data={dataWithLevels} />)
+      const table = screen.getByRole('table', { name: 'Filter nesting levels' })
+      expect(within(table).getByText('Line')).toBeInTheDocument()
+      expect(within(table).getByText('Level')).toBeInTheDocument()
+      expect(within(table).getByText('Operation')).toBeInTheDocument()
+    })
+
+    it('renders level values', () => {
+      render(<FiltersSection data={dataWithLevels} />)
+      const table = screen.getByRole('table', { name: 'Filter nesting levels' })
+      expect(within(table).getByText('2')).toBeInTheDocument()
+      expect(within(table).getByText('7')).toBeInTheDocument()
+      expect(within(table).getByText('3')).toBeInTheDocument()
+    })
+
+    it('highlights level > 5 with warning styling', () => {
+      render(<FiltersSection data={dataWithLevels} />)
+      const table = screen.getByRole('table', { name: 'Filter nesting levels' })
+      const level7 = within(table).getByText('7')
+      expect(level7.className).toMatch(/color-warning/)
+    })
+
+    it('level <= 5 does not get warning styling', () => {
+      render(<FiltersSection data={dataWithLevels} />)
+      const table = screen.getByRole('table', { name: 'Filter nesting levels' })
+      const level2 = within(table).getByText('2')
+      expect(level2.className).not.toMatch(/color-warning/)
+    })
+
+    it('does not render filter levels table when no data', () => {
+      render(<FiltersSection data={fullData} />)
+      expect(screen.queryByRole('table', { name: 'Filter nesting levels' })).toBeNull()
+    })
+
+    it('renders operation names', () => {
+      render(<FiltersSection data={dataWithLevels} />)
+      expect(screen.getByText('SET')).toBeInTheDocument()
+      expect(screen.getByText('GET')).toBeInTheDocument()
+      expect(screen.getByText('MODIFY')).toBeInTheDocument()
+    })
+  })
+
   describe('className prop', () => {
     it('passes className to wrapper when data is present', () => {
       const { container } = render(

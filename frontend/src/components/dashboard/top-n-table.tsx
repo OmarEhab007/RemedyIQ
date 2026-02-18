@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 import { LOG_TYPE_COLORS, AR_API_CODES } from '@/lib/constants'
 import type { TopNEntry, LogType } from '@/lib/api-types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ApiCodeBadge } from '@/components/shared/api-code-badge'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -339,11 +340,12 @@ const API_CALL_COL: ColumnDef = {
       )
     }
     return (
-      <div className="flex items-center gap-1.5 min-w-0" title={decoded.description}>
+      <div className="flex items-center gap-1.5 min-w-0">
         <span className="truncate text-[var(--color-text-primary)]">{decoded.name}</span>
-        <span className="shrink-0 rounded bg-[var(--color-bg-tertiary)] px-1 py-0.5 font-mono text-[10px] text-[var(--color-text-tertiary)]">
-          {code}
-        </span>
+        <ApiCodeBadge
+          code={code}
+          className="shrink-0 rounded bg-[var(--color-bg-tertiary)] px-1 py-0.5 font-mono text-[10px] text-[var(--color-text-tertiary)]"
+        />
       </div>
     )
   },

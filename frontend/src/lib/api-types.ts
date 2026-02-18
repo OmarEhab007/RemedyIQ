@@ -352,6 +352,7 @@ export interface ThreadStatsEntry {
   total_duration_ms: number;
   unique_users: number;
   unique_forms: number;
+  busy_pct?: number;
 }
 
 export interface ThreadStatsResponse {
@@ -397,6 +398,7 @@ export interface FilterPerTransaction {
   total_filter_duration_ms: number;
   user: string;
   queue: string;
+  filters_per_sec?: number;
 }
 
 export interface FilterComplexityResponse {
@@ -405,6 +407,7 @@ export interface FilterComplexityResponse {
   filters_per_transaction: FilterPerTransaction[];
   avg_filters_per_transaction: number;
   max_filters_per_transaction: number;
+  filter_levels?: JARFilterLevelEntry[];
 }
 
 // JAR-native filter complexity types
@@ -429,12 +432,27 @@ export interface JARFilterMostExecuted {
 export interface JARFilterPerTransaction {
   trace_id: string;
   filter_count: number;
+  line_number?: number;
+  operation?: string;
+  form?: string;
+  request_id?: string;
+  filters_per_sec?: number;
+}
+
+export interface JARFilterLevelEntry {
+  line_number: number;
+  trace_id: string;
+  filter_level: number;
+  operation: string;
+  form: string;
+  request_id: string;
 }
 
 export interface JARFilterComplexityResponse {
   job_id: string;
   most_executed: JARFilterMostExecuted[];
   per_transaction: JARFilterExecutedPerTxn[];
+  filter_levels?: JARFilterLevelEntry[];
   generated_at: string;
 }
 
@@ -479,8 +497,8 @@ export interface SearchLogsParams {
   min_duration?: number;
   max_duration?: number;
   error_only?: boolean;
-  limit?: number;
-  offset?: number;
+  page?: number;
+  page_size?: number;
 }
 
 export interface SearchLogsResponse {
@@ -786,4 +804,73 @@ export interface HealthResponse {
   status: "ok" | "degraded" | "down";
   version: string;
   services: Record<string, "ok" | "error">;
+}
+
+// ---------------------------------------------------------------------------
+// Queued API calls (012-analyzer-insights)
+// ---------------------------------------------------------------------------
+
+export interface QueuedCallsResponse {
+  job_id: string;
+  queued_api_calls: TopNEntry[];
+  total: number;
+}
+
+// ---------------------------------------------------------------------------
+// Delayed escalations (012-analyzer-insights)
+// ---------------------------------------------------------------------------
+
+export interface DelayedEscalationEntry {
+  esc_name: string;
+  esc_pool: string;
+  scheduled_time: string;
+  actual_time: string;
+  delay_ms: number;
+  thread_id: string;
+  trace_id: string;
+  line_number: number;
+}
+
+export interface DelayedEscalationsResponse {
+  job_id: string;
+  entries: DelayedEscalationEntry[];
+  total: number;
+  avg_delay_ms: number;
+  max_delay_ms: number;
+}
+
+// ---------------------------------------------------------------------------
+// File metadata (012-analyzer-insights)
+// ---------------------------------------------------------------------------
+
+export interface FileMetadataEntry {
+  file_number: number;
+  file_name: string;
+  start_time: string;
+  end_time: string;
+  duration_ms: number;
+  entry_count: number;
+}
+
+// ---------------------------------------------------------------------------
+// Logging activity (012-analyzer-insights)
+// ---------------------------------------------------------------------------
+
+export interface LoggingActivityEntry {
+  log_type: string;
+  first_timestamp: string;
+  last_timestamp: string;
+  duration_ms: number;
+  entry_count: number;
+}
+
+export interface LoggingActivityResponse {
+  job_id: string;
+  activities: LoggingActivityEntry[];
+}
+
+export interface FileMetadataResponse {
+  job_id: string;
+  files: FileMetadataEntry[];
+  total: number;
 }

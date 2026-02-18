@@ -21,9 +21,10 @@
 
 import { useCallback, useState, useEffect, useRef, type CSSProperties } from 'react'
 import type { LogEntry, LogType } from '@/lib/api-types'
-import { LOG_TYPE_COLORS } from '@/lib/constants'
+import { LOG_TYPE_COLORS, AR_API_CODES } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { PageState } from '@/components/ui/page-state'
+import { ApiCodeBadge } from '@/components/shared/api-code-badge'
 
 // ---------------------------------------------------------------------------
 // react-window — use require() to avoid named-import TS issues with this
@@ -69,6 +70,8 @@ export interface LogTableProps {
   onSelectEntry: (entryId: string | null) => void
   isLoading?: boolean
   total?: number
+  hasMore?: boolean
+  onLoadMore?: () => void
   className?: string
 }
 
@@ -278,7 +281,11 @@ function LogRow({ index, style, data }: RowChildProps) {
         title={identifier}
         aria-label={`Identifier: ${identifier}`}
       >
-        {identifier}
+        {entry.log_type === 'API' && identifier && AR_API_CODES[identifier] ? (
+          <ApiCodeBadge code={identifier} />
+        ) : (
+          identifier
+        )}
       </span>
 
       {/* User */}
@@ -370,6 +377,8 @@ export function LogTable({
   onSelectEntry,
   isLoading,
   total,
+  hasMore,
+  onLoadMore,
   className,
 }: LogTableProps) {
   const handleSelect = useCallback(
@@ -418,10 +427,18 @@ export function LogTable({
       {/* Column header */}
       <TableHeader />
 
-      {/* Footer count */}
+      {/* Footer count + Load More */}
       {total !== undefined && (
-        <div className="shrink-0 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-1 text-[11px] text-[var(--color-text-tertiary)]">
-          Showing {entries.length.toLocaleString()} of {total.toLocaleString()} entries
+        <div className="flex shrink-0 items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-1 text-[11px] text-[var(--color-text-tertiary)]">
+          <span>Showing {entries.length.toLocaleString()} of {total.toLocaleString()} entries</span>
+          {hasMore && onLoadMore && (
+            <button
+              onClick={onLoadMore}
+              className="rounded bg-[var(--color-accent)] px-2 py-0.5 text-[11px] font-medium text-white hover:opacity-90 transition-opacity"
+            >
+              Load next page
+            </button>
+          )}
         </div>
       )}
 

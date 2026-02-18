@@ -13,7 +13,7 @@
  */
 
 import { useParams, useRouter } from 'next/navigation'
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useState } from 'react'
 
 import { useExplorerStore } from '@/stores/explorer-store'
 import { useSearchLogs } from '@/hooks/use-api'
@@ -52,12 +52,22 @@ export default function JobExplorerPage() {
 
   // Debounce the search query for the API call
   const debouncedQuery = useDebounce(query, 300)
+  const [page, setPage] = useState(1)
+  const pageSize = 200
+
+  // Reset page when query or filters change
+  const searchKey = useMemo(() => JSON.stringify({ q: debouncedQuery, filters }), [debouncedQuery, filters])
+  const [prevSearchKey, setPrevSearchKey] = useState(searchKey)
+  if (searchKey !== prevSearchKey) {
+    setPrevSearchKey(searchKey)
+    setPage(1)
+  }
 
   // Build search params from store state
   const searchParams = useMemo<SearchLogsParams>(() => {
     const params: SearchLogsParams = {
-      limit: 200,
-      offset: 0,
+      page,
+      page_size: pageSize,
     }
 
     if (debouncedQuery) params.q = debouncedQuery
@@ -89,7 +99,7 @@ export default function JobExplorerPage() {
     }
 
     return params
-  }, [debouncedQuery, filters])
+  }, [debouncedQuery, filters, page])
 
   const {
     data: searchData,
@@ -100,6 +110,8 @@ export default function JobExplorerPage() {
 
   const entries = searchData?.entries ?? []
   const total = searchData?.total ?? 0
+  const totalPages = searchData?.pagination?.total_pages ?? 1
+  const hasMore = page < totalPages
 
   // Restore a saved search into the store
   const handleLoadSavedSearch = useCallback(
@@ -190,6 +202,8 @@ export default function JobExplorerPage() {
             onSelectEntry={selectEntry}
             isLoading={isLoading}
             total={total}
+            hasMore={hasMore}
+            onLoadMore={() => setPage((p) => p + 1)}
             className="flex-1"
           />
 
