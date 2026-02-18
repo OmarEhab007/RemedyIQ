@@ -118,7 +118,7 @@ export default function GlobalExplorerPage() {
 
   // Build search params from store state
   const searchParams = useMemo<SearchLogsParams>(() => {
-    const p: SearchLogsParams = { limit: 200, offset: 0 }
+    const p: SearchLogsParams = { page: 1, page_size: 200 }
     if (debouncedQuery) p.q = debouncedQuery
 
     for (const filter of filters) {

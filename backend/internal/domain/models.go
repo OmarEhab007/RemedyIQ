@@ -432,6 +432,34 @@ type FilterComplexityResponse struct {
 	TotalFilterTimeMS int64                  `json:"total_filter_time_ms"`
 }
 
+// QueuedCallsResponse holds the queued API call data for a specific job.
+type QueuedCallsResponse struct {
+	JobID          string     `json:"job_id"`
+	QueuedAPICalls []TopNEntry `json:"queued_api_calls"`
+	Total          int        `json:"total"`
+}
+
+// DelayedEscalationEntry represents an escalation that ran later than scheduled.
+type DelayedEscalationEntry struct {
+	EscName       string     `json:"esc_name"`
+	EscPool       string     `json:"esc_pool"`
+	ScheduledTime *time.Time `json:"scheduled_time"`
+	ActualTime    time.Time  `json:"actual_time"`
+	DelayMS       uint32     `json:"delay_ms"`
+	ThreadID      string     `json:"thread_id"`
+	TraceID       string     `json:"trace_id"`
+	LineNumber    int64      `json:"line_number"`
+}
+
+// DelayedEscalationsResponse wraps the delayed escalations data.
+type DelayedEscalationsResponse struct {
+	JobID      string                   `json:"job_id"`
+	Entries    []DelayedEscalationEntry `json:"entries"`
+	Total      int                      `json:"total"`
+	AvgDelayMS float64                  `json:"avg_delay_ms"`
+	MaxDelayMS uint32                   `json:"max_delay_ms"`
+}
+
 // --- JAR-Native Types (parsed directly from JAR v3.2.2 output) ---
 
 // JARGapEntry represents a single line gap or thread gap from the JAR output.
@@ -611,8 +639,44 @@ type ParseResult struct {
 	JARFilters     *JARFilterComplexityResponse `json:"jar_filters,omitempty"`
 
 	// Supplementary data
-	APIAbbreviations []JARAPIAbbreviation `json:"api_abbreviations,omitempty"`
-	QueuedAPICalls   []TopNEntry          `json:"queued_api_calls,omitempty"`
+	APIAbbreviations  []JARAPIAbbreviation `json:"api_abbreviations,omitempty"`
+	QueuedAPICalls    []TopNEntry          `json:"queued_api_calls,omitempty"`
+	LoggingActivities []LoggingActivity    `json:"logging_activities,omitempty"`
+	FileMetadataList  []FileMetadata       `json:"file_metadata,omitempty"`
+}
+
+// --- Logging Activity & File Metadata Types ---
+
+// LoggingActivity represents the logging duration for one log type from JAR output.
+type LoggingActivity struct {
+	LogType        string    `json:"log_type"`
+	FirstTimestamp time.Time `json:"first_timestamp"`
+	LastTimestamp  time.Time `json:"last_timestamp"`
+	DurationMS     int64     `json:"duration_ms"`
+	EntryCount     int       `json:"entry_count"`
+}
+
+// LoggingActivityResponse wraps the logging activity data.
+type LoggingActivityResponse struct {
+	JobID      string            `json:"job_id"`
+	Activities []LoggingActivity `json:"activities"`
+}
+
+// FileMetadata represents per-file metadata from JAR output.
+type FileMetadata struct {
+	FileNumber int       `json:"file_number"`
+	FileName   string    `json:"file_name"`
+	StartTime  time.Time `json:"start_time"`
+	EndTime    time.Time `json:"end_time"`
+	DurationMS int64     `json:"duration_ms"`
+	EntryCount int       `json:"entry_count"`
+}
+
+// FileMetadataResponse wraps the file metadata list.
+type FileMetadataResponse struct {
+	JobID string         `json:"job_id"`
+	Files []FileMetadata `json:"files"`
+	Total int            `json:"total"`
 }
 
 // --- Trace Transaction Types (008-trace-transaction) ---

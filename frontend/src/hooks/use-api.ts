@@ -21,7 +21,11 @@ import type {
   ExceptionsResponse,
   GapsResponse,
   ThreadStatsResponse,
+  FileMetadataResponse,
   FilterComplexityResponse,
+  LoggingActivityResponse,
+  QueuedCallsResponse,
+  DelayedEscalationsResponse,
   SearchLogsParams,
   SearchLogsResponse,
   LogEntry,
@@ -78,6 +82,14 @@ export const queryKeys = {
     ['dashboard', jobId, 'threads'] as const,
   dashboardFilters: (jobId: string) =>
     ['dashboard', jobId, 'filters'] as const,
+  dashboardQueuedCalls: (jobId: string) =>
+    ['dashboard', jobId, 'queued-calls'] as const,
+  dashboardDelayedEscalations: (jobId: string) =>
+    ['dashboard', jobId, 'delayed-escalations'] as const,
+  dashboardLoggingActivity: (jobId: string) =>
+    ['dashboard', jobId, 'logging-activity'] as const,
+  dashboardFileMetadata: (jobId: string) =>
+    ['dashboard', jobId, 'file-metadata'] as const,
   searchLogs: (jobId: string, params: SearchLogsParams) =>
     ['logs', jobId, 'search', params] as const,
   logEntry: (jobId: string, entryId: string) =>
@@ -216,6 +228,70 @@ export function useDashboardFilters(jobId: string | null | undefined) {
       return api.getDashboardFilters(jobId as string, token ?? undefined)
     },
     enabled: Boolean(jobId),
+  })
+}
+
+/** Fetches queued API calls data for the dashboard. */
+export function useQueuedCalls(
+  jobId: string | null | undefined,
+  options?: { enabled?: boolean }
+) {
+  const getToken = useToken()
+  return useQuery<QueuedCallsResponse>({
+    queryKey: queryKeys.dashboardQueuedCalls(jobId ?? ''),
+    queryFn: async () => {
+      const token = await getToken()
+      return api.getDashboardQueuedCalls(jobId as string, token ?? undefined)
+    },
+    enabled: Boolean(jobId) && (options?.enabled ?? false),
+  })
+}
+
+/** Fetches delayed escalations data for the dashboard. */
+export function useDelayedEscalations(
+  jobId: string | null | undefined,
+  options?: { enabled?: boolean }
+) {
+  const getToken = useToken()
+  return useQuery<DelayedEscalationsResponse>({
+    queryKey: queryKeys.dashboardDelayedEscalations(jobId ?? ''),
+    queryFn: async () => {
+      const token = await getToken()
+      return api.getDashboardDelayedEscalations(jobId as string, undefined, undefined, token ?? undefined)
+    },
+    enabled: Boolean(jobId) && (options?.enabled ?? false),
+  })
+}
+
+/** Fetches logging activity data for the dashboard. */
+export function useLoggingActivity(
+  jobId: string | null | undefined,
+  options?: { enabled?: boolean }
+) {
+  const getToken = useToken()
+  return useQuery<LoggingActivityResponse>({
+    queryKey: queryKeys.dashboardLoggingActivity(jobId ?? ''),
+    queryFn: async () => {
+      const token = await getToken()
+      return api.getDashboardLoggingActivity(jobId as string, token ?? undefined)
+    },
+    enabled: Boolean(jobId) && (options?.enabled ?? false),
+  })
+}
+
+/** Fetches file metadata data for the dashboard. */
+export function useFileMetadata(
+  jobId: string | null | undefined,
+  options?: { enabled?: boolean }
+) {
+  const getToken = useToken()
+  return useQuery<FileMetadataResponse>({
+    queryKey: queryKeys.dashboardFileMetadata(jobId ?? ''),
+    queryFn: async () => {
+      const token = await getToken()
+      return api.getDashboardFileMetadata(jobId as string, token ?? undefined)
+    },
+    enabled: Boolean(jobId) && (options?.enabled ?? false),
   })
 }
 

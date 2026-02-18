@@ -24,6 +24,10 @@ import {
   useDashboardGaps,
   useDashboardThreads,
   useDashboardFilters,
+  useQueuedCalls,
+  useDelayedEscalations,
+  useLoggingActivity,
+  useFileMetadata,
 } from '@/hooks/use-api'
 import { PageHeader } from '@/components/layout/page-header'
 import { PageState } from '@/components/ui/page-state'
@@ -39,6 +43,9 @@ import { GapsSection } from '@/components/dashboard/gaps-section'
 import { ThreadsSection } from '@/components/dashboard/threads-section'
 import { FiltersSection } from '@/components/dashboard/filters-section'
 import { ReportButton } from '@/components/dashboard/report-button'
+import { LoggingActivitySection } from '@/components/dashboard/logging-activity-section'
+import { SourceFilesSection } from '@/components/dashboard/source-files-section'
+import { DelayedEscalationsSection } from '@/components/dashboard/delayed-escalations-section'
 import { ROUTES } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import type {
@@ -302,6 +309,10 @@ function normalizeThreads(raw: any): ThreadStatsResponse | undefined {
         existing.total_requests += t.count ?? 0
         existing.total_duration_ms += Math.round((t.total_time ?? 0) * 1000)
         existing.max_duration_ms = Math.max(existing.max_duration_ms, Math.round((t.total_time ?? 0) * 1000))
+        // Take the higher busy_pct if merging
+        if (t.busy_pct != null && (existing.busy_pct == null || t.busy_pct > existing.busy_pct)) {
+          existing.busy_pct = t.busy_pct
+        }
       } else {
         threadMap.set(tid, {
           thread_id: tid,
@@ -314,6 +325,7 @@ function normalizeThreads(raw: any): ThreadStatsResponse | undefined {
           total_duration_ms: Math.round((t.total_time ?? 0) * 1000),
           unique_users: 0,
           unique_forms: 0,
+          busy_pct: t.busy_pct ?? undefined,
         })
       }
     }
@@ -333,6 +345,7 @@ function normalizeThreads(raw: any): ThreadStatsResponse | undefined {
         total_duration_ms: t.total_duration_ms ?? t.total_ms ?? 0,
         unique_users: t.unique_users ?? 0,
         unique_forms: t.unique_forms ?? 0,
+        busy_pct: t.busy_pct ?? undefined,
       })
     }
   }
@@ -378,18 +391,23 @@ function normalizeFilters(raw: any): FilterComplexityResponse | undefined {
     total_filter_duration_ms: t.total_filter_duration_ms ?? t.total_ms ?? 0,
     user: t.user ?? '',
     queue: t.queue ?? '',
+    filters_per_sec: t.filters_per_sec ?? undefined,
   }))
 
   // Compute avg/max if not present
   const counts = filtersPerTxn.map((t) => t.filter_count)
   const avgFilters = raw.avg_filters_per_transaction ?? (counts.length ? counts.reduce((a, b) => a + b, 0) / counts.length : 0)
   const maxFilters = raw.max_filters_per_transaction ?? (counts.length ? Math.max(...counts) : 0)
+  // Pass through filter_levels from JAR-native data if present
+  const filterLevels = raw.filter_levels ?? undefined
+
   return {
     job_id: raw.job_id ?? '',
     most_executed: mostExecuted,
     filters_per_transaction: filtersPerTxn,
     avg_filters_per_transaction: avgFilters,
     max_filters_per_transaction: maxFilters,
+    filter_levels: filterLevels,
   }
 }
 
@@ -411,19 +429,20 @@ function CountBadge({ count }: { count: number }) {
 // TopN Tab Configuration
 // ---------------------------------------------------------------------------
 
-type TopNTab = 'api' | 'sql' | 'filter' | 'escalation'
+type TopNTab = 'api' | 'sql' | 'filter' | 'escalation' | 'queued'
 
 const TOP_N_TABS: Array<{
   key: TopNTab
   label: string
   logType: LogType
   title: string
-  dataKey: 'top_api_calls' | 'top_sql_statements' | 'top_filters' | 'top_escalations'
+  dataKey: 'top_api_calls' | 'top_sql_statements' | 'top_filters' | 'top_escalations' | null
 }> = [
   { key: 'api', label: 'API', logType: 'API', title: 'Top API Calls', dataKey: 'top_api_calls' },
   { key: 'sql', label: 'SQL', logType: 'SQL', title: 'Top SQL Statements', dataKey: 'top_sql_statements' },
   { key: 'filter', label: 'Filter', logType: 'FLTR', title: 'Top Filters', dataKey: 'top_filters' },
   { key: 'escalation', label: 'Escl', logType: 'ESCL', title: 'Top Escalations', dataKey: 'top_escalations' },
+  { key: 'queued', label: 'Queued', logType: 'API', title: 'Longest Queued API Calls', dataKey: null },
 ]
 
 // ---------------------------------------------------------------------------
@@ -455,6 +474,9 @@ export default function AnalysisDashboardPage() {
   const [gapsEnabled, setGapsEnabled] = useState(false)
   const [threadsEnabled, setThreadsEnabled] = useState(false)
   const [filtersEnabled, setFiltersEnabled] = useState(false)
+  const [loggingActivityEnabled, setLoggingActivityEnabled] = useState(false)
+  const [sourceFilesEnabled, setSourceFilesEnabled] = useState(false)
+  const [delayedEscEnabled, setDelayedEscEnabled] = useState(false)
 
   const { data: rawAggregates, isLoading: aggLoading } = useDashboardAggregates(
     jobId,
@@ -474,6 +496,20 @@ export default function AnalysisDashboardPage() {
     filtersEnabled ? jobId : null
   )
 
+  // Queued calls — fetched lazily when the "Queued" tab is selected
+  const { data: queuedCallsData } = useQueuedCalls(jobId, { enabled: activeTab === 'queued' })
+
+  // New insight sections — fetched lazily on expand
+  const { data: loggingActivityData, isLoading: loggingActivityLoading } = useLoggingActivity(
+    jobId, { enabled: loggingActivityEnabled }
+  )
+  const { data: sourceFilesData, isLoading: sourceFilesLoading } = useFileMetadata(
+    jobId, { enabled: sourceFilesEnabled }
+  )
+  const { data: delayedEscData, isLoading: delayedEscLoading } = useDelayedEscalations(
+    jobId, { enabled: delayedEscEnabled }
+  )
+
   // Normalize API responses to match component expectations
   const aggregates = normalizeAggregates(rawAggregates)
   const exceptions = normalizeExceptions(rawExceptions)
@@ -486,11 +522,14 @@ export default function AnalysisDashboardPage() {
   const handleGapsExpand = useCallback(() => setGapsEnabled(true), [])
   const handleThreadsExpand = useCallback(() => setThreadsEnabled(true), [])
   const handleFiltersExpand = useCallback(() => setFiltersEnabled(true), [])
+  const handleLoggingActivityExpand = useCallback(() => setLoggingActivityEnabled(true), [])
+  const handleSourceFilesExpand = useCallback(() => setSourceFilesEnabled(true), [])
+  const handleDelayedEscExpand = useCallback(() => setDelayedEscEnabled(true), [])
 
   // Auto-select first non-empty tab when dashboard data arrives
   useEffect(() => {
     if (!dashboard || autoSelected) return
-    const first = TOP_N_TABS.find((t) => (dashboard[t.dataKey]?.length ?? 0) > 0)
+    const first = TOP_N_TABS.find((t) => t.dataKey && (dashboard[t.dataKey]?.length ?? 0) > 0)
     if (first) {
       setActiveTab(first.key)
     }
@@ -519,7 +558,9 @@ export default function AnalysisDashboardPage() {
 
   // Get active tab config and data
   const activeTabConfig = TOP_N_TABS.find((t) => t.key === activeTab) ?? TOP_N_TABS[0]
-  const activeTabData = dashboard[activeTabConfig.dataKey] ?? []
+  const activeTabData = activeTab === 'queued'
+    ? (queuedCallsData?.queued_api_calls ?? [])
+    : (activeTabConfig.dataKey ? dashboard[activeTabConfig.dataKey] ?? [] : [])
 
   return (
     <div className="space-y-5">
@@ -587,7 +628,9 @@ export default function AnalysisDashboardPage() {
             aria-label="Top entries by log type"
           >
             {TOP_N_TABS.map((tab) => {
-              const tabData = dashboard[tab.dataKey] ?? []
+              const tabCount = tab.key === 'queued'
+                ? (queuedCallsData?.total ?? 0)
+                : (tab.dataKey ? dashboard[tab.dataKey]?.length ?? 0 : 0)
               return (
                 <button
                   key={tab.key}
@@ -607,9 +650,9 @@ export default function AnalysisDashboardPage() {
                   {tab.label}
                   <span className={cn(
                     'ml-1.5 text-[10px]',
-                    tabData.length > 0 ? 'opacity-60' : 'opacity-30'
+                    tabCount > 0 ? 'opacity-60' : 'opacity-30'
                   )}>
-                    ({tabData.length})
+                    ({tabCount})
                   </span>
                 </button>
               )
@@ -687,6 +730,38 @@ export default function AnalysisDashboardPage() {
           isLoading={filtersLoading}
         >
           {filters && <FiltersSection data={filters} />}
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="Logging Activity"
+          description="Per-log-type time ranges and coverage durations"
+          onExpand={handleLoggingActivityExpand}
+          isLoading={loggingActivityLoading}
+        >
+          {loggingActivityData && (
+            <LoggingActivitySection data={loggingActivityData.activities ?? []} />
+          )}
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="Source Files"
+          description="Per-file metadata with time ranges and durations"
+          onExpand={handleSourceFilesExpand}
+          isLoading={sourceFilesLoading}
+        >
+          {sourceFilesData && (
+            <SourceFilesSection data={sourceFilesData.files ?? []} />
+          )}
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="Delayed Escalations"
+          description="Escalations that ran later than their scheduled time"
+          badge={delayedEscData?.total ? <CountBadge count={delayedEscData.total} /> : undefined}
+          onExpand={handleDelayedEscExpand}
+          isLoading={delayedEscLoading}
+        >
+          {delayedEscData && <DelayedEscalationsSection data={delayedEscData} />}
         </CollapsibleSection>
       </div>
     </div>

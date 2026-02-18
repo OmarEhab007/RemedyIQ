@@ -140,7 +140,7 @@ func TestParseLine_API(t *testing.T) {
 
 	// API-specific.
 	assert.Equal(t, "GE", entry.APICode)
-	assert.Equal(t, "HPD:Help", entry.Form)
+	assert.Equal(t, "HPD:Help Desk", entry.Form)
 
 	// Timestamp.
 	expected := time.Date(2025, 12, 2, 9, 30, 15, 123400000, time.UTC)

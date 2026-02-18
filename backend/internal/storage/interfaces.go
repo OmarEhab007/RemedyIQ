@@ -52,6 +52,7 @@ type ClickHouseStore interface {
 	GetJobTimeRange(ctx context.Context, tenantID, jobID string) (*JobTimeRange, error)
 	GetFacets(ctx context.Context, tenantID, jobID string, q SearchQuery) (map[string][]FacetValue, error)
 	SearchTransactions(ctx context.Context, tenantID, jobID string, params domain.TransactionSearchParams) (*domain.TransactionSearchResponse, error)
+	QueryDelayedEscalations(ctx context.Context, tenantID, jobID string, minDelayMS int, limit int) ([]domain.DelayedEscalationEntry, error)
 	Close() error
 }
 

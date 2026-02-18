@@ -5,6 +5,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { TopNTable } from './top-n-table'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import type { TopNEntry } from '@/lib/api-types'
 
 // ---------------------------------------------------------------------------
@@ -15,6 +16,15 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
   useParams: () => ({ id: 'job-123' }),
 }))
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Wrap render with TooltipProvider (needed by ApiCodeBadge) */
+function renderTable(ui: React.ReactElement) {
+  return render(<TooltipProvider>{ui}</TooltipProvider>)
+}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -59,22 +69,22 @@ describe('TopNTable', () => {
   // --- Rendering basics ---
 
   it('renders the title in non-compact mode', () => {
-    render(<TopNTable entries={[makeEntry()]} title="Top API Calls" logType="API" />)
+    renderTable(<TopNTable entries={[makeEntry()]} title="Top API Calls" logType="API" />)
     expect(screen.getByText('Top API Calls')).toBeInTheDocument()
   })
 
   it('renders the log type badge in non-compact mode', () => {
-    render(<TopNTable entries={[makeEntry()]} title="Top SQL" logType="SQL" />)
+    renderTable(<TopNTable entries={[makeEntry()]} title="Top SQL" logType="SQL" />)
     expect(screen.getByLabelText('Log type: SQL')).toBeInTheDocument()
   })
 
   it('renders an accessible table with aria-label', () => {
-    render(<TopNTable entries={[makeEntry()]} title="Top API Calls" logType="API" />)
+    renderTable(<TopNTable entries={[makeEntry()]} title="Top API Calls" logType="API" />)
     expect(screen.getByRole('table', { name: 'Top API Calls' })).toBeInTheDocument()
   })
 
   it('renders in compact mode without Card wrapper', () => {
-    render(<TopNTable entries={[makeEntry()]} title="Top API Calls" logType="API" compact />)
+    renderTable(<TopNTable entries={[makeEntry()]} title="Top API Calls" logType="API" compact />)
     expect(screen.getByRole('table', { name: 'Top API Calls' })).toBeInTheDocument()
     // No CardTitle in compact mode
     expect(screen.queryByText('Top API Calls')).toBeNull()
@@ -83,14 +93,14 @@ describe('TopNTable', () => {
   // --- Empty state ---
 
   it('renders empty state with icon when no entries', () => {
-    render(<TopNTable entries={[]} title="Top API Calls" logType="API" />)
+    renderTable(<TopNTable entries={[]} title="Top API Calls" logType="API" />)
     expect(screen.getByText(/no top api calls found/i)).toBeInTheDocument()
   })
 
   // --- Type-specific columns ---
 
   it('shows API-specific columns for API type', () => {
-    render(<TopNTable entries={[makeEntry()]} title="Top API Calls" logType="API" compact />)
+    renderTable(<TopNTable entries={[makeEntry()]} title="Top API Calls" logType="API" compact />)
     const table = screen.getByRole('table')
     expect(within(table).getByText('API Call')).toBeInTheDocument()
     expect(within(table).getByText('Q-Time')).toBeInTheDocument()
@@ -98,18 +108,18 @@ describe('TopNTable', () => {
   })
 
   it('decodes known API codes to human-readable names', () => {
-    render(<TopNTable entries={[makeEntry({ identifier: 'SE' })]} title="Top API Calls" logType="API" compact />)
+    renderTable(<TopNTable entries={[makeEntry({ identifier: 'SE' })]} title="Top API Calls" logType="API" compact />)
     expect(screen.getByText('Set Entry')).toBeInTheDocument()
     expect(screen.getByText('SE')).toBeInTheDocument()
   })
 
   it('shows raw identifier for unknown API codes', () => {
-    render(<TopNTable entries={[makeEntry({ identifier: 'UNKNOWN_CODE' })]} title="Top API Calls" logType="API" compact />)
+    renderTable(<TopNTable entries={[makeEntry({ identifier: 'UNKNOWN_CODE' })]} title="Top API Calls" logType="API" compact />)
     expect(screen.getByTitle('UNKNOWN_CODE')).toBeInTheDocument()
   })
 
   it('shows SQL-specific columns for SQL type', () => {
-    render(<TopNTable entries={[makeEntry({ identifier: 'user_table' })]} title="Top SQL" logType="SQL" compact />)
+    renderTable(<TopNTable entries={[makeEntry({ identifier: 'user_table' })]} title="Top SQL" logType="SQL" compact />)
     const table = screen.getByRole('table')
     expect(within(table).getByText('Table')).toBeInTheDocument()
     expect(within(table).getByText('SQL Statement')).toBeInTheDocument()
@@ -124,19 +134,19 @@ describe('TopNTable', () => {
       identifier: 'T4381',
       details: JSON.stringify({ sql_statement: 'SELECT * FROM users WHERE id = 1' }),
     })
-    render(<TopNTable entries={[entry]} title="Top SQL" logType="SQL" compact />)
+    renderTable(<TopNTable entries={[entry]} title="Top SQL" logType="SQL" compact />)
     expect(screen.getByTitle('SELECT * FROM users WHERE id = 1')).toBeInTheDocument()
   })
 
   it('shows Filter-specific columns for FLTR type', () => {
-    render(<TopNTable entries={[makeEntry({ identifier: 'SetDefaults' })]} title="Top Filters" logType="FLTR" compact />)
+    renderTable(<TopNTable entries={[makeEntry({ identifier: 'SetDefaults' })]} title="Top Filters" logType="FLTR" compact />)
     const table = screen.getByRole('table')
     expect(within(table).getByText('Filter Name')).toBeInTheDocument()
     expect(within(table).getByText('Level')).toBeInTheDocument()
   })
 
   it('shows Escalation-specific columns for ESCL type', () => {
-    render(<TopNTable entries={[makeEntry({ identifier: 'HPD:AutoAssign' })]} title="Top Escalations" logType="ESCL" compact />)
+    renderTable(<TopNTable entries={[makeEntry({ identifier: 'HPD:AutoAssign' })]} title="Top Escalations" logType="ESCL" compact />)
     const table = screen.getByRole('table')
     expect(within(table).getByText('Escalation')).toBeInTheDocument()
     expect(within(table).getByText('Pool')).toBeInTheDocument()
@@ -146,55 +156,55 @@ describe('TopNTable', () => {
   // --- Data rendering ---
 
   it('renders an entry row with identifier', () => {
-    render(<TopNTable entries={[makeEntry({ identifier: 'REMEDY:GetEntry' })]} title="Top API Calls" logType="API" compact />)
+    renderTable(<TopNTable entries={[makeEntry({ identifier: 'REMEDY:GetEntry' })]} title="Top API Calls" logType="API" compact />)
     expect(screen.getByTitle('REMEDY:GetEntry')).toBeInTheDocument()
   })
 
   it('renders duration with visual bar', () => {
-    render(<TopNTable entries={[makeEntry({ duration_ms: 2500 })]} title="Top API Calls" logType="API" compact />)
+    renderTable(<TopNTable entries={[makeEntry({ duration_ms: 2500 })]} title="Top API Calls" logType="API" compact />)
     expect(screen.getByText('2.50s')).toBeInTheDocument()
   })
 
   it('renders duration in ms for small values', () => {
-    render(<TopNTable entries={[makeEntry({ duration_ms: 350 })]} title="Top API Calls" logType="API" compact />)
+    renderTable(<TopNTable entries={[makeEntry({ duration_ms: 350 })]} title="Top API Calls" logType="API" compact />)
     expect(screen.getByText('350ms')).toBeInTheDocument()
   })
 
   it('renders success status as OK', () => {
-    render(<TopNTable entries={[makeEntry({ success: true })]} title="Top API Calls" logType="API" compact />)
+    renderTable(<TopNTable entries={[makeEntry({ success: true })]} title="Top API Calls" logType="API" compact />)
     expect(screen.getByLabelText('Success')).toBeInTheDocument()
   })
 
   it('renders error status as ERR with row highlight', () => {
-    render(<TopNTable entries={[makeEntry({ success: false })]} title="Top API Calls" logType="API" compact />)
+    renderTable(<TopNTable entries={[makeEntry({ success: false })]} title="Top API Calls" logType="API" compact />)
     expect(screen.getByLabelText('Error')).toBeInTheDocument()
   })
 
   it('renders rank number', () => {
-    render(<TopNTable entries={[makeEntry({ rank: 3 })]} title="Top API Calls" logType="API" compact />)
+    renderTable(<TopNTable entries={[makeEntry({ rank: 3 })]} title="Top API Calls" logType="API" compact />)
     expect(screen.getByText('3')).toBeInTheDocument()
   })
 
   it('renders user column for API type', () => {
-    render(<TopNTable entries={[makeEntry({ user: 'testuser' })]} title="Top API Calls" logType="API" compact />)
+    renderTable(<TopNTable entries={[makeEntry({ user: 'testuser' })]} title="Top API Calls" logType="API" compact />)
     expect(screen.getByText('testuser')).toBeInTheDocument()
   })
 
   it('renders queue column', () => {
-    render(<TopNTable entries={[makeEntry({ queue: 'Fast' })]} title="Top API Calls" logType="API" compact />)
+    renderTable(<TopNTable entries={[makeEntry({ queue: 'Fast' })]} title="Top API Calls" logType="API" compact />)
     expect(screen.getByTitle('Fast')).toBeInTheDocument()
   })
 
   // --- Sorting ---
 
   it('renders sortable column headers with aria-sort', () => {
-    render(<TopNTable entries={[makeEntry()]} title="Top API Calls" logType="API" compact />)
+    renderTable(<TopNTable entries={[makeEntry()]} title="Top API Calls" logType="API" compact />)
     const durationHeader = screen.getByRole('columnheader', { name: /duration/i })
     expect(durationHeader).toBeInTheDocument()
   })
 
   it('changes sort direction when sortable header is clicked', () => {
-    render(<TopNTable entries={makeAPIEntries(3)} title="Top API Calls" logType="API" compact />)
+    renderTable(<TopNTable entries={makeAPIEntries(3)} title="Top API Calls" logType="API" compact />)
     const durationHeader = screen.getByRole('columnheader', { name: /duration/i })
     fireEvent.click(durationHeader)
     expect(durationHeader).toHaveAttribute('aria-sort', 'descending')
@@ -206,7 +216,7 @@ describe('TopNTable', () => {
 
   it('limits rows when maxRows is set', () => {
     const entries = makeAPIEntries(15)
-    render(<TopNTable entries={entries} title="Top API Calls" logType="API" maxRows={5} compact />)
+    renderTable(<TopNTable entries={entries} title="Top API Calls" logType="API" maxRows={5} compact />)
     const rows = screen.getAllByRole('row')
     expect(rows).toHaveLength(6) // 1 header + 5 data
     expect(screen.getByText(/show all 15 entries/i)).toBeInTheDocument()
@@ -214,7 +224,7 @@ describe('TopNTable', () => {
 
   it('expands to show all rows when "Show all" is clicked', () => {
     const entries = makeAPIEntries(15)
-    render(<TopNTable entries={entries} title="Top API Calls" logType="API" maxRows={5} compact />)
+    renderTable(<TopNTable entries={entries} title="Top API Calls" logType="API" maxRows={5} compact />)
     fireEvent.click(screen.getByText(/show all/i))
     const rows = screen.getAllByRole('row')
     expect(rows).toHaveLength(16) // 1 header + 15 data
@@ -264,7 +274,7 @@ describe('TopNTable', () => {
       identifier: 'HPD:AutoAssign',
       details: JSON.stringify({ esc_pool: 'Assignment', delay_ms: 500, thread_id: 'T001' }),
     })
-    render(<TopNTable entries={[entry]} title="Top Escalations" logType="ESCL" compact />)
+    renderTable(<TopNTable entries={[entry]} title="Top Escalations" logType="ESCL" compact />)
     expect(screen.getByTitle('Assignment')).toBeInTheDocument()
     expect(screen.getByText('500ms')).toBeInTheDocument()
   })
@@ -274,14 +284,14 @@ describe('TopNTable', () => {
       identifier: 'SetDefaults',
       details: JSON.stringify({ filter_level: 3, filter_name: 'SetDefaults' }),
     })
-    render(<TopNTable entries={[entry]} title="Top Filters" logType="FLTR" compact />)
+    renderTable(<TopNTable entries={[entry]} title="Top Filters" logType="FLTR" compact />)
     expect(screen.getByText('3')).toBeInTheDocument()
   })
 
   // --- Count badge in non-compact mode ---
 
   it('shows entry count next to title in non-compact mode', () => {
-    render(<TopNTable entries={makeAPIEntries(5)} title="Top API Calls" logType="API" />)
+    renderTable(<TopNTable entries={makeAPIEntries(5)} title="Top API Calls" logType="API" />)
     expect(screen.getByText('(5)')).toBeInTheDocument()
   })
 })

@@ -63,6 +63,10 @@ vi.mock('@/hooks/use-api', () => ({
   useDashboardThreads: vi.fn(),
   useDashboardFilters: vi.fn(),
   useGenerateReport: vi.fn(),
+  useQueuedCalls: vi.fn(),
+  useDelayedEscalations: vi.fn(),
+  useLoggingActivity: vi.fn(),
+  useFileMetadata: vi.fn(),
 }))
 
 import {
@@ -74,6 +78,10 @@ import {
   useDashboardThreads,
   useDashboardFilters,
   useGenerateReport,
+  useQueuedCalls,
+  useDelayedEscalations,
+  useLoggingActivity,
+  useFileMetadata,
 } from '@/hooks/use-api'
 
 // ---------------------------------------------------------------------------
@@ -197,6 +205,22 @@ function setupMocks(opts: {
     mutate: vi.fn(),
     isPending: false,
   })
+  ;(useQueuedCalls as Mock).mockReturnValue({
+    data: undefined,
+    isLoading: false,
+  })
+  ;(useDelayedEscalations as Mock).mockReturnValue({
+    data: undefined,
+    isLoading: false,
+  })
+  ;(useLoggingActivity as Mock).mockReturnValue({
+    data: undefined,
+    isLoading: false,
+  })
+  ;(useFileMetadata as Mock).mockReturnValue({
+    data: undefined,
+    isLoading: false,
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -287,6 +311,9 @@ describe('AnalysisDashboardPage', () => {
     expect(screen.getByText('Timing Gaps')).toBeInTheDocument()
     expect(screen.getByText('Thread Statistics')).toBeInTheDocument()
     expect(screen.getByText('Filter Complexity')).toBeInTheDocument()
+    expect(screen.getByText('Logging Activity')).toBeInTheDocument()
+    expect(screen.getByText('Source Files')).toBeInTheDocument()
+    expect(screen.getByText('Delayed Escalations')).toBeInTheDocument()
   })
 
   it('renders the Generate Report button', () => {

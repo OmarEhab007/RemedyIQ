@@ -20,9 +20,12 @@ import type {
   CreateConversationRequest,
   CreateSavedSearchRequest,
   DashboardData,
+  DelayedEscalationsResponse,
   ExceptionsResponse,
+  FileMetadataResponse,
   FilterComplexityResponse,
   GapsResponse,
+  LoggingActivityResponse,
   HealthResponse,
   ListAnalysesResponse,
   ListConversationsResponse,
@@ -34,6 +37,7 @@ import type {
   LogEntryContext,
   LogType,
   Pagination,
+  QueuedCallsResponse,
   RecentTracesResponse,
   ReportFormat,
   ReportResponse,
@@ -395,6 +399,57 @@ export async function getDashboardFilters(
 ): Promise<FilterComplexityResponse> {
   return apiFetch<FilterComplexityResponse>(
     `/analysis/${encodeURIComponent(jobId)}/dashboard/filters`,
+    {},
+    token,
+  );
+}
+
+/** GET /analysis/{job_id}/dashboard/queued-calls */
+export async function getDashboardQueuedCalls(
+  jobId: string,
+  token?: string,
+): Promise<QueuedCallsResponse> {
+  return apiFetch<QueuedCallsResponse>(
+    `/analysis/${encodeURIComponent(jobId)}/dashboard/queued-calls`,
+    {},
+    token,
+  );
+}
+
+/** GET /analysis/{job_id}/dashboard/delayed-escalations */
+export async function getDashboardDelayedEscalations(
+  jobId: string,
+  minDelayMs?: number,
+  limit?: number,
+  token?: string,
+): Promise<DelayedEscalationsResponse> {
+  const qs = toQueryString({ min_delay_ms: minDelayMs, limit });
+  return apiFetch<DelayedEscalationsResponse>(
+    `/analysis/${encodeURIComponent(jobId)}/dashboard/delayed-escalations${qs}`,
+    {},
+    token,
+  );
+}
+
+/** GET /analysis/{job_id}/dashboard/logging-activity */
+export async function getDashboardLoggingActivity(
+  jobId: string,
+  token?: string,
+): Promise<LoggingActivityResponse> {
+  return apiFetch<LoggingActivityResponse>(
+    `/analysis/${encodeURIComponent(jobId)}/dashboard/logging-activity`,
+    {},
+    token,
+  );
+}
+
+/** GET /analysis/{job_id}/dashboard/file-metadata */
+export async function getDashboardFileMetadata(
+  jobId: string,
+  token?: string,
+): Promise<FileMetadataResponse> {
+  return apiFetch<FileMetadataResponse>(
+    `/analysis/${encodeURIComponent(jobId)}/dashboard/file-metadata`,
     {},
     token,
   );

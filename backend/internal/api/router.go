@@ -41,6 +41,10 @@ type RouterConfig struct {
 	GapsHandler               http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/gaps
 	ThreadsHandler            http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/threads
 	FiltersHandler            http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/filters
+	QueuedCallsHandler        http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/queued-calls
+	LoggingActivityHandler    http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/logging-activity
+	FileMetadataHandler       http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/file-metadata
+	DelayedEscalationsHandler http.Handler // GET  /api/v1/analysis/{job_id}/dashboard/delayed-escalations
 	SearchLogsHandler         http.Handler // GET  /api/v1/analysis/{job_id}/search
 	GetLogEntryHandler        http.Handler // GET  /api/v1/analysis/{job_id}/entries/{entry_id}
 	GetEntryContextHandler    http.Handler // GET  /api/v1/analysis/{job_id}/entries/{entry_id}/context
@@ -109,6 +113,10 @@ func NewRouter(cfg RouterConfig) *mux.Router {
 	auth.Handle("/analysis/{job_id}/dashboard/gaps", handlerOrStub(cfg.GapsHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/dashboard/threads", handlerOrStub(cfg.ThreadsHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/dashboard/filters", handlerOrStub(cfg.FiltersHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/dashboard/queued-calls", handlerOrStub(cfg.QueuedCallsHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/dashboard/logging-activity", handlerOrStub(cfg.LoggingActivityHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/dashboard/file-metadata", handlerOrStub(cfg.FileMetadataHandler)).Methods(http.MethodGet, http.MethodOptions)
+	auth.Handle("/analysis/{job_id}/dashboard/delayed-escalations", handlerOrStub(cfg.DelayedEscalationsHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/search", handlerOrStub(cfg.SearchLogsHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/search/export", handlerOrStub(cfg.ExportHandler)).Methods(http.MethodGet, http.MethodOptions)
 	auth.Handle("/analysis/{job_id}/entries/{entry_id}", handlerOrStub(cfg.GetLogEntryHandler)).Methods(http.MethodGet, http.MethodOptions)

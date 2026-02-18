@@ -16,14 +16,18 @@ import type { SpanNode } from '@/lib/api-types'
 // Mocks
 // ---------------------------------------------------------------------------
 
-vi.mock('@/lib/constants', () => ({
-  LOG_TYPE_COLORS: {
-    API: { bg: '#4f46e5', text: '#fff', label: 'API', description: 'AR Server API calls' },
-    SQL: { bg: '#10b981', text: '#fff', label: 'SQL', description: 'SQL queries' },
-    FLTR: { bg: '#f59e0b', text: '#000', label: 'FLTR', description: 'Filter executions' },
-    ESCL: { bg: '#8b5cf6', text: '#fff', label: 'ESCL', description: 'Escalations' },
-  },
-}))
+vi.mock('@/lib/constants', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/constants')>()
+  return {
+    ...actual,
+    LOG_TYPE_COLORS: {
+      API: { bg: '#4f46e5', text: '#fff', label: 'API', description: 'AR Server API calls' },
+      SQL: { bg: '#10b981', text: '#fff', label: 'SQL', description: 'SQL queries' },
+      FLTR: { bg: '#f59e0b', text: '#000', label: 'FLTR', description: 'Filter executions' },
+      ESCL: { bg: '#8b5cf6', text: '#fff', label: 'ESCL', description: 'Escalations' },
+    },
+  }
+})
 
 // ---------------------------------------------------------------------------
 // makeSpan helper
@@ -73,11 +77,10 @@ describe('WaterfallRowStandalone', () => {
     expect(screen.getByText('GetEntry')).toBeInTheDocument()
   })
 
-  it('renders operation name with title attribute for tooltip', () => {
+  it('renders operation name as text content', () => {
     const span = makeSpan({ operation: 'CreateEntry' })
     render(<WaterfallRowStandalone span={span} totalDurationMs={500} />)
-    const operationEl = screen.getByTitle('CreateEntry')
-    expect(operationEl).toBeInTheDocument()
+    expect(screen.getByText('CreateEntry')).toBeInTheDocument()
   })
 
   it('falls back to truncated span id when operation is empty string', () => {

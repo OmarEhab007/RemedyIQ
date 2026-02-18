@@ -284,6 +284,20 @@ func ParseOutput(output string) (*domain.ParseResult, error) {
 				result.JARFilters.FilterLevels = entries
 			}
 
+		// --- LOGGING ACTIVITY ---
+		case strings.Contains(normalized, "logging activity"):
+			activities := parseLoggingActivity(body)
+			if len(activities) > 0 {
+				result.LoggingActivities = activities
+			}
+
+		// --- FILE INFORMATION / INPUT FILENAMES ---
+		case strings.Contains(normalized, "input filename") || strings.Contains(normalized, "file information"):
+			files := parseFileMetadata(body)
+			if len(files) > 0 {
+				result.FileMetadataList = files
+			}
+
 		// --- GENERIC FALLBACKS (v3 compatibility) ---
 		case strings.Contains(normalized, "thread") && !strings.Contains(normalized, "gap") && !strings.Contains(normalized, "api thread") && !strings.Contains(normalized, "sql thread"):
 			parseDistribution(body, data, "threads")
@@ -1902,6 +1916,175 @@ func parseAPIAbbreviationLegend(lines []string) []domain.JARAPIAbbreviation {
 				Abbreviation: abbr,
 				FullName:     full,
 			})
+		}
+	}
+	return entries
+}
+
+// parseDurationToMS converts a human-readable duration string (e.g., "8h 30m 45s") to milliseconds.
+func parseDurationToMS(s string) int64 {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0
+	}
+
+	var totalMS int64
+	re := regexp.MustCompile(`(\d+)\s*(h|m|s|ms)`)
+	matches := re.FindAllStringSubmatch(s, -1)
+	for _, m := range matches {
+		val := parseIntSafe(m[1])
+		switch m[2] {
+		case "h":
+			totalMS += val * 3600000
+		case "m":
+			totalMS += val * 60000
+		case "s":
+			totalMS += val * 1000
+		case "ms":
+			totalMS += val
+		}
+	}
+	return totalMS
+}
+
+// parseLoggingActivity parses the "Logging Activity" section.
+// Expected table format:
+//
+//	Type    First                         Last                          Duration
+//	----    -----                         ----                          --------
+//	API     Mon Feb 03 2026 10:00:00.123  Mon Feb 03 2026 18:30:45.678  8h 30m 45s
+func parseLoggingActivity(lines []string) []domain.LoggingActivity {
+	sepIdx := -1
+	for i, line := range lines {
+		if isDashSeparator(line) {
+			sepIdx = i
+			break
+		}
+	}
+	if sepIdx < 1 {
+		return nil
+	}
+
+	headerLine := lines[sepIdx-1]
+	sepLine := lines[sepIdx]
+	boundaries := extractColumnBoundaries(sepLine)
+	headers := extractColumnValues(headerLine, boundaries)
+
+	typeCol, firstCol, lastCol, durCol := -1, -1, -1, -1
+	for i, h := range headers {
+		hl := strings.ToLower(strings.TrimSpace(h))
+		switch {
+		case hl == "type":
+			typeCol = i
+		case hl == "first":
+			firstCol = i
+		case hl == "last":
+			lastCol = i
+		case strings.Contains(hl, "duration"):
+			durCol = i
+		}
+	}
+
+	var entries []domain.LoggingActivity
+	for i := sepIdx + 1; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "" {
+			continue
+		}
+		if isDashSeparator(lines[i]) || isEqualsSeparator(lines[i]) || strings.HasPrefix(trimmed, "###") {
+			break
+		}
+
+		values := extractColumnValues(lines[i], boundaries)
+		entry := domain.LoggingActivity{}
+		if typeCol >= 0 && typeCol < len(values) {
+			entry.LogType = strings.TrimSpace(values[typeCol])
+		}
+		if firstCol >= 0 && firstCol < len(values) {
+			entry.FirstTimestamp = parseTimestampSafe(strings.TrimSpace(values[firstCol]))
+		}
+		if lastCol >= 0 && lastCol < len(values) {
+			entry.LastTimestamp = parseTimestampSafe(strings.TrimSpace(values[lastCol]))
+		}
+		if durCol >= 0 && durCol < len(values) {
+			entry.DurationMS = parseDurationToMS(strings.TrimSpace(values[durCol]))
+		}
+		if entry.LogType != "" {
+			entries = append(entries, entry)
+		}
+	}
+	return entries
+}
+
+// parseFileMetadata parses the "Input filenames" / "File Information" section.
+// Expected table format:
+//
+//	Name                    File#  File Start                     File End                       Duration
+//	----                    -----  ----------                     --------                       --------
+//	arserver_20260203.log   1      Mon Feb 03 2026 10:00:00.123   Mon Feb 03 2026 14:00:00.456   4h 0m 0s
+func parseFileMetadata(lines []string) []domain.FileMetadata {
+	sepIdx := -1
+	for i, line := range lines {
+		if isDashSeparator(line) {
+			sepIdx = i
+			break
+		}
+	}
+	if sepIdx < 1 {
+		return nil
+	}
+
+	headerLine := lines[sepIdx-1]
+	sepLine := lines[sepIdx]
+	boundaries := extractColumnBoundaries(sepLine)
+	headers := extractColumnValues(headerLine, boundaries)
+
+	nameCol, numCol, startCol, endCol, durCol := -1, -1, -1, -1, -1
+	for i, h := range headers {
+		hl := strings.ToLower(strings.TrimSpace(h))
+		switch {
+		case hl == "name" || strings.Contains(hl, "filename"):
+			nameCol = i
+		case hl == "file#" || strings.Contains(hl, "number"):
+			numCol = i
+		case strings.Contains(hl, "file start") || (strings.Contains(hl, "start") && !strings.Contains(hl, "name")):
+			startCol = i
+		case strings.Contains(hl, "file end") || (strings.Contains(hl, "end") && !strings.Contains(hl, "name")):
+			endCol = i
+		case strings.Contains(hl, "duration"):
+			durCol = i
+		}
+	}
+
+	var entries []domain.FileMetadata
+	for i := sepIdx + 1; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "" {
+			continue
+		}
+		if isDashSeparator(lines[i]) || isEqualsSeparator(lines[i]) || strings.HasPrefix(trimmed, "###") {
+			break
+		}
+
+		values := extractColumnValues(lines[i], boundaries)
+		entry := domain.FileMetadata{}
+		if nameCol >= 0 && nameCol < len(values) {
+			entry.FileName = strings.TrimSpace(values[nameCol])
+		}
+		if numCol >= 0 && numCol < len(values) {
+			entry.FileNumber = int(parseIntSafe(values[numCol]))
+		}
+		if startCol >= 0 && startCol < len(values) {
+			entry.StartTime = parseTimestampSafe(strings.TrimSpace(values[startCol]))
+		}
+		if endCol >= 0 && endCol < len(values) {
+			entry.EndTime = parseTimestampSafe(strings.TrimSpace(values[endCol]))
+		}
+		if durCol >= 0 && durCol < len(values) {
+			entry.DurationMS = parseDurationToMS(strings.TrimSpace(values[durCol]))
+		}
+		if entry.FileName != "" || entry.FileNumber > 0 {
+			entries = append(entries, entry)
 		}
 	}
 	return entries

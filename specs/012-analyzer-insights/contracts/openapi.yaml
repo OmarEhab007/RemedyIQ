@@ -1,0 +1,169 @@
+openapi: '3.1.0'
+info:
+  title: RemedyIQ Analyzer Insights API
+  description: New endpoints for ARLogAnalyzer insights enhancement (012-analyzer-insights)
+  version: 1.1.0
+
+paths:
+  /api/v1/analysis/{job_id}/dashboard/queued-calls:
+    get:
+      operationId: getQueuedCalls
+      summary: Get queued API calls ranked by wait time
+      description: |
+        Returns API calls ranked by queue wait time from the JAR ParseResult cache.
+        Data originates from JAR's "QUEUED API CALLS" section.
+      tags: [Dashboard]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Queued API calls data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueuedCallsResponse'
+        '401':
+          description: Missing tenant context
+        '404':
+          description: Analysis job not found
+        '409':
+          description: Analysis not yet complete
+
+  /api/v1/analysis/{job_id}/dashboard/delayed-escalations:
+    get:
+      operationId: getDelayedEscalations
+      summary: Get escalations that ran late
+      description: |
+        Returns escalation entries where actual execution time exceeded scheduled time.
+        Data is aggregated from ClickHouse log_entries where delay_ms > 0.
+      tags: [Dashboard]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: min_delay_ms
+          in: query
+          required: false
+          description: Minimum delay threshold in milliseconds (default 0)
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of entries to return (default 50)
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: Delayed escalation entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DelayedEscalationsResponse'
+        '401':
+          description: Missing tenant context
+        '404':
+          description: Analysis job not found
+        '409':
+          description: Analysis not yet complete
+
+components:
+  schemas:
+    QueuedCallsResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        queued_api_calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopNEntry'
+        total:
+          type: integer
+      required: [job_id, queued_api_calls, total]
+
+    DelayedEscalationsResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/DelayedEscalationEntry'
+        total:
+          type: integer
+        avg_delay_ms:
+          type: number
+          format: double
+        max_delay_ms:
+          type: integer
+      required: [job_id, entries, total]
+
+    TopNEntry:
+      type: object
+      description: Reuses existing TopNEntry schema with queue_time_ms field
+      properties:
+        name:
+          type: string
+        count:
+          type: integer
+        total_ms:
+          type: integer
+          format: int64
+        avg_ms:
+          type: number
+          format: double
+        max_ms:
+          type: integer
+          format: int64
+        min_ms:
+          type: integer
+          format: int64
+        queue_time_ms:
+          type: integer
+          format: int64
+        form:
+          type: string
+        log_type:
+          type: string
+        source:
+          type: string
+
+    DelayedEscalationEntry:
+      type: object
+      properties:
+        esc_name:
+          type: string
+        esc_pool:
+          type: string
+        scheduled_time:
+          type: string
+          format: date-time
+        actual_time:
+          type: string
+          format: date-time
+        delay_ms:
+          type: integer
+          format: uint32
+        thread_id:
+          type: string
+        trace_id:
+          type: string
+        line_number:
+          type: integer
+          format: int64
+      required: [esc_name, delay_ms]
