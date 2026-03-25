@@ -48,6 +48,7 @@ vi.mock('next/navigation', () => ({
 // ---------------------------------------------------------------------------
 
 vi.mock('@/components/ui/command', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const React = require('react') as typeof import('react')
 
   /**

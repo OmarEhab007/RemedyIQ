@@ -531,8 +531,10 @@ export default function AnalysisDashboardPage() {
     if (!dashboard || autoSelected) return
     const first = TOP_N_TABS.find((t) => t.dataKey && (dashboard[t.dataKey]?.length ?? 0) > 0)
     if (first) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab(first.key)
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAutoSelected(true)
   }, [dashboard, autoSelected])
 

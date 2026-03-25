@@ -110,7 +110,7 @@ func TestStreamHandler_SuccessfulWebSocketUpgrade(t *testing.T) {
 	err = conn.WriteJSON(streaming.ClientMessage{Type: "ping"})
 	require.NoError(t, err)
 
-	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(2*time.Second)))
 	var serverMsg streaming.ServerMessage
 	err = conn.ReadJSON(&serverMsg)
 	require.NoError(t, err)
@@ -143,7 +143,7 @@ func TestStreamHandler_WebSocketMessageHandling(t *testing.T) {
 	err = conn.WriteJSON(streaming.ClientMessage{Type: "unknown_type"})
 	require.NoError(t, err)
 
-	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(2*time.Second)))
 	var serverMsg streaming.ServerMessage
 	err = conn.ReadJSON(&serverMsg)
 	require.NoError(t, err)
@@ -179,7 +179,7 @@ func TestStreamHandler_SubscribeJobProgress(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(2*time.Second)))
 	var serverMsg streaming.ServerMessage
 	err = conn.ReadJSON(&serverMsg)
 	require.NoError(t, err)

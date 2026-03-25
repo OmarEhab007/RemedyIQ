@@ -137,7 +137,7 @@ func (h *ExportHandler) exportJSON(w http.ResponseWriter, entries []domain.LogEn
 
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
-	encoder.Encode(map[string]interface{}{
+	_ = encoder.Encode(map[string]interface{}{
 		"count":   len(entries),
 		"entries": entries,
 	})

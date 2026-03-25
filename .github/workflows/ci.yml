@@ -42,7 +42,7 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: remedyiq_test
+          POSTGRES_DB: remedyiq
           POSTGRES_USER: remedyiq
           POSTGRES_PASSWORD: remedyiq
         ports:
@@ -53,7 +53,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      POSTGRES_URL: postgres://remedyiq:remedyiq@localhost:5432/remedyiq_test?sslmode=disable
+      POSTGRES_URL: postgres://remedyiq:remedyiq@localhost:5432/remedyiq?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

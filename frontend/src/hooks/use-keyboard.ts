@@ -89,6 +89,7 @@ export function useKeyboardShortcut(
   // Keep a stable ref to the callback so the effect doesn't re-run on
   // every render when an inline function is passed.
   const callbackRef = useRef(callback)
+  // eslint-disable-next-line react-hooks/refs
   callbackRef.current = callback
 
   useEffect(() => {

@@ -181,7 +181,7 @@ func (h *AIStreamHandler) streamSSE(ctx context.Context, w http.ResponseWriter, 
 
 	for chunk := range stream {
 		if chunk.Error != nil {
-			h.db.UpdateMessageStatus(ctx, tenantUUID, assistantMsg.ID, domain.MessageStatusError, chunk.Error.Error())
+			_ = h.db.UpdateMessageStatus(ctx, tenantUUID, assistantMsg.ID, domain.MessageStatusError, chunk.Error.Error())
 			h.writeSSEError(w, flusher, chunk.Error.Error(), "stream_error")
 			return
 		}

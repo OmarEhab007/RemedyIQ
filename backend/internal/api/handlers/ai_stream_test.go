@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -17,26 +16,6 @@ import (
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/ai"
 	"github.com/OmarEhab007/RemedyIQ/backend/internal/api/middleware"
 )
-
-type mockGeminiClient struct {
-	chunks []ai.StreamChunk
-}
-
-func (m *mockGeminiClient) StreamQuery(ctx context.Context, systemPrompt string, messages []ai.Message, maxTokens int) <-chan ai.StreamChunk {
-	ch := make(chan ai.StreamChunk, len(m.chunks)+1)
-	go func() {
-		defer close(ch)
-		for _, chunk := range m.chunks {
-			ch <- chunk
-		}
-		ch <- ai.StreamChunk{IsFinal: true, TokensIn: 100, TokensOut: 50}
-	}()
-	return ch
-}
-
-func (m *mockGeminiClient) IsAvailable() bool {
-	return true
-}
 
 func TestAIStreamHandler_MissingTenantContext(t *testing.T) {
 	registry := ai.NewRegistry()
