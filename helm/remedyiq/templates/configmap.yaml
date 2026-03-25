@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "remedyiq.fullname" . }}-config
+  labels:
+    {{- include "remedyiq.labels" . | nindent 4 }}
+data:
+  ENVIRONMENT: {{ .Values.environment | quote }}
+  API_PORT: "8080"
+  LOG_LEVEL: {{ .Values.logLevel | quote }}
+  JAR_PATH: /app/ARLogAnalyzer.jar
+  JAR_DEFAULT_HEAP_MB: "4096"
+  JAR_TIMEOUT_SEC: "1800"
+  S3_ENDPOINT: ""
+  S3_USE_SSL: "true"
+  S3_SKIP_BUCKET_VERIFICATION: "false"

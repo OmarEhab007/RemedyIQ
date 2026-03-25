@@ -7,19 +7,18 @@ This directory contains architecture diagrams for the RemedyIQ platform.
 ```mermaid
 graph TB
     subgraph "Client Layer"
-        WEB[Web UI<br/>Next.js + React]
-        CLI[CLI Tool<br/>Optional]
+        WEB[Web UI<br/>Next.js 16 + React 19]
     end
     
-    subgraph "API Gateway"
+    subgraph "API Layer"
         API[REST API<br/>Go + Gorilla Mux]
+        SSE[SSE Streaming<br/>AI Responses]
         WS[WebSocket<br/>Real-time Updates]
     end
     
-    subgraph "Application Layer"
-        API_SERVER[API Server<br/>cmd/api]
+    subgraph "Application Services"
+        API_SRV[API Server<br/>cmd/api]
         WORKER[Worker Service<br/>cmd/worker]
-        AUTH[Authentication<br/>Clerk]
     end
     
     subgraph "Message Queue"
@@ -28,51 +27,57 @@ graph TB
     
     subgraph "AI & Analysis"
         JAR[ARLogAnalyzer.jar<br/>Log Parser]
-        AI[Claude API<br/>AI Analysis]
+        GEMINI[Google Gemini<br/>AI Analysis]
         BLEVE[Bleve<br/>Full-text Search]
     end
     
     subgraph "Storage Layer"
-        PG[(PostgreSQL<br/>Metadata & Tenant)]
-        CH[(ClickHouse<br/>Log Entries)]
-        REDIS[(Redis<br/>Cache)]
-        S3[(MinIO/S3<br/>Log Files)]
+        PG[(PostgreSQL 16<br/>Metadata & Tenant)]
+        CH[(ClickHouse 24<br/>Log Entries)]
+        REDIS[(Redis 7<br/>Cache)]
+        MINIO[(MinIO/S3<br/>Log Files)]
     end
     
-    WEB -->|HTTP/HTTPS| API
-    WEB -->|WebSocket| WS
-    CLI -->|HTTP| API
+    subgraph "External Services"
+        CLERK[Clerk<br/>Authentication]
+    end
     
-    API --> API_SERVER
-    WS --> API_SERVER
+    WEB -->|HTTP/SSE/WS| API
+    WEB --> SSE
+    WEB --> WS
     
-    API_SERVER -->|SQL| PG
-    API_SERVER -->|CHQL| CH
-    API_SERVER -->|Get/Set| REDIS
-    API_SERVER -->|Upload/Download| S3
-    API_SERVER --> NATS
-    API_SERVER --> AUTH
+    API --> API_SRV
+    SSE --> API_SRV
+    WS --> API_SRV
     
-    WORKER --> NATS
+    API_SRV -->|SQL| PG
+    API_SRV -->|CHQL| CH
+    API_SRV -->|Get/Set| REDIS
+    API_SRV -->|Upload/Download| MINIO
+    API_SRV --> NATS
+    API_SRV -->|JWT Validate| CLERK
+    
+    WORKER -->|Subscribe| NATS
     WORKER -->|Execute| JAR
-    WORKER -->|Query| AI
-    WORKER -->|Search| BLEVE
+    WORKER -->|Stream| GEMINI
+    WORKER -->|Index| BLEVE
     WORKER -->|SQL| PG
     WORKER -->|CHQL| CH
-    WORKER -->|Store| S3
+    WORKER -->|Store| MINIO
+    WORKER -->|Cache| REDIS
     
-    NATS --> WORKER
+    NATS -->|Publish| WORKER
     
     style WEB fill:#e1f5ff
     style API fill:#fff4e1
-    style API_SERVER fill:#e8f5e9
+    style API_SRV fill:#e8f5e9
     style WORKER fill:#e8f5e9
     style PG fill:#fce4ec
     style CH fill:#f3e5f5
     style REDIS fill:#fff3e0
-    style S3 fill:#e0f2f1
+    style MINIO fill:#e0f2f1
     style NATS fill:#f1f8e9
-    style AI fill:#ede7f6
+    style GEMINI fill:#ede7f6
 ```
 
 ## Data Flow - Log Upload & Analysis
@@ -88,9 +93,10 @@ sequenceDiagram
     participant CH as ClickHouse
     participant PG as PostgreSQL
     participant S3 as MinIO/S3
+    participant Redis
     
     User->>WebUI: Upload .log file (drag & drop)
-    WebUI->>API: POST /api/v1/logs/upload (multipart)
+    WebUI->>API: POST /api/v1/files/upload (multipart)
     API->>S3: Store raw log file
     API->>PG: Create LogFile record
     API->>PG: Create AnalysisJob (status: queued)
@@ -101,265 +107,314 @@ sequenceDiagram
     NATS->>Worker: job.created message
     
     Worker->>PG: Update job status (parsing)
+    Worker->>S3: Download file to temp
     Worker->>JAR: Execute with log file path
     JAR-->>Worker: Parsed JSON output
     
     Worker->>PG: Update job status (analyzing)
-    Worker->>CH: Batch insert log entries
-    Worker->>BLEVE: Build search index
-    Worker->>AI: Optional AI analysis
+    Worker->>Worker: Parse JAR output
+    Worker->>Worker: Detect anomalies
+    Worker->>Redis: Cache dashboard sections
     
     Worker->>PG: Update job status (storing)
-    Worker->>PG: Store analysis results
+    Worker->>CH: Batch insert log entries
+    Worker->>BLEVE: Build search index
     
     Worker->>PG: Update job status (complete)
     Worker->>NATS: Publish job.completed event
     API->>WebUI: WebSocket push (100% progress)
     
-    WebUI->>API: GET /api/v1/jobs/:job_id
-    API-->>WebUI: Job status + stats
+    WebUI->>API: GET /api/v1/analysis/:job_id/dashboard
+    API-->>WebUI: Dashboard data
     WebUI->>User: Show dashboard with results
 ```
 
 ## Multi-Tenant Architecture
 
 ```mermaid
-graph LR
-    subgraph "Tenant A (Organization 1)"
-        WEB_A[Web UI]
-        API_A[API Requests]
-        NATS_A[jobs.tenant-a.*]
-        PG_A[PostgreSQL<br/>tenant_id = 'a']
-        CH_A[ClickHouse<br/>PARTITION tenant_a]
-        REDIS_A[Redis<br/>prefix:tenant-a: ]
-        S3_A[S3<br/>s3://tenant-a/]
+graph TB
+    subgraph "Tenant Isolation Layer"
+        AUTH[Clerk JWT<br/>Authentication]
+        MW[Tenant Middleware<br/>Extract org_id]
+        RLS[PostgreSQL RLS<br/>app.tenant_id]
     end
     
-    subgraph "Tenant B (Organization 2)"
-        WEB_B[Web UI]
-        API_B[API Requests]
-        NATS_B[jobs.tenant-b.*]
-        PG_B[PostgreSQL<br/>tenant_id = 'b']
-        CH_B[ClickHouse<br/>PARTITION tenant_b]
-        REDIS_B[Redis<br/>prefix:tenant-b: ]
-        S3_B[S3<br/>s3://tenant-b/]
+    subgraph "Request Flow"
+        REQ[HTTP Request] --> AUTH
+        AUTH -->|Validate JWT| MW
+        MW -->|SET app.tenant_id| RLS
+        RLS -->|Filtered Query| DB[(Database)]
     end
     
-    subgraph "Shared Services"
-        AUTH[Clerk Auth<br/>Multi-tenant]
-        AI[Claude API<br/>Rate-limited]
-        WORKER[Worker Pool]
+    subgraph "Tenant A"
+        TA_DATA[Tenant A Data<br/>tenant_id = 'a']
+        TA_S3[s3://tenant-a/]
+        TA_NATS[jobs.tenant-a.*]
     end
     
-    WEB_A --> API_A
-    WEB_B --> API_B
+    subgraph "Tenant B"
+        TB_DATA[Tenant B Data<br/>tenant_id = 'b']
+        TB_S3[s3://tenant-b/]
+        TB_NATS[jobs.tenant-b.*]
+    end
     
-    API_A --> AUTH
-    API_B --> AUTH
+    RLS --> TA_DATA
+    RLS --> TB_DATA
     
-    API_A --> NATS_A
-    API_B --> NATS_B
-    
-    WORKER --> NATS_A
-    WORKER --> NATS_B
-    
-    WORKER --> PG_A
-    WORKER --> PG_B
-    
-    WORKER --> CH_A
-    WORKER --> CH_B
-    
-    WORKER --> REDIS_A
-    WORKER --> REDIS_B
-    
-    WORKER --> S3_A
-    WORKER --> S3_B
-    
-    WORKER --> AI
-    
-    style PG_A fill:#fce4ec
-    style PG_B fill:#e3f2fd
-    style CH_A fill:#fce4ec
-    style CH_B fill:#e3f2fd
-    style REDIS_A fill:#fce4ec
-    style REDIS_B fill:#e3f2fd
-    style S3_A fill:#fce4ec
-    style S3_B fill:#e3f2fd
+    style AUTH fill:#e3f2fd
+    style MW fill:#fff3e0
+    style RLS fill:#fce4ec
 ```
 
-## AI-Powered Query Flow
+## AI Streaming Flow (SSE)
 
 ```mermaid
 sequenceDiagram
     participant User
     participant WebUI
-    participant API
-    participant AI as Claude API
+    participant API as API Server
+    participant Router as AI Router
+    participant Skill as AI Skill
+    participant Gemini as Google Gemini
     participant CH as ClickHouse
-    participant BLEVE as Bleve Search
     
-    User->>WebUI: Ask: "Show me slow API calls yesterday"
-    WebUI->>API: POST /api/v1/ai/query
+    User->>WebUI: Ask: "Show me slow API calls"
+    WebUI->>API: POST /api/v1/ai/stream (SSE)
     
-    API->>AI: Send query + context
-    AI-->>API: Return SQL query + reasoning
+    API->>Router: Route query
+    Router->>Router: Match keywords/patterns
+    Router-->>API: skill = "performance"
     
-    API->>CH: Execute: SELECT * FROM log_entries<br/>WHERE type='API' AND duration_ms > 1000<br/>AND timestamp >= yesterday
+    API->>CH: Fetch context data
+    CH-->>API: Top slow API calls
     
-    CH-->>API: Return matching log entries
+    API->>Gemini: StreamGenerateContent
+    Note over API,Gemini: System prompt + context + query
     
-    API->>BLEVE: Search for related patterns
-    BLEVE-->>API: Additional context
+    loop Streaming chunks
+        Gemini-->>API: Chunk delta
+        API-->>WebUI: SSE: data: {"delta": "..."}
+        WebUI->>User: Render markdown incrementally
+    end
     
-    API->>AI: Ask for explanation with evidence
-    AI-->>API: Natural language answer<br/>with log line references
-    
-    API-->>WebUI: JSON: { answer, evidence, confidence, suggested_questions }
-    WebUI-->>User: Display answer with clickable log lines
+    Gemini-->>API: Stream complete
+    API->>PG: Store conversation message
+    API-->>WebUI: SSE: data: [DONE]
 ```
 
-## Component Interaction - Real-time Dashboard
+## Real-time Dashboard Updates
 
 ```mermaid
 graph TB
     subgraph "Browser"
         REACT[React App]
-        REDUX[State Management]
-        CHART[Recharts<br/>Visualization]
-        WEBSOCK[WebSocket Client]
+        WS_CLIENT[WebSocket Client]
+        HOOKS[useJobProgress Hook]
     end
     
     subgraph "API Server"
-        WS_SERVER[WebSocket Handler]
-        REST[REST API]
-        AUTHZ[Auth Middleware]
+        WS_HUB[WebSocket Hub]
+        SUBS[Active Subscriptions]
     end
     
     subgraph "Worker"
-        ANALYZER[Log Analyzer]
-        AGGREGATOR[Metrics Aggregator]
+        PROCESSOR[Job Processor]
+        NATS_SUB[NATS Subscriber]
     end
     
-    subgraph "Storage"
-        CH[(ClickHouse)]
-        REDIS[(Redis<br/>Real-time Stats)]
+    subgraph "NATS"
+        JS[JetStream<br/>jobs.{tenant_id}.*]
     end
     
-    REACT --> REDUX
-    REDUX --> CHART
-    REDUX --> REST
-    REACT --> WEBSOCK
+    REACT --> WS_CLIENT
+    WS_CLIENT -->|Connect| WS_HUB
+    WS_HUB --> SUBS
     
-    WEBSOCK --> WS_SERVER
-    REST --> WS_SERVER
-    REST --> AUTHZ
-    
-    WS_SERVER --> REDIS
-    
-    ANALYZER --> CH
-    AGGREGATOR --> REDIS
-    
-    REST --> CH
+    PROCESSOR -->|Progress Update| NATS_SUB
+    NATS_SUB -->|Publish| JS
+    JS -->|Subscribe| WS_HUB
+    WS_HUB -->|Broadcast| WS_CLIENT
+    WS_CLIENT --> HOOKS
+    HOOKS --> REACT
     
     style REACT fill:#61dafb
-    style CHART fill:#4caf50
-    style WS_SERVER fill:#ff9800
-    style ANALYZER fill:#9c27b0
+    style WS_HUB fill:#ff9800
+    style JS fill:#4caf50
+```
+
+## Component Interaction - Request Processing
+
+```mermaid
+graph TB
+    subgraph "HTTP Request"
+        REQ[Incoming Request]
+    end
+    
+    subgraph "Middleware Chain"
+        RECOV[Recovery<br/>Panic Handler]
+        LOG[Logging<br/>Request Logger]
+        CORS[CORS<br/>Origin Check]
+        LIMIT[Body Limit<br/>10MB Max]
+        AUTH[Auth Middleware<br/>Clerk JWT]
+        TENANT[Tenant Middleware<br/>org_id injection]
+    end
+    
+    subgraph "Handler"
+        HANDLER[Route Handler]
+        VALIDATE[Input Validation]
+        SERVICE[Business Logic]
+    end
+    
+    subgraph "Response"
+        RESP[JSON Response]
+        ERR[Error Response]
+    end
+    
+    REQ --> RECOV
+    RECOV --> LOG
+    LOG --> CORS
+    CORS --> LIMIT
+    LIMIT --> AUTH
+    AUTH --> TENANT
+    TENANT --> HANDLER
+    HANDLER --> VALIDATE
+    VALIDATE --> SERVICE
+    SERVICE --> RESP
+    SERVICE --> ERR
+    
+    style AUTH fill:#e3f2fd
+    style TENANT fill:#fff3e0
 ```
 
 ## Technology Stack
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Frontend** | Next.js 15, React 19, TypeScript | Web UI framework |
-| **UI Components** | shadcn/ui, Radix UI, Tailwind CSS | Component library |
-| **Charts** | Recharts | Data visualization |
-| **API** | Go 1.24, Gorilla Mux | REST API server |
-| **Real-time** | WebSocket, NATS JetStream | Live updates, job queue |
-| **Database** | PostgreSQL + pgx/v5 | Metadata, tenant data |
-| **Analytics** | ClickHouse | Time-series log data |
-| **Cache** | Redis | Session, rate limiting, real-time stats |
-| **Storage** | MinIO / S3 | Log file storage |
-| **Search** | Bleve | Full-text search index |
-| **AI** | Claude API (Anthropic) | Natural language query |
-| **Auth** | Clerk | Multi-tenant authentication |
-| **Infrastructure** | Docker, Docker Compose | Containerization |
+| Layer | Technology | Version | Purpose |
+|-------|-----------|---------|---------|
+| **Frontend Framework** | Next.js | 16.x | App Router, SSR/SSG |
+| **UI Library** | React | 19.x | Component framework |
+| **Language (FE)** | TypeScript | 5.x | Type safety |
+| **Styling** | Tailwind CSS | 4.x | Utility-first CSS |
+| **UI Components** | shadcn/ui | Latest | Accessible components |
+| **Charts** | Recharts | 2.x | Data visualization |
+| **State Management** | Zustand | 5.x | Global state |
+| **Data Fetching** | TanStack Query | 5.x | Server state |
+| **Backend Language** | Go | 1.24 | High-performance services |
+| **HTTP Router** | Gorilla Mux | 1.8 | URL routing |
+| **Primary Database** | PostgreSQL | 16 | Metadata, multi-tenant |
+| **Analytics Database** | ClickHouse | 24 | Time-series log data |
+| **Message Queue** | NATS JetStream | 2.x | Job queue, events |
+| **Cache** | Redis | 7 | Session, dashboard cache |
+| **Object Storage** | MinIO | Latest | S3-compatible storage |
+| **AI (Primary)** | Google Gemini | gemini-2.5-flash | Streaming AI |
+| **Search Engine** | Bleve | 2.5 | Full-text search |
+| **Authentication** | Clerk | 6.x | Multi-tenant auth |
+| **Log Parser** | ARLogAnalyzer.jar | 3.2.2 | BMC Remedy log parsing |
 
 ## Deployment Architecture
 
 ```mermaid
 graph TB
     subgraph "Production Environment"
-        LB[Load Balancer<br/>Nginx/Caddy]
+        LB[Load Balancer<br/>AWS ALB / Nginx]
         
-        subgraph "Frontend Cluster"
-            FE1[Frontend Pod 1]
-            FE2[Frontend Pod 2]
-            FEN[Frontend Pod N]
+        subgraph "Kubernetes Cluster"
+            subgraph "Frontend"
+                FE1[Next.js Pod 1]
+                FE2[Next.js Pod 2]
+            end
+            
+            subgraph "API Cluster"
+                API1[API Pod 1]
+                API2[API Pod 2]
+            end
+            
+            subgraph "Workers"
+                WKR1[Worker Pod 1]
+            end
+            
+            subgraph "Message Queue"
+                NATS_POD[NATS JetStream Pod]
+            end
         end
-        
-        subgraph "API Cluster"
-            API1[API Pod 1]
-            API2[API Pod 2]
-            APIN[API Pod N]
-        end
-        
-        subgraph "Worker Cluster"
-            WKR1[Worker Pod 1]
-            WKR2[Worker Pod 2]
-            WKRN[Worker Pod N]
-        end
-        
-        LB --> FE1
-        LB --> FE2
-        LB --> FEN
-        
-        FE1 --> API1
-        FE2 --> API2
-        FEN --> APIN
-        
-        API1 --> WKR1
-        API2 --> WKR2
-        APIN --> WKRN
     end
     
-    subgraph "Data Layer"
-        PG_HA[(PostgreSQL<br/>Primary + Replicas)]
+    subgraph "Managed Services"
+        PG_HA[(RDS PostgreSQL<br/>Primary + Replicas)]
         CH_CLUSTER[(ClickHouse<br/>Cluster)]
-        REDIS_HA[(Redis<br/>Sentinel)]
-        S3_CLUSTER[(MinIO/S3<br/>Distributed)]
+        REDIS_HA[(ElastiCache Redis<br/>Cluster)]
+        S3_BUCKET[(S3 Bucket<br/>Log Files)]
     end
-    
-    API1 --> PG_HA
-    API2 --> PG_HA
-    APIN --> PG_HA
-    
-    API1 --> CH_CLUSTER
-    API2 --> CH_CLUSTER
-    APIN --> CH_CLUSTER
-    
-    API1 --> REDIS_HA
-    API2 --> REDIS_HA
-    APIN --> REDIS_HA
-    
-    WKR1 --> S3_CLUSTER
-    WKR2 --> S3_CLUSTER
-    WKRN --> S3_CLUSTER
-    
-    WKR1 --> CH_CLUSTER
-    WKR2 --> CH_CLUSTER
-    WKRN --> CH_CLUSTER
     
     subgraph "External Services"
         CLERK[Clerk Auth]
-        CLAUDE[Claude API]
+        GEMINI[Google Gemini API]
     end
     
-    API1 --> CLERK
-    API2 --> CLERK
-    APIN --> CLERK
+    LB --> FE1
+    LB --> FE2
+    FE1 --> API1
+    FE2 --> API2
     
-    WKR1 --> CLAUDE
-    WKR2 --> CLAUDE
-    WKRN --> CLAUDE
+    API1 --> PG_HA
+    API2 --> PG_HA
+    API1 --> CH_CLUSTER
+    API2 --> CH_CLUSTER
+    API1 --> REDIS_HA
+    API2 --> REDIS_HA
+    
+    WKR1 --> S3_BUCKET
+    WKR1 --> CH_CLUSTER
+    WKR1 --> NATS_POD
+    WKR1 --> GEMINI
+    
+    API1 --> NATS_POD
+    API1 --> CLERK
+    
+    style LB fill:#e3f2fd
+    style API1 fill:#e8f5e9
+    style WKR1 fill:#fff3e0
+```
+
+## Security Architecture
+
+```mermaid
+graph TB
+    subgraph "Client"
+        BROWSER[Browser]
+    end
+    
+    subgraph "Authentication Layer"
+        CLERK_FE[Clerk Frontend<br/>Sign-in/Sign-up]
+        CLERK_BK[Clerk Backend<br/>JWT Validation]
+    end
+    
+    subgraph "Authorization Layer"
+        MW_AUTH[Auth Middleware<br/>JWT Verify]
+        MW_TENANT[Tenant Middleware<br/>org_id extraction]
+    end
+    
+    subgraph "Data Isolation"
+        RLS[PostgreSQL RLS<br/>Row-Level Security]
+        S3_PREFIX[S3 Prefix<br/>tenant_id/]
+        NATS_SUBJECT[NATS Subject<br/>jobs.{tenant_id}.*]
+    end
+    
+    subgraph "Data Layer"
+        PG[(PostgreSQL)]
+        S3[(MinIO/S3)]
+        NATS[(NATS)]
+    end
+    
+    BROWSER --> CLERK_FE
+    CLERK_FE -->|JWT Token| MW_AUTH
+    MW_AUTH -->|Valid JWT| MW_TENANT
+    MW_TENANT -->|SET app.tenant_id| RLS
+    RLS -->|Filtered| PG
+    MW_TENANT -->|Prefix| S3_PREFIX
+    S3_PREFIX --> S3
+    MW_TENANT -->|Subject| NATS_SUBJECT
+    NATS_SUBJECT --> NATS
+    
+    style CLERK_FE fill:#e3f2fd
+    style RLS fill:#fce4ec
 ```

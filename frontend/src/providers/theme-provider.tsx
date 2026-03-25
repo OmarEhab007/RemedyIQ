@@ -91,6 +91,7 @@ export function ThemeProvider({
   // Apply on mount and sync with stored value
   useEffect(() => {
     const resolved = resolve(theme)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setResolvedTheme(resolved)
     applyTheme(resolved)
   }, [theme, resolve])

@@ -57,7 +57,7 @@ func TestCORSMiddleware_AllowedOrigin_GET(t *testing.T) {
 	cors := CORSMiddleware([]string{"https://app.remedyiq.com"})
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
+		_, _ = w.Write([]byte("ok"))
 	})
 	handler := cors(inner)
 

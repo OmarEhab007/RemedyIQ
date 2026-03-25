@@ -59,6 +59,7 @@ export function CollapsibleSection({
   const [isOpen, setIsOpen] = useState(defaultOpen)
   const [hasExpanded, setHasExpanded] = useState(defaultOpen)
   const onExpandRef = useRef(onExpand)
+  // eslint-disable-next-line react-hooks/refs
   onExpandRef.current = onExpand
 
   // Fire onExpand once after the first expansion renders

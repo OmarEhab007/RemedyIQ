@@ -32,7 +32,7 @@ interface MessageViewProps {
 function renderMarkdown(text: string): string {
   // Very simple inline renderer for common patterns.
   // For production use, swap in `marked` or `react-markdown`.
-  let html = text
+  const html = text
     // Code blocks
     .replace(/```(\w+)?\n?([\s\S]*?)```/g, (_, lang, code: string) => {
       const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')

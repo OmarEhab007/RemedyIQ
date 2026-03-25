@@ -35,16 +35,19 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 
 #############################################
 # Stage 2: Runtime (API)
+# eclipse-temurin:11-jre (Ubuntu Jammy) uses glibc, so snappy-java's
+# bundled native lib extracts and loads without any workaround.
 #############################################
-FROM alpine:3.19 AS api
+FROM eclipse-temurin:11-jre-jammy AS api
 
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     tzdata \
-    openjdk11-jre-headless
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN addgroup -g 1000 remedyiq && \
-    adduser -D -u 1000 -G remedyiq remedyiq
+RUN groupadd -g 1000 remedyiq && \
+    useradd -u 1000 -g remedyiq -m -s /bin/sh remedyiq
 
 WORKDIR /app
 
@@ -59,22 +62,22 @@ USER remedyiq
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api/v1/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:8080/api/v1/health || exit 1
 
 CMD ["./api"]
 
 #############################################
 # Stage 3: Runtime (Worker)
 #############################################
-FROM alpine:3.19 AS worker
+FROM eclipse-temurin:11-jre-jammy AS worker
 
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     tzdata \
-    openjdk11-jre-headless
+    && rm -rf /var/lib/apt/lists/*
 
-RUN addgroup -g 1000 remedyiq && \
-    adduser -D -u 1000 -G remedyiq remedyiq
+RUN groupadd -g 1000 remedyiq && \
+    useradd -u 1000 -g remedyiq -m -s /bin/sh remedyiq
 
 WORKDIR /app
 

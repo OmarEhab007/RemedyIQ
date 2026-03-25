@@ -464,7 +464,7 @@ func (p *PostgresClient) RecordSearchHistory(ctx context.Context, tenantID uuid.
 	if err != nil {
 		return fmt.Errorf("postgres: record search history begin: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	_, err = tx.Exec(ctx, `
 		INSERT INTO search_history (tenant_id, user_id, job_id, kql_query, result_count, created_at)

@@ -1,4 +1,4 @@
-.PHONY: all help dev api worker frontend test test-coverage lint build migrate-up migrate-down ch-init db-setup docker-up docker-down docker-build docker-logs docker-restart docker-clean clean deps setup run check-services
+.PHONY: all help dev api worker frontend test test-coverage lint build migrate-up migrate-down ch-init db-setup docker-up docker-down docker-build docker-logs docker-restart docker-clean clean deps setup run check-services docker-up-all helm-lint helm-dry-run
 
 # Default target
 .DEFAULT_GOAL := help
@@ -168,3 +168,29 @@ run: ## Full stack: Start all services + API + Worker + Frontend (one command)
 	@sleep 3
 	@trap 'kill 0' INT; \
 	$(MAKE) api & $(MAKE) worker & $(MAKE) frontend & wait
+
+##@ Containerization (EKS)
+
+docker-up-all: ## Start ALL services including API, Worker, Frontend via docker compose
+	@echo "$(GREEN)Starting all services (infrastructure + application)...$(RESET)"
+	docker compose up --build
+	@echo "$(GREEN)All services started!$(RESET)"
+	@echo "Frontend: http://localhost:3000"
+	@echo "API:      http://localhost:8080/api/v1/health"
+
+helm-lint: ## Lint Helm charts (staging + prod)
+	@echo "$(GREEN)Linting Helm charts...$(RESET)"
+	helm dependency update helm/remedyiq
+	helm lint helm/remedyiq -f helm/remedyiq/values-staging.yaml
+	helm lint helm/remedyiq -f helm/remedyiq/values-prod.yaml
+	@echo "$(GREEN)Helm lint passed!$(RESET)"
+
+helm-dry-run: ## Dry-run Helm template deployment (requires kubectl)
+	@echo "$(GREEN)Running Helm template dry-run...$(RESET)"
+	helm dependency update helm/remedyiq
+	helm template remedyiq-staging helm/remedyiq \
+		-f helm/remedyiq/values-staging.yaml \
+		--set image.tag=dev \
+		--set image.registry=localhost \
+		| kubectl apply --dry-run=client -f -
+	@echo "$(GREEN)Dry-run complete!$(RESET)"

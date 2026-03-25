@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "remedyiq.fullname" . }}-api
+  labels:
+    {{- include "remedyiq.apiLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels:
+      {{- include "remedyiq.apiSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "remedyiq.apiSelectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "remedyiq.apiServiceAccountName" . }}
+      containers:
+        - name: api
+          image: {{ include "remedyiq.apiImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "remedyiq.fullname" . }}-config
+            - secretRef:
+                name: {{ include "remedyiq.fullname" . }}-secrets
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+      {{- if .Values.api.podAntiAffinity }}
+      affinity:
+        podAntiAffinity:
+          {{- if eq .Values.api.podAntiAffinity "required" }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  {{- include "remedyiq.apiSelectorLabels" . | nindent 18 }}
+              topologyKey: kubernetes.io/hostname
+          {{- else if eq .Values.api.podAntiAffinity "preferred" }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    {{- include "remedyiq.apiSelectorLabels" . | nindent 20 }}
+                topologyKey: kubernetes.io/hostname
+          {{- end }}
+      {{- end }}

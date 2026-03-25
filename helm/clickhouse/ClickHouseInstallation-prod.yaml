@@ -1,0 +1,35 @@
+apiVersion: clickhouse.altinity.com/v1
+kind: ClickHouseInstallation
+metadata:
+  name: remedyiq
+  namespace: remedyiq-prod
+spec:
+  configuration:
+    clusters:
+      - name: remedyiq
+        layout:
+          shardsCount: 1
+          replicasCount: 2
+  templates:
+    podTemplates:
+      - name: clickhouse-pod
+        spec:
+          containers:
+            - name: clickhouse
+              image: clickhouse/clickhouse-server:24
+              resources:
+                requests:
+                  cpu: 1
+                  memory: 4Gi
+                limits:
+                  cpu: 4
+                  memory: 16Gi
+    volumeClaimTemplates:
+      - name: clickhouse-storage
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          storageClassName: gp3
+          resources:
+            requests:
+              storage: 500Gi

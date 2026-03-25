@@ -1,0 +1,15 @@
+replicaCount: 1
+
+image:
+  repository: altinity/clickhouse-operator
+  tag: 0.26.1
+  pullPolicy: IfNotPresent
+
+crdHook:
+  enabled: true
+
+metrics:
+  enabled: false
+
+logging:
+  enabled: false

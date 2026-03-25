@@ -71,6 +71,7 @@ export function SearchBar({
 
   // Open/close dropdown based on suggestions
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsOpen(hasSuggestions)
     setActiveIndex(-1)
   }, [hasSuggestions, debouncedPrefix])

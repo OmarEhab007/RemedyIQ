@@ -19,8 +19,7 @@ var (
 	sectionHeaderRe    = regexp.MustCompile(`^={3,}\s*(.+?)\s*={3,}$`)
 	v4MajorSectionRe   = regexp.MustCompile(`^#{3,}\s+SECTION:\s*(.+?)\s*#{3,}`)
 	v4SubsectionRe     = regexp.MustCompile(`^###\s+(.+)$`)
-	dashSeparatorLineRe = regexp.MustCompile(`^[-\s]+$`)
-	separatorRe        = regexp.MustCompile(`^-{3,}$`)
+	separatorRe = regexp.MustCompile(`^-{3,}$`)
 )
 
 // Common timestamp layouts produced by the JAR.

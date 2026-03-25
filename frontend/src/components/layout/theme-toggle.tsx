@@ -21,6 +21,7 @@ export function ThemeToggle() {
   const [mounted, setMounted] = useState(false)
   const { resolvedTheme, toggleTheme } = useTheme()
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setMounted(true) }, [])
 
   // During SSR / hydration, render a static placeholder to avoid mismatch

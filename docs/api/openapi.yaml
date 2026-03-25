@@ -1,0 +1,1105 @@
+openapi: 3.1.0
+info:
+  title: RemedyIQ API
+  description: Enterprise Log Intelligence Platform for BMC Remedy AR Server
+  version: 1.0.0
+  contact:
+    name: RemedyIQ Support
+    url: https://remedyiq.io
+
+servers:
+  - url: https://api.remedyiq.io/api/v1
+    description: Production
+  - url: http://localhost:8080/api/v1
+    description: Development
+
+tags:
+  - name: Health
+    description: System health endpoints
+  - name: Files
+    description: Log file management
+  - name: Analysis
+    description: Analysis job management
+  - name: Dashboard
+    description: Dashboard data endpoints
+  - name: Search
+    description: Log search and exploration
+  - name: Trace
+    description: Transaction tracing
+  - name: AI
+    description: AI-powered analysis
+  - name: Conversations
+    description: AI conversation management
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Returns the health status of the API server
+      operationId: getHealth
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /files/upload:
+    post:
+      tags: [Files]
+      summary: Upload log file
+      description: Upload a BMC Remedy AR Server log file for analysis
+      operationId: uploadFile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Log file to upload
+      responses:
+        '201':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogFile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '413':
+          description: File too large (max 10MB)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /files:
+    get:
+      tags: [Files]
+      summary: List uploaded files
+      description: Get a paginated list of uploaded log files
+      operationId: listFiles
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: List of files
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /analysis:
+    post:
+      tags: [Analysis]
+      summary: Create analysis job
+      description: Start a new analysis job for an uploaded file
+      operationId: createAnalysis
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAnalysisRequest'
+      responses:
+        '201':
+          description: Analysis job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisJob'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    get:
+      tags: [Analysis]
+      summary: List analysis jobs
+      description: Get a paginated list of analysis jobs
+      operationId: listAnalyses
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/JobStatus'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: List of jobs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /analysis/{job_id}:
+    get:
+      tags: [Analysis]
+      summary: Get job details
+      description: Get detailed information about an analysis job
+      operationId: getAnalysis
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/JobIdParam'
+      responses:
+        '200':
+          description: Job details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisJob'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /analysis/{job_id}/dashboard:
+    get:
+      tags: [Dashboard]
+      summary: Get dashboard data
+      description: Get complete dashboard data for an analysis job
+      operationId: getDashboard
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/JobIdParam'
+      responses:
+        '200':
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardData'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /analysis/{job_id}/dashboard/aggregates:
+    get:
+      tags: [Dashboard]
+      summary: Get aggregates
+      description: Get aggregation data by form, client, and table
+      operationId: getAggregates
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/JobIdParam'
+      responses:
+        '200':
+          description: Aggregates data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AggregatesResponse'
+
+  /analysis/{job_id}/dashboard/exceptions:
+    get:
+      tags: [Dashboard]
+      summary: Get exceptions
+      description: Get error and exception data
+      operationId: getExceptions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/JobIdParam'
+      responses:
+        '200':
+          description: Exceptions data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExceptionsResponse'
+
+  /analysis/{job_id}/dashboard/gaps:
+    get:
+      tags: [Dashboard]
+      summary: Get gaps
+      description: Get idle period and queue health data
+      operationId: getGaps
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/JobIdParam'
+      responses:
+        '200':
+          description: Gaps data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GapsResponse'
+
+  /analysis/{job_id}/dashboard/threads:
+    get:
+      tags: [Dashboard]
+      summary: Get thread stats
+      description: Get per-thread statistics
+      operationId: getThreads
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/JobIdParam'
+      responses:
+        '200':
+          description: Thread statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreadStatsResponse'
+
+  /analysis/{job_id}/dashboard/filters:
+    get:
+      tags: [Dashboard]
+      summary: Get filter complexity
+      description: Get filter execution complexity data
+      operationId: getFilters
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/JobIdParam'
+      responses:
+        '200':
+          description: Filter complexity data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilterComplexityResponse'
+
+  /analysis/{job_id}/search:
+    get:
+      tags: [Search]
+      summary: Search log entries
+      description: Search log entries using KQL syntax
+      operationId: searchLogs
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/JobIdParam'
+        - name: q
+          in: query
+          description: KQL query string
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Filter by log type
+          schema:
+            $ref: '#/components/schemas/LogType'
+        - name: user
+          in: query
+          description: Filter by user
+          schema:
+            type: string
+        - name: start
+          in: query
+          description: Start timestamp (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          description: End timestamp (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+
+  /analysis/{job_id}/entries/{entry_id}:
+    get:
+      tags: [Search]
+      summary: Get log entry
+      description: Get a single log entry by ID
+      operationId: getLogEntry
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/JobIdParam'
+        - name: entry_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Log entry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogEntry'
+
+  /analysis/{job_id}/trace/{trace_id}:
+    get:
+      tags: [Trace]
+      summary: Get trace data
+      description: Get trace data for visualization
+      operationId: getTrace
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/JobIdParam'
+        - name: trace_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Trace data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaterfallResponse'
+
+  /analysis/{job_id}/transactions:
+    get:
+      tags: [Trace]
+      summary: Search transactions
+      description: Search for transactions by various criteria
+      operationId: searchTransactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/JobIdParam'
+        - name: user
+          in: query
+          schema:
+            type: string
+        - name: thread_id
+          in: query
+          schema:
+            type: string
+        - name: min_duration
+          in: query
+          description: Minimum duration in milliseconds
+          schema:
+            type: integer
+        - name: has_errors
+          in: query
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Transaction search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionSearchResponse'
+
+  /ai/stream:
+    post:
+      tags: [AI]
+      summary: Stream AI response
+      description: Stream an AI response via Server-Sent Events
+      operationId: streamAI
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIStreamRequest'
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-Sent Events stream
+
+  /ai/skills:
+    get:
+      tags: [AI]
+      summary: List AI skills
+      description: Get list of available AI skills
+      operationId: listSkills
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of skills
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillListResponse'
+
+  /ai/conversations:
+    get:
+      tags: [Conversations]
+      summary: List conversations
+      description: Get list of AI conversations
+      operationId: listConversations
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: job_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationListResponse'
+
+    post:
+      tags: [Conversations]
+      summary: Create conversation
+      description: Create a new AI conversation
+      operationId: createConversation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConversationRequest'
+      responses:
+        '201':
+          description: Conversation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+
+  /ai/conversations/{id}:
+    get:
+      tags: [Conversations]
+      summary: Get conversation
+      description: Get a conversation with all messages
+      operationId: getConversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Conversation with messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+
+    delete:
+      tags: [Conversations]
+      summary: Delete conversation
+      description: Delete a conversation and all messages
+      operationId: deleteConversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Conversation deleted
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Clerk JWT token
+
+  parameters:
+    JobIdParam:
+      name: job_id
+      in: path
+      required: true
+      description: Analysis job ID
+      schema:
+        type: string
+        format: uuid
+    LimitParam:
+      name: limit
+      in: query
+      description: Maximum number of results
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    OffsetParam:
+      name: offset
+      in: query
+      description: Pagination offset
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        version:
+          type: string
+
+    LogFile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        size_bytes:
+          type: integer
+          format: int64
+        s3_key:
+          type: string
+        uploaded_at:
+          type: string
+          format: date-time
+
+    FileListResponse:
+      type: object
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogFile'
+        total:
+          type: integer
+
+    JobStatus:
+      type: string
+      enum:
+        - queued
+        - parsing
+        - analyzing
+        - storing
+        - complete
+        - failed
+
+    LogType:
+      type: string
+      enum:
+        - API
+        - SQL
+        - FLTR
+        - ESCL
+
+    CreateAnalysisRequest:
+      type: object
+      required:
+        - file_id
+      properties:
+        file_id:
+          type: string
+          format: uuid
+        jar_flags:
+          type: object
+          properties:
+            top_n:
+              type: integer
+            skip_api:
+              type: boolean
+            skip_sql:
+              type: boolean
+            skip_fltr:
+              type: boolean
+            skip_esc:
+              type: boolean
+            user_filter:
+              type: string
+        jvm_heap_mb:
+          type: integer
+          default: 4096
+
+    AnalysisJob:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        file_id:
+          type: string
+          format: uuid
+        progress_pct:
+          type: integer
+          minimum: 0
+          maximum: 100
+        total_lines:
+          type: integer
+          format: int64
+        api_count:
+          type: integer
+          format: int64
+        sql_count:
+          type: integer
+          format: int64
+        filter_count:
+          type: integer
+          format: int64
+        esc_count:
+          type: integer
+          format: int64
+        error_message:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+
+    JobListResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalysisJob'
+        total:
+          type: integer
+
+    LogEntry:
+      type: object
+      properties:
+        entry_id:
+          type: string
+        line_number:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        log_type:
+          $ref: '#/components/schemas/LogType'
+        trace_id:
+          type: string
+        user:
+          type: string
+        form:
+          type: string
+        duration_ms:
+          type: integer
+        success:
+          type: boolean
+        raw_text:
+          type: string
+
+    SearchResponse:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogEntry'
+        total:
+          type: integer
+
+    DashboardData:
+      type: object
+      properties:
+        general_stats:
+          $ref: '#/components/schemas/GeneralStatistics'
+        top_api_calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopNEntry'
+        health_score:
+          $ref: '#/components/schemas/HealthScore'
+
+    GeneralStatistics:
+      type: object
+      properties:
+        total_lines:
+          type: integer
+          format: int64
+        api_count:
+          type: integer
+          format: int64
+        sql_count:
+          type: integer
+          format: int64
+        filter_count:
+          type: integer
+          format: int64
+        esc_count:
+          type: integer
+          format: int64
+        unique_users:
+          type: integer
+        log_duration:
+          type: string
+
+    TopNEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        line_number:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        trace_id:
+          type: string
+        identifier:
+          type: string
+        form:
+          type: string
+        user:
+          type: string
+        duration_ms:
+          type: integer
+        success:
+          type: boolean
+
+    HealthScore:
+      type: object
+      properties:
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        status:
+          type: string
+        factors:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              score:
+                type: integer
+              severity:
+                type: string
+
+    AggregatesResponse:
+      type: object
+      properties:
+        api:
+          $ref: '#/components/schemas/AggregateSection'
+        sql:
+          $ref: '#/components/schemas/AggregateSection'
+        filter:
+          $ref: '#/components/schemas/AggregateSection'
+
+    AggregateSection:
+      type: object
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/AggregateGroup'
+
+    AggregateGroup:
+      type: object
+      properties:
+        name:
+          type: string
+        count:
+          type: integer
+          format: int64
+        avg_ms:
+          type: number
+        max_ms:
+          type: integer
+          format: int64
+        error_count:
+          type: integer
+          format: int64
+
+    ExceptionsResponse:
+      type: object
+      properties:
+        exceptions:
+          type: array
+          items:
+            type: object
+        total_count:
+          type: integer
+          format: int64
+        error_rates:
+          type: object
+          additionalProperties:
+            type: number
+
+    GapsResponse:
+      type: object
+      properties:
+        gaps:
+          type: array
+          items:
+            type: object
+        queue_health:
+          type: array
+          items:
+            type: object
+
+    ThreadStatsResponse:
+      type: object
+      properties:
+        threads:
+          type: array
+          items:
+            type: object
+        total_threads:
+          type: integer
+
+    FilterComplexityResponse:
+      type: object
+      properties:
+        most_executed:
+          type: array
+          items:
+            type: object
+        total_filter_time_ms:
+          type: integer
+          format: int64
+
+    WaterfallResponse:
+      type: object
+      properties:
+        trace_id:
+          type: string
+        total_duration_ms:
+          type: integer
+          format: int64
+        span_count:
+          type: integer
+        error_count:
+          type: integer
+        spans:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpanNode'
+        critical_path:
+          type: array
+          items:
+            type: string
+
+    SpanNode:
+      type: object
+      properties:
+        id:
+          type: string
+        parent_id:
+          type: string
+        depth:
+          type: integer
+        log_type:
+          $ref: '#/components/schemas/LogType'
+        start_offset_ms:
+          type: integer
+          format: int64
+        duration_ms:
+          type: integer
+        has_error:
+          type: boolean
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpanNode'
+
+    TransactionSearchResponse:
+      type: object
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionSummary'
+        total:
+          type: integer
+
+    TransactionSummary:
+      type: object
+      properties:
+        trace_id:
+          type: string
+        primary_user:
+          type: string
+        primary_form:
+          type: string
+        total_duration_ms:
+          type: integer
+          format: int64
+        span_count:
+          type: integer
+        error_count:
+          type: integer
+
+    AIStreamRequest:
+      type: object
+      required:
+        - query
+        - job_id
+      properties:
+        query:
+          type: string
+          description: Natural language query
+        job_id:
+          type: string
+          format: uuid
+        conversation_id:
+          type: string
+          format: uuid
+
+    SkillInfo:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        keywords:
+          type: array
+          items:
+            type: string
+        examples:
+          type: array
+          items:
+            type: string
+
+    SkillListResponse:
+      type: object
+      properties:
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillInfo'
+
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        message_count:
+          type: integer
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        created_at:
+          type: string
+          format: date-time
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+        skill_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    CreateConversationRequest:
+      type: object
+      required:
+        - job_id
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+
+    ConversationListResponse:
+      type: object
+      properties:
+        conversations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Conversation'
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object

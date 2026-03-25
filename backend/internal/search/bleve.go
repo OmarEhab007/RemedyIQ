@@ -121,7 +121,9 @@ func (bm *BleveManager) IndexEntries(ctx context.Context, tenantID string, entri
 			return ctx.Err()
 		}
 		doc := entryToDoc(entry)
-		batch.Index(entry.EntryID, doc)
+		if err := batch.Index(entry.EntryID, doc); err != nil {
+			return fmt.Errorf("bleve: index entry %s: %w", entry.EntryID, err)
+		}
 	}
 
 	return idx.Batch(batch)

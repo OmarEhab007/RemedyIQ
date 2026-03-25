@@ -49,6 +49,8 @@ coverage.html
 .env.local
 .env.*.local
 *.env
+*.pem
+*.key
 
 # Build artifacts
 dist/

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "remedyiq.fullname" . }}-api
+  labels:
+    {{- include "remedyiq.apiLabels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "remedyiq.apiSelectorLabels" . | nindent 4 }}
