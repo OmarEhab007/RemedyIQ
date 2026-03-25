@@ -1,0 +1,55 @@
+image:
+  tag: prod-latest
+
+api:
+  replicas: 3
+  podAntiAffinity: preferred
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+worker:
+  replicas: 1
+  bleveStorage:
+    size: 50Gi
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
+frontend:
+  replicas: 2
+  podAntiAffinity: preferred
+  ingress:
+    host: app.remedyiq.com
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+environment: production
+logLevel: info
+
+secrets:
+  managerPath: /remedyiq/prod
+
+nats:
+  config:
+    cluster:
+      enabled: true
+      replicas: 3
+
+clickhouse:
+  replicasCount: 2
+  storage:
+    size: 500Gi

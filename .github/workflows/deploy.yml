@@ -1,0 +1,137 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+  ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Generate image tag
+        id: tag
+        run: echo "tag=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Build and push API image
+        run: |
+          docker build -f backend/Dockerfile --target api -t $ECR_REGISTRY/remedyiq/api:${{ steps.tag.outputs.tag }} -t $ECR_REGISTRY/remedyiq/api:staging-latest .
+          docker push $ECR_REGISTRY/remedyiq/api:${{ steps.tag.outputs.tag }}
+          docker push $ECR_REGISTRY/remedyiq/api:staging-latest
+
+      - name: Build and push Worker image
+        run: |
+          docker build -f backend/Dockerfile --target worker -t $ECR_REGISTRY/remedyiq/worker:${{ steps.tag.outputs.tag }} -t $ECR_REGISTRY/remedyiq/worker:staging-latest .
+          docker push $ECR_REGISTRY/remedyiq/worker:${{ steps.tag.outputs.tag }}
+          docker push $ECR_REGISTRY/remedyiq/worker:staging-latest
+
+      - name: Build and push Frontend image
+        run: |
+          docker build -t $ECR_REGISTRY/remedyiq/frontend:${{ steps.tag.outputs.tag }} -t $ECR_REGISTRY/remedyiq/frontend:staging-latest ./frontend
+          docker push $ECR_REGISTRY/remedyiq/frontend:${{ steps.tag.outputs.tag }}
+          docker push $ECR_REGISTRY/remedyiq/frontend:staging-latest
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: build-push
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region $AWS_REGION
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.14.0"
+
+      - name: Deploy to staging
+        run: |
+          helm dependency update helm/remedyiq
+          helm upgrade --install remedyiq-staging helm/remedyiq \
+            --namespace remedyiq-staging \
+            -f helm/remedyiq/values-staging.yaml \
+            --set image.tag=${{ needs.build-push.outputs.image-tag }} \
+            --set image.registry=$ECR_REGISTRY \
+            --wait \
+            --timeout 10m
+
+  deploy-prod:
+    runs-on: ubuntu-latest
+    needs: [build-push, deploy-staging]
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region $AWS_REGION
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.14.0"
+
+      - name: Tag images for production
+        run: |
+          docker pull $ECR_REGISTRY/remedyiq/api:${{ needs.build-push.outputs.image-tag }}
+          docker pull $ECR_REGISTRY/remedyiq/worker:${{ needs.build-push.outputs.image-tag }}
+          docker pull $ECR_REGISTRY/remedyiq/frontend:${{ needs.build-push.outputs.image-tag }}
+          docker tag $ECR_REGISTRY/remedyiq/api:${{ needs.build-push.outputs.image-tag }} $ECR_REGISTRY/remedyiq/api:prod-latest
+          docker tag $ECR_REGISTRY/remedyiq/worker:${{ needs.build-push.outputs.image-tag }} $ECR_REGISTRY/remedyiq/worker:prod-latest
+          docker tag $ECR_REGISTRY/remedyiq/frontend:${{ needs.build-push.outputs.image-tag }} $ECR_REGISTRY/remedyiq/frontend:prod-latest
+          docker push $ECR_REGISTRY/remedyiq/api:prod-latest
+          docker push $ECR_REGISTRY/remedyiq/worker:prod-latest
+          docker push $ECR_REGISTRY/remedyiq/frontend:prod-latest
+
+      - name: Deploy to production
+        run: |
+          helm dependency update helm/remedyiq
+          helm upgrade --install remedyiq-prod helm/remedyiq \
+            --namespace remedyiq-prod \
+            -f helm/remedyiq/values-prod.yaml \
+            --set image.tag=${{ needs.build-push.outputs.image-tag }} \
+            --set image.registry=$ECR_REGISTRY \
+            --wait \
+            --timeout 15m

@@ -1,0 +1,93 @@
+image:
+  registry: ""
+  pullPolicy: IfNotPresent
+  tag: latest
+
+api:
+  replicas: 3
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilization: 60
+  podAntiAffinity: ""
+  serviceAccount:
+    create: true
+    name: ""
+
+worker:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+  bleveStorage:
+    size: 20Gi
+    storageClass: gp3
+  serviceAccount:
+    create: true
+    name: ""
+
+frontend:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilization: 70
+  ingress:
+    host: app.remedyiq.com
+    certificateArn: ""
+    annotations: {}
+  serviceAccount:
+    create: true
+    name: ""
+  env:
+    nextPublicApiUrl: ""
+
+secrets:
+  storeName: aws-secretsmanager
+  managerPath: /remedyiq/prod
+
+nats:
+  enabled: true
+  config:
+    jetstream:
+      enabled: true
+      fileStore:
+        enabled: true
+        path: /data
+      memoryStore:
+        maxSize: 1Gi
+    cluster:
+      enabled: true
+      port: 6222
+      replicas: 3
+
+environment: production
+logLevel: info
+
+clickhouse:
+  enabled: true
+  shardsCount: 1
+  replicasCount: 1
+  storage:
+    size: 100Gi
+    storageClass: gp3

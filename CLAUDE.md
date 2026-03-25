@@ -38,7 +38,6 @@ Go 1.24.1 (backend), TypeScript 5.x / Next.js 16.1.6 (frontend): Follow standard
 ## Recent Changes
 - 012-analyzer-insights: Added Go 1.24.1 (backend), TypeScript 5.x / Next.js 16.1.6 (frontend) + gorilla/mux, clickhouse-go v2, pgx v5, redis v9 (backend); React 19, shadcn/ui, Recharts, Zustand (frontend)
 - 009-ai-assistant-page: Added Go 1.24.1 (backend), TypeScript 5.x / Next.js 16.1.6 (frontend) + google.golang.org/genai (Gemini) streaming, streamdown, conversation persistence
-- 008-trace-transaction: Added Go 1.24.1 (backend), TypeScript 5.x / Next.js 16.1.6 (frontend) + gorilla/mux, clickhouse-go v2, pgx v5, redis v9 (backend); React 19, shadcn/ui, Recharts, react-window, prism-react-renderer v2, D3 scales (frontend)
 
 
 <!-- MANUAL ADDITIONS START -->

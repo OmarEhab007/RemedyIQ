@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  lint-go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: backend
+
+  lint-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: frontend
+        run: |
+          npm ci
+          npm run lint
+
+  test-go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - working-directory: backend
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+  build-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build API image
+        run: docker build -f backend/Dockerfile --target api -t remedyiq/api:ci .
+
+      - name: Build Worker image
+        run: docker build -f backend/Dockerfile --target worker -t remedyiq/worker:ci .
+
+      - name: Build Frontend image
+        run: docker build -t remedyiq/frontend:ci ./frontend
+
+      - name: Scan API image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: remedyiq/api:ci
+          format: table
+          exit-code: 1
+          severity: HIGH,CRITICAL
+
+      - name: Scan Worker image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: remedyiq/worker:ci
+          format: table
+          exit-code: 1
+          severity: HIGH,CRITICAL
+
+      - name: Scan Frontend image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: remedyiq/frontend:ci
+          format: table
+          exit-code: 1
+          severity: HIGH,CRITICAL
+
+      - name: Scan for secrets with Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  helm-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: "v3.14.0"
+      - run: helm dependency update helm/remedyiq
+      - run: helm lint helm/remedyiq -f helm/remedyiq/values-staging.yaml
+      - run: helm lint helm/remedyiq -f helm/remedyiq/values-prod.yaml

@@ -225,6 +225,7 @@ func (r *Runner) buildCommandArgs(heapMB int, jarArgs []string) []string {
 
 // snappyNativeArgs returns JVM flags to load the snappy native library
 // for the current OS/arch if the bundled version doesn't support it.
+// On Linux (glibc-based images) snappy-java's bundled native lib works as-is.
 func (r *Runner) snappyNativeArgs() []string {
 	if runtime.GOOS != "darwin" || runtime.GOARCH != "arm64" {
 		return nil

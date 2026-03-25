@@ -99,7 +99,7 @@ services:
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -125,6 +125,93 @@ services:
     networks:
       - remedyiq
 
+  # API - Go backend REST API server
+  api:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: api
+    container_name: remedyiq-api
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      POSTGRES_URL: postgres://remedyiq:remedyiq@postgres:5432/remedyiq?sslmode=disable
+      CLICKHOUSE_URL: clickhouse://default:@clickhouse:9000/remedyiq
+      NATS_URL: nats://nats:4222
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+      JAR_PATH: /app/ARLogAnalyzer.jar
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - remedyiq
+
+  # Worker - Background job processor
+  worker:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: worker
+    container_name: remedyiq-worker
+    env_file:
+      - .env
+    environment:
+      POSTGRES_URL: postgres://remedyiq:remedyiq@postgres:5432/remedyiq?sslmode=disable
+      CLICKHOUSE_URL: clickhouse://default:@clickhouse:9000/remedyiq
+      NATS_URL: nats://nats:4222
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+      JAR_PATH: /app/ARLogAnalyzer.jar
+    volumes:
+      - bleve_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    networks:
+      - remedyiq
+
+  # Frontend - Next.js web application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: remedyiq-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - remedyiq
+
 volumes:
   postgres_data:
     driver: local
@@ -135,6 +222,8 @@ volumes:
   redis_data:
     driver: local
   minio_data:
+    driver: local
+  bleve_data:
     driver: local
 
 networks:

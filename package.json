@@ -31,9 +31,6 @@
   ],
   "author": "Omar Ehab",
   "license": "MIT",
-  "workspaces": [
-    "frontend"
-  ],
   "scripts": {
     "setup": "make setup",
     "dev": "make dev",

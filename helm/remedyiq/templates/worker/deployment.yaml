@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "remedyiq.fullname" . }}-worker
+  labels:
+    {{- include "remedyiq.workerLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "remedyiq.workerSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "remedyiq.workerSelectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "remedyiq.workerServiceAccountName" . }}
+      containers:
+        - name: worker
+          image: {{ include "remedyiq.workerImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "remedyiq.fullname" . }}-config
+            - secretRef:
+                name: {{ include "remedyiq.fullname" . }}-secrets
+          volumeMounts:
+            - name: bleve-index
+              mountPath: /app/data
+          livenessProbe:
+            exec:
+              command:
+                - pgrep
+                - -f
+                - worker
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+      volumes:
+        - name: bleve-index
+          persistentVolumeClaim:
+            claimName: {{ include "remedyiq.fullname" . }}-bleve-index

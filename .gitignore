@@ -56,3 +56,25 @@ error_logs/
 
 # Root-level screenshots (dev artifacts, committed ones are in docs/screenshots/)
 /*.png
+
+# claude/codex/cursor/opencode
+.claude/
+.codex/
+.cursor/
+.opencode/
+.cursorrules/
+.cursorrules.md/
+.cursorrules.txt/
+.cursorrules.yml/
+.cursorrules.yaml/
+.cursorrules.json/
+.cursorrules.jsonc/
+.cursorrules.json5/
+Claude.md
+Codex.md
+Cursor.md
+opencode.md
+opencode.txt
+opencode.yml
+
+
