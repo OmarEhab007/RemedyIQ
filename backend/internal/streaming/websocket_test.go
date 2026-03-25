@@ -1127,7 +1127,7 @@ func TestWebSocketSubscribeAndReceiveBroadcast(t *testing.T) {
 	})
 
 	// Read the broadcast message.
-	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(2*time.Second)))
 	var resp ServerMessage
 	require.NoError(t, conn.ReadJSON(&resp))
 	assert.Equal(t, MsgTypeJobProgress, resp.Type)
@@ -1148,7 +1148,7 @@ func TestWebSocketUnknownMessageType(t *testing.T) {
 	require.NoError(t, conn.WriteJSON(ClientMessage{Type: "bogus"}))
 
 	// Should receive an error message back.
-	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(2*time.Second)))
 	var resp ServerMessage
 	require.NoError(t, conn.ReadJSON(&resp))
 	assert.Equal(t, MsgTypeError, resp.Type)
@@ -1168,7 +1168,7 @@ func TestWebSocketInvalidJSON(t *testing.T) {
 	// Send raw invalid JSON bytes.
 	require.NoError(t, conn.WriteMessage(websocket.TextMessage, []byte(`{not valid`)))
 
-	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(2*time.Second)))
 	var resp ServerMessage
 	require.NoError(t, conn.ReadJSON(&resp))
 	assert.Equal(t, MsgTypeError, resp.Type)
@@ -1209,8 +1209,8 @@ func TestWebSocketMultipleClients(t *testing.T) {
 	})
 
 	// Both clients should receive the message.
-	conn1.SetReadDeadline(time.Now().Add(2 * time.Second))
-	conn2.SetReadDeadline(time.Now().Add(2 * time.Second))
+	require.NoError(t, conn1.SetReadDeadline(time.Now().Add(2*time.Second)))
+	require.NoError(t, conn2.SetReadDeadline(time.Now().Add(2*time.Second)))
 
 	var resp1, resp2 ServerMessage
 	require.NoError(t, conn1.ReadJSON(&resp1))
@@ -1235,7 +1235,7 @@ func TestWebSocketCloseGraceful(t *testing.T) {
 	assert.Equal(t, 1, countBefore)
 
 	// Close the WebSocket connection gracefully.
-	conn.WriteMessage(websocket.CloseMessage,
+	_ = conn.WriteMessage(websocket.CloseMessage,
 		websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 	conn.Close()
 
@@ -1347,7 +1347,7 @@ func TestWebSocketWritePumpDrainsQueue(t *testing.T) {
 	}
 
 	// Read all 5 messages.
-	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(3*time.Second)))
 	received := 0
 	for received < 5 {
 		var resp ServerMessage

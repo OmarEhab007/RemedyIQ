@@ -32,7 +32,7 @@ func TestLoggingMiddleware_PassesThrough(t *testing.T) {
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"ok":true}`))
+		_, _ = w.Write([]byte(`{"ok":true}`))
 	})
 
 	handler := LoggingMiddleware(inner)
@@ -105,7 +105,7 @@ func TestLoggingMiddleware_LogsBytesWritten(t *testing.T) {
 
 	body := "hello world"
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(body))
+		_, _ = w.Write([]byte(body))
 	})
 
 	handler := LoggingMiddleware(inner)
@@ -253,8 +253,8 @@ func TestStatusRecorder_MultipleWrites(t *testing.T) {
 	w := httptest.NewRecorder()
 	rec := newStatusRecorder(w)
 
-	rec.Write([]byte("hello"))
-	rec.Write([]byte(" world"))
+	_, _ = rec.Write([]byte("hello"))
+	_, _ = rec.Write([]byte(" world"))
 
 	assert.Equal(t, int64(11), rec.written)
 }
