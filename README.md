@@ -247,6 +247,10 @@ X-Dev-Tenant-ID: <any-uuid>
 
 The frontend sends these automatically when no auth token is present.
 
+### CI and Deployment Workflows
+
+GitHub Actions CI runs automatically for pull requests and stays local-development friendly. The AWS-backed `Deploy` workflow is manual-only via `workflow_dispatch` and should be triggered only in repositories or environments that have the required AWS credentials and repository variables configured.
+
 ---
 
 ## API Reference
