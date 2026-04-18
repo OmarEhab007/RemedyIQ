@@ -49,8 +49,11 @@ function StatCard({
     <div
       className={cn(
         'flex flex-col gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm',
+        'border-l-[3px] transition-[transform,box-shadow] duration-200 ease-out',
+        'hover:-translate-y-0.5 hover:shadow-md',
         className
       )}
+      style={{ borderLeftColor: accentColor }}
     >
       <div className="flex items-center gap-2">
         <div
@@ -58,7 +61,7 @@ function StatCard({
           style={{ backgroundColor: accentColor }}
           aria-hidden="true"
         />
-        <span className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider truncate">
+        <span className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-[0.12em] truncate">
           {label}
         </span>
       </div>

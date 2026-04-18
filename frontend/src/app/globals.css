@@ -215,3 +215,45 @@
     font-family: var(--font-mono);
   }
 }
+
+/* ============================================================
+   ANALYSIS DASHBOARD — scoped typography & atmosphere
+   (fonts loaded in analysis/[id]/layout.tsx via Next/font variables)
+   ============================================================ */
+
+.analysis-dashboard-font {
+  font-family: var(--font-analysis-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.analysis-dashboard-font .font-mono,
+.analysis-dashboard-font code,
+.analysis-dashboard-font kbd,
+.analysis-dashboard-font pre,
+.analysis-dashboard-font samp {
+  font-family: var(--font-analysis-mono), var(--font-mono);
+}
+
+.analysis-dashboard-root {
+  position: relative;
+  isolation: isolate;
+}
+
+.analysis-dashboard-root::before {
+  content: '';
+  position: absolute;
+  inset: -0.5rem;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 1rem;
+  background:
+    radial-gradient(ellipse 130% 85% at 50% -40%, color-mix(in srgb, var(--color-primary) 22%, transparent) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 60% at 100% 0%, color-mix(in srgb, var(--color-success) 12%, transparent) 0%, transparent 48%);
+  opacity: 0.9;
+}
+
+.dark .analysis-dashboard-root::before {
+  background:
+    radial-gradient(ellipse 130% 85% at 50% -45%, color-mix(in srgb, var(--color-primary) 26%, transparent) 0%, transparent 58%),
+    radial-gradient(ellipse 75% 55% at 0% 5%, color-mix(in srgb, var(--color-success) 14%, transparent) 0%, transparent 45%);
+  opacity: 1;
+}

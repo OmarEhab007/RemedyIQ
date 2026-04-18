@@ -18,6 +18,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
+import { DASHBOARD_EXPAND_SECTION_EVENT } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
@@ -56,14 +57,33 @@ export function CollapsibleSection({
   skeletonRows = 4,
   badge,
 }: CollapsibleSectionProps) {
+  const sectionId = `section-${title.toLowerCase().replace(/\s+/g, '-')}`
+  const headingId = `${sectionId}-heading`
+  const contentId = `${sectionId}-content`
+
   const [isOpen, setIsOpen] = useState(defaultOpen)
   const [hasExpanded, setHasExpanded] = useState(defaultOpen)
   const onExpandRef = useRef(onExpand)
   // eslint-disable-next-line react-hooks/refs
   onExpandRef.current = onExpand
 
-  // Fire onExpand once after the first expansion renders
+  const hasExpandedRef = useRef(defaultOpen)
+  useEffect(() => {
+    hasExpandedRef.current = hasExpanded
+  }, [hasExpanded])
+
   const justExpanded = useRef(false)
+
+  const expandFromExternal = useCallback(() => {
+    setIsOpen(true)
+    if (!hasExpandedRef.current) {
+      justExpanded.current = true
+      setHasExpanded(true)
+      hasExpandedRef.current = true
+    }
+  }, [])
+
+  // Fire onExpand once after the first expansion renders
   useEffect(() => {
     if (justExpanded.current) {
       justExpanded.current = false
@@ -82,20 +102,42 @@ export function CollapsibleSection({
     })
   }, [hasExpanded])
 
-  const sectionId = `section-${title.toLowerCase().replace(/\s+/g, '-')}`
-  const contentId = `${sectionId}-content`
+  // Open when jump navigation or the URL hash targets this section id
+  useEffect(() => {
+    const onTargetedExpand = (ev: Event) => {
+      const e = ev as CustomEvent<{ sectionId?: string }>
+      if (e.detail?.sectionId === sectionId) {
+        expandFromExternal()
+      }
+    }
+    const syncHash = () => {
+      if (typeof window === 'undefined') return
+      const raw = window.location.hash
+      const id = raw.startsWith('#') ? raw.slice(1) : raw
+      if (id === sectionId) {
+        expandFromExternal()
+      }
+    }
+    syncHash()
+    window.addEventListener(DASHBOARD_EXPAND_SECTION_EVENT, onTargetedExpand)
+    window.addEventListener('hashchange', syncHash)
+    return () => {
+      window.removeEventListener(DASHBOARD_EXPAND_SECTION_EVENT, onTargetedExpand)
+      window.removeEventListener('hashchange', syncHash)
+    }
+  }, [sectionId, expandFromExternal])
 
   return (
     <section
+      id={sectionId}
       className={cn(
-        'rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm overflow-hidden',
+        'scroll-mt-24 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm overflow-hidden',
         className
       )}
-      aria-labelledby={sectionId}
+      aria-labelledby={headingId}
     >
       {/* Header button */}
       <button
-        id={sectionId}
         type="button"
         onClick={handleToggle}
         className={cn(
@@ -126,7 +168,10 @@ export function CollapsibleSection({
           </svg>
 
           <div className="min-w-0">
-            <span className="block text-sm font-semibold text-[var(--color-text-primary)] truncate">
+            <span
+              id={headingId}
+              className="block text-sm font-semibold text-[var(--color-text-primary)] truncate"
+            >
               {title}
             </span>
             {description && (
@@ -163,7 +208,7 @@ export function CollapsibleSection({
       <div
         id={contentId}
         role="region"
-        aria-labelledby={sectionId}
+        aria-labelledby={headingId}
         hidden={!isOpen}
       >
         {isOpen && (

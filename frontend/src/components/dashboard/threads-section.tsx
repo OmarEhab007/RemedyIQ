@@ -11,6 +11,7 @@
  */
 
 import { useState, useMemo } from 'react'
+import { useResizableTableColumns, type ResizableColumnConfig } from '@/hooks/use-resizable-table-columns'
 import { cn } from '@/lib/utils'
 import type { ThreadStatsResponse, ThreadStatsEntry } from '@/lib/api-types'
 
@@ -46,6 +47,30 @@ export function ThreadsSection({ data, className }: ThreadsSectionProps) {
   const [sortKey, setSortKey] = useState<SortKey>('total_requests')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
+  const hasBusyPct = useMemo(
+    () => (data.thread_stats ?? []).some((t) => t.busy_pct != null),
+    [data.thread_stats],
+  )
+
+  const resizeSpec = useMemo((): ResizableColumnConfig[] => {
+    const spec: ResizableColumnConfig[] = [
+      { id: 'thread_id', defaultWidth: 132, minWidth: 88, maxWidth: 480 },
+      { id: 'total_requests', defaultWidth: 92, minWidth: 72, maxWidth: 160 },
+      { id: 'error_count', defaultWidth: 72, minWidth: 56, maxWidth: 120 },
+      { id: 'avg_duration_ms', defaultWidth: 108, minWidth: 88, maxWidth: 200 },
+      { id: 'max_duration_ms', defaultWidth: 108, minWidth: 88, maxWidth: 200 },
+    ]
+    if (hasBusyPct) {
+      spec.push({ id: 'busy_pct', defaultWidth: 148, minWidth: 120, maxWidth: 240 })
+    }
+    spec.push({ id: 'queue', defaultWidth: 128, minWidth: 72, maxWidth: 400 })
+    return spec
+  }, [hasBusyPct])
+
+  const { tableLayoutStyle, thStyle, tdStyle, renderResizeHandle } = useResizableTableColumns(resizeSpec, {
+    storageKey: `remedyiq:threads:v1:${hasBusyPct ? 'busy' : 'nobusy'}`,
+  })
+
   function handleSort(key: SortKey) {
     if (key === sortKey) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
@@ -77,9 +102,6 @@ export function ThreadsSection({ data, className }: ThreadsSectionProps) {
     )
   }
 
-  // Check if any thread has busy_pct data
-  const hasBusyPct = (data.thread_stats ?? []).some((t) => t.busy_pct != null)
-
   const columns: Array<{ key: SortKey; label: string; align?: 'left' | 'right' }> = [
     { key: 'thread_id', label: 'Thread ID', align: 'left' },
     { key: 'total_requests', label: 'Requests', align: 'right' },
@@ -100,16 +122,17 @@ export function ThreadsSection({ data, className }: ThreadsSectionProps) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-xs" aria-label="Thread statistics">
+        <table className="text-xs" style={tableLayoutStyle} aria-label="Thread statistics">
           <thead>
             <tr className="bg-[var(--color-bg-secondary)]">
-              {columns.map(({ key, label, align = 'left' }) => (
+              {columns.map(({ key, label, align = 'left' }, colIndex) => (
                 <th
                   key={key}
                   scope="col"
+                  style={thStyle(colIndex)}
                   className={cn(
-                    'border-b border-[var(--color-border)] px-4 py-2 font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap cursor-pointer select-none',
-                    align === 'right' ? 'text-right' : 'text-left'
+                    'relative box-border border-b border-[var(--color-border)] px-4 py-2 font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap cursor-pointer select-none',
+                    align === 'right' ? 'text-right' : 'text-left',
                   )}
                   onClick={() => handleSort(key)}
                   aria-sort={
@@ -118,7 +141,7 @@ export function ThreadsSection({ data, className }: ThreadsSectionProps) {
                       : 'none'
                   }
                 >
-                  <span className="inline-flex items-center gap-1">
+                  <span className="inline-flex items-center gap-1 pr-2">
                     {label}
                     {sortKey === key && (
                       <svg
@@ -137,13 +160,16 @@ export function ThreadsSection({ data, className }: ThreadsSectionProps) {
                       </svg>
                     )}
                   </span>
+                  {renderResizeHandle(colIndex)}
                 </th>
               ))}
               <th
                 scope="col"
-                className="border-b border-[var(--color-border)] px-4 py-2 text-right font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap"
+                style={thStyle(columns.length)}
+                className="relative box-border border-b border-[var(--color-border)] px-4 py-2 text-right font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap"
               >
-                Queue
+                <span className="pr-2">Queue</span>
+                {renderResizeHandle(columns.length)}
               </th>
             </tr>
           </thead>
@@ -156,13 +182,13 @@ export function ThreadsSection({ data, className }: ThreadsSectionProps) {
                   thread.error_count > 0 && 'bg-[var(--color-error-light)]/10'
                 )}
               >
-                <td className="px-4 py-2 font-mono font-medium text-[var(--color-text-primary)] whitespace-nowrap">
+                <td style={tdStyle(0)} className="box-border px-4 py-2 align-top font-mono font-medium text-[var(--color-text-primary)] min-w-0 break-all">
                   {thread.thread_id}
                 </td>
-                <td className="px-4 py-2 text-right font-mono text-[var(--color-text-secondary)]">
+                <td style={tdStyle(1)} className="box-border px-4 py-2 align-top text-right font-mono text-[var(--color-text-secondary)]">
                   {thread.total_requests.toLocaleString()}
                 </td>
-                <td className="px-4 py-2 text-right font-mono">
+                <td style={tdStyle(2)} className="box-border px-4 py-2 align-top text-right font-mono">
                   <span
                     className={
                       thread.error_count > 0
@@ -173,10 +199,10 @@ export function ThreadsSection({ data, className }: ThreadsSectionProps) {
                     {thread.error_count.toLocaleString()}
                   </span>
                 </td>
-                <td className="px-4 py-2 text-right font-mono text-[var(--color-text-secondary)]">
+                <td style={tdStyle(3)} className="box-border px-4 py-2 align-top text-right font-mono text-[var(--color-text-secondary)]">
                   {formatDuration(thread.avg_duration_ms)}
                 </td>
-                <td className="px-4 py-2 text-right font-mono">
+                <td style={tdStyle(4)} className="box-border px-4 py-2 align-top text-right font-mono">
                   <span
                     className={
                       thread.max_duration_ms > 5000
@@ -190,7 +216,7 @@ export function ThreadsSection({ data, className }: ThreadsSectionProps) {
                   </span>
                 </td>
                 {hasBusyPct && (
-                  <td className="px-4 py-2 text-right whitespace-nowrap">
+                  <td style={tdStyle(5)} className="box-border px-4 py-2 align-top text-right whitespace-nowrap">
                     {thread.busy_pct != null ? (
                       <div className="flex items-center justify-end gap-2" aria-label={`Busy: ${thread.busy_pct.toFixed(1)}%`}>
                         <div className="w-16 h-2 rounded-full bg-[var(--color-bg-tertiary)] overflow-hidden">
@@ -225,7 +251,11 @@ export function ThreadsSection({ data, className }: ThreadsSectionProps) {
                     )}
                   </td>
                 )}
-                <td className="px-4 py-2 text-right font-mono text-[var(--color-text-tertiary)] whitespace-nowrap">
+                <td
+                  style={tdStyle(hasBusyPct ? 6 : 5)}
+                  className="box-border px-4 py-2 align-top text-right font-mono text-[var(--color-text-tertiary)] min-w-0 break-words"
+                  title={thread.queue ?? undefined}
+                >
                   {thread.queue || '—'}
                 </td>
               </tr>

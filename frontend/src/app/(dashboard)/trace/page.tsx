@@ -8,6 +8,7 @@
  */
 
 import { useState, Suspense } from 'react'
+import { useResizableTableColumns, type ResizableColumnConfig } from '@/hooks/use-resizable-table-columns'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -21,6 +22,90 @@ import type { RecentTrace } from '@/lib/api-types'
 import { isHeaderAuthMode } from '@/lib/auth-mode'
 
 const DEV_USER_ID = process.env.NEXT_PUBLIC_DEV_USER_ID ?? '00000000-0000-0000-0000-000000000001'
+
+const RECENT_TRACES_RESIZE: ResizableColumnConfig[] = [
+  { id: 'trace', defaultWidth: 200, minWidth: 120, maxWidth: 480 },
+  { id: 'user', defaultWidth: 120, minWidth: 72, maxWidth: 240 },
+  { id: 'queue', defaultWidth: 140, minWidth: 72, maxWidth: 360 },
+  { id: 'duration', defaultWidth: 112, minWidth: 88, maxWidth: 180 },
+  { id: 'spans', defaultWidth: 72, minWidth: 56, maxWidth: 120 },
+  { id: 'errors', defaultWidth: 80, minWidth: 56, maxWidth: 120 },
+  { id: 'time', defaultWidth: 168, minWidth: 120, maxWidth: 280 },
+]
+
+function RecentTracesTable({ traces }: { traces: RecentTrace[] }) {
+  const { tableLayoutStyle, thStyle, tdStyle, renderResizeHandle } = useResizableTableColumns(RECENT_TRACES_RESIZE, {
+    storageKey: 'remedyiq:recent-traces:v1',
+  })
+
+  const headers = ['Trace ID', 'User', 'Queue', 'Duration', 'Spans', 'Errors', 'Time'] as const
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-[var(--color-border)]">
+      <table className="border-collapse text-sm" style={tableLayoutStyle} role="table">
+        <thead>
+          <tr className="bg-[var(--color-bg-secondary)]">
+            {headers.map((h, i) => (
+              <th
+                key={h}
+                scope="col"
+                style={thStyle(i)}
+                className={cn(
+                  'relative box-border border-b border-[var(--color-border)] px-3 py-2 text-xs font-semibold text-[var(--color-text-secondary)]',
+                  (h === 'Duration' || h === 'Spans') && 'text-right',
+                  h === 'Errors' && 'text-center',
+                  !['Duration', 'Spans', 'Errors'].includes(h) && 'text-left',
+                )}
+              >
+                <span className="pr-2">{h}</span>
+                {renderResizeHandle(i)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {traces.map((trace) => (
+            <tr
+              key={`${trace.job_id}-${trace.trace_id}`}
+              className="border-b border-[var(--color-border-light)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+              role="row"
+            >
+              <td style={tdStyle(0)} className="box-border min-w-0 px-3 py-2 align-top">
+                <Link
+                  href={ROUTES.ANALYSIS_TRACE(trace.job_id, trace.trace_id)}
+                  className="break-all font-mono text-xs text-[var(--color-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] rounded"
+                  title={trace.trace_id}
+                >
+                  {trace.trace_id}
+                </Link>
+              </td>
+              <td style={tdStyle(1)} className="box-border min-w-0 px-3 py-2 align-top text-sm break-words">{trace.user || '—'}</td>
+              <td style={tdStyle(2)} className="box-border min-w-0 px-3 py-2 align-top text-xs text-[var(--color-text-secondary)] break-words" title={trace.queue ?? undefined}>
+                {trace.queue || '—'}
+              </td>
+              <td style={tdStyle(3)} className="box-border px-3 py-2 align-top tabular-nums text-sm font-medium">
+                {trace.duration_ms.toFixed(1)} ms
+              </td>
+              <td style={tdStyle(4)} className="box-border px-3 py-2 align-top text-xs text-[var(--color-text-secondary)]">
+                {trace.span_count}
+              </td>
+              <td style={tdStyle(5)} className="box-border px-3 py-2 align-top text-center">
+                {trace.error_count > 0 ? (
+                  <span className="text-xs font-semibold text-[var(--color-error)]">{trace.error_count}</span>
+                ) : (
+                  <span className="text-xs text-[var(--color-success)]">—</span>
+                )}
+              </td>
+              <td style={tdStyle(6)} className="box-border min-w-0 px-3 py-2 align-top text-xs text-[var(--color-text-tertiary)] break-words">
+                {new Date(trace.timestamp).toLocaleString()}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
 function useUserId(): string | null {
   if (isHeaderAuthMode()) return DEV_USER_ID
@@ -167,59 +252,7 @@ function TracePageContent() {
         )}
 
         {!recentLoading && recentTraces.length > 0 && (
-          <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
-            <table className="w-full border-collapse text-sm" role="table">
-              <thead>
-                <tr className="bg-[var(--color-bg-secondary)]">
-                  {['Trace ID', 'User', 'Queue', 'Duration', 'Spans', 'Errors', 'Time'].map((h) => (
-                    <th
-                      key={h}
-                      scope="col"
-                      className="border-b border-[var(--color-border)] px-3 py-2 text-left text-xs font-semibold text-[var(--color-text-secondary)]"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {recentTraces.map((trace) => (
-                  <tr
-                    key={`${trace.job_id}-${trace.trace_id}`}
-                    className="border-b border-[var(--color-border-light)] hover:bg-[var(--color-bg-secondary)] transition-colors"
-                    role="row"
-                  >
-                    <td className="px-3 py-2">
-                      <Link
-                        href={ROUTES.ANALYSIS_TRACE(trace.job_id, trace.trace_id)}
-                        className="font-mono text-xs text-[var(--color-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] rounded"
-                      >
-                        {trace.trace_id.slice(0, 12)}…
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2 text-sm">{trace.user || '—'}</td>
-                    <td className="px-3 py-2 text-xs text-[var(--color-text-secondary)]">{trace.queue || '—'}</td>
-                    <td className="px-3 py-2 tabular-nums text-sm font-medium">
-                      {trace.duration_ms.toFixed(1)} ms
-                    </td>
-                    <td className="px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-                      {trace.span_count}
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      {trace.error_count > 0 ? (
-                        <span className="text-xs font-semibold text-[var(--color-error)]">{trace.error_count}</span>
-                      ) : (
-                        <span className="text-xs text-[var(--color-success)]">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-[var(--color-text-tertiary)]">
-                      {new Date(trace.timestamp).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <RecentTracesTable traces={recentTraces} />
         )}
       </section>
     </div>

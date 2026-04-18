@@ -10,8 +10,10 @@
  *   <AggregatesSection data={aggregatesData} />
  */
 
+import { useMemo } from 'react'
+import { useResizableTableColumns, type ResizableColumnConfig } from '@/hooks/use-resizable-table-columns'
 import { cn } from '@/lib/utils'
-import type { AggregatesResponse } from '@/lib/api-types'
+import type { AggregatesResponse, AggregateGroup, AggregateRow } from '@/lib/api-types'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -20,6 +22,111 @@ import type { AggregatesResponse } from '@/lib/api-types'
 interface AggregatesSectionProps {
   data: AggregatesResponse
   className?: string
+}
+
+// ---------------------------------------------------------------------------
+// AggregatesGroupTable
+// ---------------------------------------------------------------------------
+
+function AggregatesGroupTable({
+  group,
+  sectionIndex,
+  groupIndex,
+  ariaLabel,
+}: {
+  group: AggregateGroup
+  sectionIndex: number
+  groupIndex: number
+  ariaLabel: string
+}) {
+  const valueColumnCount =
+    group.headers.length > 0
+      ? group.headers.length
+      : group.rows.reduce((max, r) => Math.max(max, r.values.length), 0)
+
+  const resizeSpec = useMemo((): ResizableColumnConfig[] => {
+    const spec: ResizableColumnConfig[] = [
+      { id: 'label', defaultWidth: 148, minWidth: 88, maxWidth: 400 },
+      ...Array.from({ length: valueColumnCount }, (_, i) => ({
+        id: `c${i}`,
+        defaultWidth: 104,
+        minWidth: 64,
+        maxWidth: 280,
+      })),
+    ]
+    return spec
+  }, [valueColumnCount])
+
+  const { tableLayoutStyle, thStyle, tdStyle, renderResizeHandle } = useResizableTableColumns(resizeSpec, {
+    storageKey: `remedyiq:aggregate:v1:${sectionIndex}:${groupIndex}`,
+  })
+
+  const showHeaderRow = valueColumnCount > 0
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-[var(--color-border)]">
+      <table className="text-xs" style={tableLayoutStyle} aria-label={ariaLabel}>
+        {showHeaderRow && (
+          <thead>
+            <tr className="bg-[var(--color-bg-secondary)]">
+              <th
+                scope="col"
+                style={thStyle(0)}
+                className="relative box-border border-b border-[var(--color-border)] px-3 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap"
+              >
+                <span className="pr-2">Label</span>
+                {renderResizeHandle(0)}
+              </th>
+              {group.headers.length > 0
+                ? group.headers.map((h, hi) => (
+                    <th
+                      key={hi}
+                      scope="col"
+                      style={thStyle(hi + 1)}
+                      className="relative box-border border-b border-[var(--color-border)] px-3 py-2 text-right font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap"
+                    >
+                      <span className="pr-2">{h}</span>
+                      {renderResizeHandle(hi + 1)}
+                    </th>
+                  ))
+                : Array.from({ length: valueColumnCount }, (_, hi) => (
+                    <th
+                      key={hi}
+                      scope="col"
+                      style={thStyle(hi + 1)}
+                      className="relative box-border border-b border-[var(--color-border)] px-3 py-2 text-right font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap"
+                    >
+                      <span className="pr-2 tabular-nums">{hi + 1}</span>
+                      {renderResizeHandle(hi + 1)}
+                    </th>
+                  ))}
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {group.rows.map((row: AggregateRow, ri) => (
+            <tr
+              key={ri}
+              className="border-b border-[var(--color-border-light)] last:border-0 hover:bg-[var(--color-bg-secondary)] transition-colors"
+            >
+              <td style={tdStyle(0)} className="box-border min-w-0 px-3 py-2 align-top font-medium text-[var(--color-text-primary)] break-words whitespace-normal">
+                {row.label}
+              </td>
+              {row.values.map((val, vi) => (
+                <td
+                  key={vi}
+                  style={tdStyle(vi + 1)}
+                  className="box-border px-3 py-2 align-top text-right font-mono text-[var(--color-text-secondary)] whitespace-nowrap"
+                >
+                  {val == null ? '—' : String(val)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -55,52 +162,12 @@ export function AggregatesSection({ data, className }: AggregatesSectionProps) {
                 {group.rows.length === 0 ? (
                   <p className="text-xs text-[var(--color-text-tertiary)]">No data</p>
                 ) : (
-                  <div className="overflow-x-auto rounded-lg border border-[var(--color-border)]">
-                    <table className="w-full text-xs" aria-label={group.name || section.title}>
-                      {group.headers.length > 0 && (
-                        <thead>
-                          <tr className="bg-[var(--color-bg-secondary)]">
-                            {/* Row label column */}
-                            <th
-                              scope="col"
-                              className="border-b border-[var(--color-border)] px-3 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap"
-                            >
-                              Label
-                            </th>
-                            {group.headers.map((h, hi) => (
-                              <th
-                                key={hi}
-                                scope="col"
-                                className="border-b border-[var(--color-border)] px-3 py-2 text-right font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap"
-                              >
-                                {h}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                      )}
-                      <tbody>
-                        {group.rows.map((row, ri) => (
-                          <tr
-                            key={ri}
-                            className="border-b border-[var(--color-border-light)] last:border-0 hover:bg-[var(--color-bg-secondary)] transition-colors"
-                          >
-                            <td className="px-3 py-2 font-medium text-[var(--color-text-primary)] whitespace-nowrap">
-                              {row.label}
-                            </td>
-                            {row.values.map((val, vi) => (
-                              <td
-                                key={vi}
-                                className="px-3 py-2 text-right font-mono text-[var(--color-text-secondary)] whitespace-nowrap"
-                              >
-                                {val == null ? '—' : String(val)}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <AggregatesGroupTable
+                    group={group}
+                    sectionIndex={si}
+                    groupIndex={gi}
+                    ariaLabel={group.name || section.title}
+                  />
                 )}
               </div>
             ))}

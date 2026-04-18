@@ -11,7 +11,8 @@
  *   <TraceSearch jobId={jobId} />
  */
 
-import { useState, useCallback, FormEvent } from 'react'
+import { useState, useCallback, FormEvent, type CSSProperties } from 'react'
+import { useResizableTableColumns, type ResizableColumnConfig } from '@/hooks/use-resizable-table-columns'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { LOG_TYPE_COLORS, ROUTES } from '@/lib/constants'
@@ -28,6 +29,16 @@ interface TraceSearchProps {
   className?: string
 }
 
+const TRACE_SEARCH_RESULTS_RESIZE: ResizableColumnConfig[] = [
+  { id: 'trace', defaultWidth: 200, minWidth: 120, maxWidth: 480 },
+  { id: 'user', defaultWidth: 120, minWidth: 72, maxWidth: 280 },
+  { id: 'queue', defaultWidth: 140, minWidth: 72, maxWidth: 360 },
+  { id: 'duration', defaultWidth: 112, minWidth: 88, maxWidth: 180 },
+  { id: 'spans', defaultWidth: 72, minWidth: 56, maxWidth: 120 },
+  { id: 'types', defaultWidth: 160, minWidth: 100, maxWidth: 320 },
+  { id: 'status', defaultWidth: 72, minWidth: 56, maxWidth: 100 },
+]
+
 // ---------------------------------------------------------------------------
 // Result row
 // ---------------------------------------------------------------------------
@@ -35,9 +46,10 @@ interface TraceSearchProps {
 interface ResultRowProps {
   txn: TransactionSummary
   onNavigate: (traceId: string) => void
+  tdStyle: (colIndex: number) => CSSProperties
 }
 
-function ResultRow({ txn, onNavigate }: ResultRowProps) {
+function ResultRow({ txn, onNavigate, tdStyle }: ResultRowProps) {
   return (
     <tr
       role="row"
@@ -53,34 +65,32 @@ function ResultRow({ txn, onNavigate }: ResultRowProps) {
       aria-label={`Trace ${txn.trace_id}, ${txn.duration_ms.toFixed(1)} ms, user ${txn.user}`}
     >
       {/* Trace ID */}
-      <td className="px-3 py-2 font-mono text-xs text-[var(--color-text-primary)]">
-        <span className="truncate block max-w-[120px]" title={txn.trace_id}>
-          {txn.trace_id.slice(0, 12)}…
-        </span>
+      <td style={tdStyle(0)} className="box-border min-w-0 px-3 py-2 align-top font-mono text-xs text-[var(--color-text-primary)] break-all whitespace-normal" title={txn.trace_id}>
+        {txn.trace_id}
       </td>
 
       {/* User */}
-      <td className="px-3 py-2 text-sm text-[var(--color-text-primary)]">
+      <td style={tdStyle(1)} className="box-border min-w-0 px-3 py-2 align-top text-sm text-[var(--color-text-primary)] break-words">
         {txn.user || '—'}
       </td>
 
       {/* Queue */}
-      <td className="px-3 py-2 text-xs text-[var(--color-text-secondary)]">
+      <td style={tdStyle(2)} className="box-border min-w-0 px-3 py-2 align-top text-xs text-[var(--color-text-secondary)] break-words" title={txn.queue ?? undefined}>
         {txn.queue || '—'}
       </td>
 
       {/* Duration */}
-      <td className="px-3 py-2 text-right tabular-nums text-sm font-medium text-[var(--color-text-primary)]">
+      <td style={tdStyle(3)} className="box-border px-3 py-2 align-top text-right tabular-nums text-sm font-medium text-[var(--color-text-primary)]">
         {txn.duration_ms.toFixed(1)} ms
       </td>
 
       {/* Spans */}
-      <td className="px-3 py-2 text-right text-xs text-[var(--color-text-secondary)]">
+      <td style={tdStyle(4)} className="box-border px-3 py-2 align-top text-right text-xs text-[var(--color-text-secondary)]">
         {txn.span_count}
       </td>
 
       {/* Log types */}
-      <td className="px-3 py-2">
+      <td style={tdStyle(5)} className="box-border min-w-0 px-3 py-2 align-top">
         <div className="flex flex-wrap gap-1">
           {(txn.log_types ?? []).map((t) => {
             const cfg = LOG_TYPE_COLORS[t as LogType]
@@ -98,7 +108,7 @@ function ResultRow({ txn, onNavigate }: ResultRowProps) {
       </td>
 
       {/* Error indicator */}
-      <td className="px-3 py-2 text-center">
+      <td style={tdStyle(6)} className="box-border px-3 py-2 align-top text-center">
         {txn.has_errors ? (
           <span className="inline-block h-2 w-2 rounded-full bg-[var(--color-error)]" aria-label="Has errors" />
         ) : (
@@ -106,6 +116,56 @@ function ResultRow({ txn, onNavigate }: ResultRowProps) {
         )}
       </td>
     </tr>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// TraceSearchResultsTable
+// ---------------------------------------------------------------------------
+
+function TraceSearchResultsTable({
+  transactions,
+  onNavigate,
+}: {
+  transactions: TransactionSummary[]
+  onNavigate: (traceId: string) => void
+}) {
+  const { tableLayoutStyle, thStyle, tdStyle, renderResizeHandle } = useResizableTableColumns(TRACE_SEARCH_RESULTS_RESIZE, {
+    storageKey: 'remedyiq:trace-search-results:v1',
+  })
+
+  const headers = ['Trace ID', 'User', 'Queue', 'Duration', 'Spans', 'Types', 'Status'] as const
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="border-collapse text-sm" style={tableLayoutStyle} role="table">
+        <thead>
+          <tr className="bg-[var(--color-bg-secondary)]">
+            {headers.map((h, i) => (
+              <th
+                key={h}
+                scope="col"
+                style={thStyle(i)}
+                className={cn(
+                  'relative box-border border-b border-[var(--color-border)] px-3 py-2 text-xs font-semibold text-[var(--color-text-secondary)]',
+                  (h === 'Duration' || h === 'Spans') && 'text-right',
+                  h === 'Status' && 'text-center',
+                  !['Duration', 'Spans', 'Status'].includes(h) && 'text-left',
+                )}
+              >
+                <span className="pr-2">{h}</span>
+                {renderResizeHandle(i)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {transactions.map((txn) => (
+            <ResultRow key={txn.trace_id} txn={txn} onNavigate={onNavigate} tdStyle={tdStyle} />
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -292,28 +352,7 @@ export function TraceSearch({ jobId, className }: TraceSearchProps) {
                   description="Try adjusting your search criteria."
                 />
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[640px] border-collapse text-sm" role="table">
-                    <thead>
-                      <tr className="bg-[var(--color-bg-secondary)]">
-                        {['Trace ID', 'User', 'Queue', 'Duration', 'Spans', 'Types', 'Status'].map((h) => (
-                          <th
-                            key={h}
-                            scope="col"
-                            className="border-b border-[var(--color-border)] px-3 py-2 text-left text-xs font-semibold text-[var(--color-text-secondary)]"
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.transactions.map((txn) => (
-                        <ResultRow key={txn.trace_id} txn={txn} onNavigate={handleNavigate} />
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <TraceSearchResultsTable transactions={data.transactions} onNavigate={handleNavigate} />
               )}
             </>
           )}

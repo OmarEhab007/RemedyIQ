@@ -46,6 +46,11 @@ import { ReportButton } from '@/components/dashboard/report-button'
 import { LoggingActivitySection } from '@/components/dashboard/logging-activity-section'
 import { SourceFilesSection } from '@/components/dashboard/source-files-section'
 import { DelayedEscalationsSection } from '@/components/dashboard/delayed-escalations-section'
+import {
+  DashboardJumpNav,
+  DashboardJumpNavMobile,
+  type DashboardJumpLink,
+} from '@/components/dashboard/dashboard-jump-nav'
 import { ROUTES } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import type {
@@ -431,6 +436,21 @@ function CountBadge({ count }: { count: number }) {
 
 type TopNTab = 'api' | 'sql' | 'filter' | 'escalation' | 'queued'
 
+/** In-page anchors for the jump rail (see CollapsibleSection `id` pattern). */
+const DASHBOARD_JUMP_LINKS: DashboardJumpLink[] = [
+  { href: '#dashboard-overview', label: 'Overview & KPIs', shortLabel: 'Overview' },
+  { href: '#dashboard-activity', label: 'Throughput chart', shortLabel: 'Chart' },
+  { href: '#dashboard-explorer', label: 'Top entries & distribution', shortLabel: 'Top N' },
+  { href: '#section-aggregates', label: 'Aggregate breakdown', shortLabel: 'Agg.' },
+  { href: '#section-exceptions', label: 'Error catalog', shortLabel: 'Errors' },
+  { href: '#section-timing-gaps', label: 'Sequence gaps', shortLabel: 'Gaps' },
+  { href: '#section-thread-statistics', label: 'Worker threads', shortLabel: 'Threads' },
+  { href: '#section-filter-complexity', label: 'Filter depth', shortLabel: 'Filters' },
+  { href: '#section-logging-activity', label: 'Log windows', shortLabel: 'Logs' },
+  { href: '#section-source-files', label: 'Uploaded sources', shortLabel: 'Files' },
+  { href: '#section-delayed-escalations', label: 'Escalation delays', shortLabel: 'Del. esc.' },
+]
+
 const TOP_N_TABS: Array<{
   key: TopNTab
   label: string
@@ -531,10 +551,9 @@ export default function AnalysisDashboardPage() {
     if (!dashboard || autoSelected) return
     const first = TOP_N_TABS.find((t) => t.dataKey && (dashboard[t.dataKey]?.length ?? 0) > 0)
     if (first) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot default tab from dashboard payload
       setActiveTab(first.key)
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAutoSelected(true)
   }, [dashboard, autoSelected])
 
@@ -565,206 +584,215 @@ export default function AnalysisDashboardPage() {
     : (activeTabConfig.dataKey ? dashboard[activeTabConfig.dataKey] ?? [] : [])
 
   return (
-    <div className="space-y-5">
-      {/* Header with breadcrumb */}
-      <PageHeader
-        title={pageTitle}
-        description={pageDescription}
-        actions={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => router.push(ROUTES.ANALYSIS)}
-              className="inline-flex items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] shadow-sm transition-colors hover:bg-[var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
-              aria-label="Back to analyses list"
-            >
-              <svg
-                className="h-3 w-3"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-              All Jobs
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push(ROUTES.ANALYSIS_EXPLORER(jobId))}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-primary)] shadow-sm transition-colors hover:bg-[var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
-            >
-              Log Explorer
-            </button>
-            <ReportButton jobId={jobId} />
-          </div>
-        }
-      />
-
-      {/* Row 1: Health Score + Stats */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {health_score && (
-          <div className="lg:col-span-1">
-            <HealthScoreCard healthScore={health_score} />
-          </div>
-        )}
-        <div className={health_score ? 'lg:col-span-2' : 'lg:col-span-3'}>
-          <StatsCards stats={general_stats} distribution={distribution} />
-        </div>
-      </div>
-
-      {/* Row 2: Time series — full width */}
-      <TimeSeriesChart data={time_series} />
-
-      {/* Row 3: Tabbed Top-N + Distribution side-by-side */}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
-        {/* Tabbed Top-N (spans 3 cols) */}
-        <div className="xl:col-span-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm overflow-hidden">
-          {/* Tab bar */}
-          <div
-            className="flex border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]"
-            role="tablist"
-            aria-label="Top entries by log type"
-          >
-            {TOP_N_TABS.map((tab) => {
-              const tabCount = tab.key === 'queued'
-                ? (queuedCallsData?.total ?? 0)
-                : (tab.dataKey ? dashboard[tab.dataKey]?.length ?? 0 : 0)
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === tab.key}
-                  aria-controls={`tabpanel-${tab.key}`}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={cn(
-                    'flex-1 px-4 py-2.5 text-xs font-medium transition-colors',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-primary)]',
-                    activeTab === tab.key
-                      ? 'text-[var(--color-primary)] border-b-2 border-[var(--color-primary)] bg-[var(--color-surface)]'
-                      : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)]'
-                  )}
-                >
-                  {tab.label}
-                  <span className={cn(
-                    'ml-1.5 text-[10px]',
-                    tabCount > 0 ? 'opacity-60' : 'opacity-30'
-                  )}>
-                    ({tabCount})
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Tab panel */}
-          <div
-            id={`tabpanel-${activeTab}`}
-            role="tabpanel"
-            aria-label={activeTabConfig.title}
-          >
-            <TopNTable
-              entries={activeTabData}
-              title={activeTabConfig.title}
-              logType={activeTabConfig.logType}
-              maxRows={10}
-              compact
+    <div className="analysis-dashboard-root">
+      <div className="relative z-[1] xl:grid xl:grid-cols-[minmax(0,1fr)_12.5rem] xl:items-start xl:gap-8">
+        <div className="min-w-0 space-y-5">
+          <div id="dashboard-overview" className="scroll-mt-24 space-y-4">
+            <PageHeader
+              title={pageTitle}
+              description={pageDescription}
+              headingClassName="text-2xl sm:text-[1.65rem] font-semibold tracking-tight bg-gradient-to-r from-[var(--color-text-primary)] to-[var(--color-text-secondary)] bg-clip-text text-transparent"
+              descriptionClassName="text-sm text-[var(--color-text-secondary)]"
+              actions={
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => router.push(ROUTES.ANALYSIS)}
+                    className="inline-flex items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] shadow-sm transition-colors hover:bg-[var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+                    aria-label="Back to analyses list"
+                  >
+                    <svg
+                      className="h-3 w-3"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                    All Jobs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => router.push(ROUTES.ANALYSIS_EXPLORER(jobId))}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-primary)] shadow-sm transition-colors hover:bg-[var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+                  >
+                    Log Explorer
+                  </button>
+                  <ReportButton jobId={jobId} />
+                </div>
+              }
             />
+
+            <DashboardJumpNavMobile links={DASHBOARD_JUMP_LINKS} />
+
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+              {health_score && (
+                <div className="lg:col-span-1">
+                  <HealthScoreCard healthScore={health_score} />
+                </div>
+              )}
+              <div className={health_score ? 'lg:col-span-2' : 'lg:col-span-3'}>
+                <StatsCards stats={general_stats} distribution={distribution} />
+              </div>
+            </div>
+          </div>
+
+          <div id="dashboard-activity" className="scroll-mt-24">
+            <TimeSeriesChart data={time_series} />
+          </div>
+
+          <div id="dashboard-explorer" className="scroll-mt-24 grid grid-cols-1 gap-5 xl:grid-cols-5">
+            <div className="xl:col-span-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm overflow-hidden">
+              <div
+                className="flex border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]"
+                role="tablist"
+                aria-label="Top entries by log type"
+              >
+                {TOP_N_TABS.map((tab) => {
+                  const tabCount = tab.key === 'queued'
+                    ? (queuedCallsData?.total ?? 0)
+                    : (tab.dataKey ? dashboard[tab.dataKey]?.length ?? 0 : 0)
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeTab === tab.key}
+                      aria-controls={`tabpanel-${tab.key}`}
+                      onClick={() => setActiveTab(tab.key)}
+                      className={cn(
+                        'flex-1 px-4 py-2.5 text-xs font-medium transition-colors',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-primary)]',
+                        activeTab === tab.key
+                          ? 'text-[var(--color-primary)] border-b-2 border-[var(--color-primary)] bg-[var(--color-surface)]'
+                          : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)]'
+                      )}
+                    >
+                      {tab.label}
+                      <span className={cn(
+                        'ml-1.5 text-[10px]',
+                        tabCount > 0 ? 'opacity-60' : 'opacity-30'
+                      )}>
+                        ({tabCount})
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div
+                id={`tabpanel-${activeTab}`}
+                role="tabpanel"
+                aria-label={activeTabConfig.title}
+              >
+                <TopNTable
+                  entries={activeTabData}
+                  title={activeTabConfig.title}
+                  logType={activeTabConfig.logType}
+                  maxRows={10}
+                  compact
+                />
+              </div>
+            </div>
+
+            <div className="xl:col-span-2">
+              <DistributionChart distribution={distribution} />
+            </div>
+          </div>
+
+          <div className="space-y-3" aria-label="Detailed analysis sections">
+            <CollapsibleSection
+              title="Aggregates"
+              description="Statistical breakdowns by form, table, and filter"
+              badge={aggregates?.sections?.length ? <CountBadge count={aggregates.sections.length} /> : undefined}
+              onExpand={handleAggExpand}
+              isLoading={aggLoading}
+            >
+              {aggregates && <AggregatesSection data={aggregates} />}
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Exceptions"
+              description="Errors and exceptions found in the log"
+              badge={typeof exceptions?.total === 'number' ? <CountBadge count={exceptions.total} /> : undefined}
+              onExpand={handleExcExpand}
+              isLoading={excLoading}
+            >
+              {exceptions && <ExceptionsSection data={exceptions} />}
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Timing Gaps"
+              description="Periods of inactivity or log coverage breaks"
+              badge={typeof gaps?.total_gaps === 'number' ? <CountBadge count={gaps.total_gaps} /> : undefined}
+              onExpand={handleGapsExpand}
+              isLoading={gapsLoading}
+            >
+              {gaps && <GapsSection data={gaps} />}
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Thread Statistics"
+              description="Per-thread request counts and duration statistics"
+              badge={typeof threads?.total_threads === 'number' ? <CountBadge count={threads.total_threads} /> : undefined}
+              onExpand={handleThreadsExpand}
+              isLoading={threadsLoading}
+            >
+              {threads && <ThreadsSection data={threads} />}
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Filter Complexity"
+              description="Most executed filters and per-transaction filter counts"
+              onExpand={handleFiltersExpand}
+              isLoading={filtersLoading}
+            >
+              {filters && <FiltersSection data={filters} />}
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Logging Activity"
+              description="Per-log-type time ranges and coverage durations"
+              onExpand={handleLoggingActivityExpand}
+              isLoading={loggingActivityLoading}
+            >
+              {loggingActivityData && (
+                <LoggingActivitySection data={loggingActivityData.activities ?? []} />
+              )}
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Source Files"
+              description="Per-file metadata with time ranges and durations"
+              onExpand={handleSourceFilesExpand}
+              isLoading={sourceFilesLoading}
+            >
+              {sourceFilesData && (
+                <SourceFilesSection data={sourceFilesData.files ?? []} />
+              )}
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Delayed Escalations"
+              description="Escalations that ran later than their scheduled time"
+              badge={delayedEscData?.total ? <CountBadge count={delayedEscData.total} /> : undefined}
+              onExpand={handleDelayedEscExpand}
+              isLoading={delayedEscLoading}
+            >
+              {delayedEscData && <DelayedEscalationsSection data={delayedEscData} />}
+            </CollapsibleSection>
           </div>
         </div>
 
-        {/* Distribution chart (spans 2 cols) */}
-        <div className="xl:col-span-2">
-          <DistributionChart distribution={distribution} />
-        </div>
-      </div>
-
-      {/* Collapsible detail sections */}
-      <div className="space-y-3" aria-label="Detailed analysis sections">
-        <CollapsibleSection
-          title="Aggregates"
-          description="Statistical breakdowns by form, table, and filter"
-          badge={aggregates?.sections?.length ? <CountBadge count={aggregates.sections.length} /> : undefined}
-          onExpand={handleAggExpand}
-          isLoading={aggLoading}
-        >
-          {aggregates && <AggregatesSection data={aggregates} />}
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          title="Exceptions"
-          description="Errors and exceptions found in the log"
-          badge={typeof exceptions?.total === 'number' ? <CountBadge count={exceptions.total} /> : undefined}
-          onExpand={handleExcExpand}
-          isLoading={excLoading}
-        >
-          {exceptions && <ExceptionsSection data={exceptions} />}
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          title="Timing Gaps"
-          description="Periods of inactivity or log coverage breaks"
-          badge={typeof gaps?.total_gaps === 'number' ? <CountBadge count={gaps.total_gaps} /> : undefined}
-          onExpand={handleGapsExpand}
-          isLoading={gapsLoading}
-        >
-          {gaps && <GapsSection data={gaps} />}
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          title="Thread Statistics"
-          description="Per-thread request counts and duration statistics"
-          badge={typeof threads?.total_threads === 'number' ? <CountBadge count={threads.total_threads} /> : undefined}
-          onExpand={handleThreadsExpand}
-          isLoading={threadsLoading}
-        >
-          {threads && <ThreadsSection data={threads} />}
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          title="Filter Complexity"
-          description="Most executed filters and per-transaction filter counts"
-          onExpand={handleFiltersExpand}
-          isLoading={filtersLoading}
-        >
-          {filters && <FiltersSection data={filters} />}
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          title="Logging Activity"
-          description="Per-log-type time ranges and coverage durations"
-          onExpand={handleLoggingActivityExpand}
-          isLoading={loggingActivityLoading}
-        >
-          {loggingActivityData && (
-            <LoggingActivitySection data={loggingActivityData.activities ?? []} />
-          )}
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          title="Source Files"
-          description="Per-file metadata with time ranges and durations"
-          onExpand={handleSourceFilesExpand}
-          isLoading={sourceFilesLoading}
-        >
-          {sourceFilesData && (
-            <SourceFilesSection data={sourceFilesData.files ?? []} />
-          )}
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          title="Delayed Escalations"
-          description="Escalations that ran later than their scheduled time"
-          badge={delayedEscData?.total ? <CountBadge count={delayedEscData.total} /> : undefined}
-          onExpand={handleDelayedEscExpand}
-          isLoading={delayedEscLoading}
-        >
-          {delayedEscData && <DelayedEscalationsSection data={delayedEscData} />}
-        </CollapsibleSection>
+        <aside className="hidden xl:block">
+          <div className="sticky top-4">
+            <DashboardJumpNav links={DASHBOARD_JUMP_LINKS} />
+          </div>
+        </aside>
       </div>
     </div>
   )

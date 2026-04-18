@@ -28,6 +28,7 @@ vi.mock('react-window', () => ({
   FixedSizeList: ({
     children: Children,
     itemCount,
+    itemData,
   }: {
     children: React.ComponentType<{ index: number; style: React.CSSProperties; data: unknown }>
     itemCount: number
@@ -35,11 +36,30 @@ vi.mock('react-window', () => ({
   }) => (
     <div data-testid="fixed-size-list">
       {Array.from({ length: itemCount }, (_, i) => (
-        <Children key={i} index={i} style={{}} data={null} />
+        <Children key={i} index={i} style={{}} data={itemData} />
       ))}
     </div>
   ),
 }))
+
+class ResizeObserverMock {
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+  constructor(callback: ResizeObserverCallback) {
+    callback(
+      [{ contentRect: { height: 600, width: 800 } } as ResizeObserverEntry],
+      this,
+    )
+  }
+}
+
+vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+
+Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+  configurable: true,
+  get: () => 800,
+})
 
 // ---------------------------------------------------------------------------
 // makeSpan helper — shared across trace tests

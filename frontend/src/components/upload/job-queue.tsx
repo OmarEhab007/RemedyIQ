@@ -12,7 +12,8 @@
  *   <JobQueue />
  */
 
-import { useCallback } from 'react'
+import { useCallback, type CSSProperties } from 'react'
+import { useResizableTableColumns, type ResizableColumnConfig } from '@/hooks/use-resizable-table-columns'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -51,6 +52,15 @@ function formatCount(n: number): string {
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
   return String(n)
 }
+
+const JOB_QUEUE_RESIZE_SPEC: ResizableColumnConfig[] = [
+  { id: 'job', defaultWidth: 200, minWidth: 120, maxWidth: 480 },
+  { id: 'status', defaultWidth: 112, minWidth: 88, maxWidth: 180 },
+  { id: 'progress', defaultWidth: 140, minWidth: 100, maxWidth: 220 },
+  { id: 'entries', defaultWidth: 200, minWidth: 120, maxWidth: 420 },
+  { id: 'created', defaultWidth: 120, minWidth: 96, maxWidth: 200 },
+  { id: 'actions', defaultWidth: 112, minWidth: 88, maxWidth: 200 },
+]
 
 // ---------------------------------------------------------------------------
 // StatusBadge
@@ -109,9 +119,10 @@ interface JobRowProps {
   job: AnalysisJob
   onRetry: (fileId: string) => void
   isRetrying: boolean
+  tdStyle: (colIndex: number) => CSSProperties
 }
 
-function JobRow({ job, onRetry, isRetrying }: JobRowProps) {
+function JobRow({ job, onRetry, isRetrying, tdStyle }: JobRowProps) {
   const router = useRouter()
   const isComplete = job.status === 'complete'
   const isFailed = job.status === 'failed'
@@ -148,16 +159,16 @@ function JobRow({ job, onRetry, isRetrying }: JobRowProps) {
       )}
     >
       {/* File name / job ID */}
-      <td className="py-3 pl-4 pr-3">
+      <td style={tdStyle(0)} className="box-border py-3 pl-4 pr-3 align-top">
         <p
-          className="max-w-[180px] truncate text-sm font-medium text-[var(--color-text-primary)] sm:max-w-xs"
+          className="min-w-0 break-all text-sm font-medium text-[var(--color-text-primary)] whitespace-normal"
           title={job.id}
         >
           {job.id}
         </p>
         {isFailed && job.error_message && (
           <p
-            className="mt-0.5 max-w-xs truncate text-xs text-[var(--color-error)]"
+            className="mt-0.5 min-w-0 break-words text-xs text-[var(--color-error)] whitespace-normal"
             title={job.error_message}
           >
             {job.error_message}
@@ -166,12 +177,12 @@ function JobRow({ job, onRetry, isRetrying }: JobRowProps) {
       </td>
 
       {/* Status */}
-      <td className="px-3 py-3 whitespace-nowrap">
+      <td style={tdStyle(1)} className="box-border px-3 py-3 align-top whitespace-nowrap">
         <StatusBadge status={job.status} />
       </td>
 
       {/* Progress */}
-      <td className="px-3 py-3 whitespace-nowrap">
+      <td style={tdStyle(2)} className="box-border px-3 py-3 align-top whitespace-nowrap">
         {isActive ? (
           <div className="flex items-center gap-2">
             <div className="h-1.5 w-20 overflow-hidden rounded-full bg-[var(--color-border)]">
@@ -197,7 +208,7 @@ function JobRow({ job, onRetry, isRetrying }: JobRowProps) {
       </td>
 
       {/* Entry counts */}
-      <td className="px-3 py-3">
+      <td style={tdStyle(3)} className="box-border px-3 py-3 align-top">
         {(job.api_count != null || job.sql_count != null) ? (
           <div className="flex flex-wrap gap-1">
             <CountPill type="API" count={job.api_count ?? 0} />
@@ -215,12 +226,12 @@ function JobRow({ job, onRetry, isRetrying }: JobRowProps) {
       </td>
 
       {/* Created at */}
-      <td className="px-3 py-3 whitespace-nowrap text-xs text-[var(--color-text-secondary)]">
+      <td style={tdStyle(4)} className="box-border px-3 py-3 align-top whitespace-nowrap text-xs text-[var(--color-text-secondary)]">
         {formatDate(job.created_at)}
       </td>
 
       {/* Actions */}
-      <td className="py-3 pl-3 pr-4 text-right">
+      <td style={tdStyle(5)} className="box-border py-3 pl-3 pr-4 align-top text-right">
         {isFailed && (
           <Button
             variant="outline"
@@ -302,6 +313,73 @@ function JobRow({ job, onRetry, isRetrying }: JobRowProps) {
 }
 
 // ---------------------------------------------------------------------------
+// JobQueueTable
+// ---------------------------------------------------------------------------
+
+function JobQueueTable({
+  jobs,
+  onRetry,
+  isRetrying,
+  retryingFileId,
+}: {
+  jobs: AnalysisJob[]
+  onRetry: (fileId: string) => void
+  isRetrying: boolean
+  retryingFileId: string | undefined
+}) {
+  const { tableLayoutStyle, thStyle, tdStyle, renderResizeHandle } = useResizableTableColumns(JOB_QUEUE_RESIZE_SPEC, {
+    storageKey: 'remedyiq:job-queue:v1',
+  })
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="text-left" style={tableLayoutStyle} aria-label="Analysis jobs">
+        <thead>
+          <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+            {(['Job ID', 'Status', 'Progress', 'Entries', 'Created', ''] as const).map((label, i) => (
+              <th
+                key={i}
+                scope="col"
+                style={thStyle(i)}
+                className={cn(
+                  'relative box-border py-2.5 text-xs font-semibold text-[var(--color-text-secondary)]',
+                  i === 0 && 'pl-4 pr-3',
+                  i > 0 && i < 5 && 'px-3',
+                  i === 5 && 'pl-3 pr-4',
+                )}
+              >
+                {i === 5 ? (
+                  <>
+                    <span className="sr-only">Actions</span>
+                    {renderResizeHandle(i)}
+                  </>
+                ) : (
+                  <>
+                    <span className="pr-2">{label}</span>
+                    {renderResizeHandle(i)}
+                  </>
+                )}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {jobs.map((job) => (
+            <JobRow
+              key={job.id}
+              job={job}
+              onRetry={onRetry}
+              isRetrying={isRetrying && retryingFileId === job.file_id}
+              tdStyle={tdStyle}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // JobQueue component
 // ---------------------------------------------------------------------------
 
@@ -366,63 +444,12 @@ export function JobQueue({ className }: JobQueueProps) {
 
       {/* State: table */}
       {!isLoading && !isError && jobs.length > 0 && (
-        <div className="overflow-x-auto">
-          <table
-            className="w-full text-left"
-            aria-label="Analysis jobs"
-          >
-            <thead>
-              <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-                <th
-                  scope="col"
-                  className="py-2.5 pl-4 pr-3 text-xs font-semibold text-[var(--color-text-secondary)]"
-                >
-                  Job ID
-                </th>
-                <th
-                  scope="col"
-                  className="px-3 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)]"
-                >
-                  Status
-                </th>
-                <th
-                  scope="col"
-                  className="px-3 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)]"
-                >
-                  Progress
-                </th>
-                <th
-                  scope="col"
-                  className="px-3 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)]"
-                >
-                  Entries
-                </th>
-                <th
-                  scope="col"
-                  className="px-3 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)]"
-                >
-                  Created
-                </th>
-                <th scope="col" className="py-2.5 pl-3 pr-4">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {jobs.map((job) => (
-                <JobRow
-                  key={job.id}
-                  job={job}
-                  onRetry={handleRetry}
-                  isRetrying={
-                    createAnalysis.isPending &&
-                    createAnalysis.variables?.fileId === job.file_id
-                  }
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <JobQueueTable
+          jobs={jobs}
+          onRetry={handleRetry}
+          isRetrying={createAnalysis.isPending}
+          retryingFileId={createAnalysis.variables?.fileId}
+        />
       )}
     </section>
   )

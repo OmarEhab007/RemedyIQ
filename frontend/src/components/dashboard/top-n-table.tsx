@@ -14,6 +14,7 @@
  */
 
 import React, { useState, useMemo, useCallback } from 'react'
+import { useResizableTableColumns, type ResizableColumnConfig } from '@/hooks/use-resizable-table-columns'
 import { cn } from '@/lib/utils'
 import { LOG_TYPE_COLORS, AR_API_CODES } from '@/lib/constants'
 import type { TopNEntry, LogType } from '@/lib/api-types'
@@ -167,7 +168,10 @@ const IDENTIFIER_COL = (label: string): ColumnDef => ({
   sortable: true,
   getValue: (e) => e.identifier,
   render: (e) => (
-    <span className="block truncate font-mono text-[var(--color-text-primary)]" title={e.identifier}>
+    <span
+      className="block min-w-0 break-words font-mono text-[var(--color-text-primary)] whitespace-normal"
+      title={e.identifier}
+    >
       {e.identifier || '—'}
     </span>
   ),
@@ -181,7 +185,7 @@ const FORM_COL: ColumnDef = {
   sortable: true,
   getValue: (e) => e.form ?? '',
   render: (e) => (
-    <span className="block truncate text-[var(--color-text-secondary)]" title={e.form ?? ''}>
+    <span className="block min-w-0 break-words text-[var(--color-text-secondary)] whitespace-normal" title={e.form ?? ''}>
       {e.form || '—'}
     </span>
   ),
@@ -195,7 +199,10 @@ const QUEUE_COL: ColumnDef = {
   sortable: true,
   getValue: (e) => e.queue,
   render: (e) => (
-    <span className="block truncate font-mono text-xs text-[var(--color-text-secondary)]" title={e.queue}>
+    <span
+      className="block min-w-0 break-words font-mono text-xs text-[var(--color-text-secondary)] whitespace-normal"
+      title={e.queue}
+    >
       {e.queue || '—'}
     </span>
   ),
@@ -233,7 +240,7 @@ const USER_COL: ColumnDef = {
   sortable: true,
   getValue: (e) => e.user,
   render: (e) => (
-    <span className="block truncate text-[var(--color-text-secondary)]" title={e.user}>
+    <span className="block min-w-0 break-words text-[var(--color-text-secondary)] whitespace-normal" title={e.user}>
       {e.user || '—'}
     </span>
   ),
@@ -278,7 +285,10 @@ const ESC_POOL_COL: ColumnDef = {
   sortable: false,
   getValue: (_e, p) => p.esc_pool ?? '',
   render: (_e, p) => (
-    <span className="block truncate font-mono text-xs text-[var(--color-text-secondary)]" title={p.esc_pool ?? ''}>
+    <span
+      className="block min-w-0 break-words font-mono text-xs text-[var(--color-text-secondary)] whitespace-normal"
+      title={p.esc_pool ?? ''}
+    >
       {p.esc_pool || '—'}
     </span>
   ),
@@ -334,14 +344,17 @@ const API_CALL_COL: ColumnDef = {
     const decoded = AR_API_CODES[code]
     if (!decoded) {
       return (
-        <span className="block truncate font-mono text-[var(--color-text-primary)]" title={e.identifier}>
+        <span
+          className="block min-w-0 break-words font-mono text-[var(--color-text-primary)] whitespace-normal"
+          title={e.identifier}
+        >
           {e.identifier || '—'}
         </span>
       )
     }
     return (
-      <div className="flex items-center gap-1.5 min-w-0">
-        <span className="truncate text-[var(--color-text-primary)]">{decoded.name}</span>
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <span className="min-w-0 break-words text-[var(--color-text-primary)] whitespace-normal">{decoded.name}</span>
         <ApiCodeBadge
           code={code}
           className="shrink-0 rounded bg-[var(--color-bg-tertiary)] px-1 py-0.5 font-mono text-[10px] text-[var(--color-text-tertiary)]"
@@ -363,7 +376,10 @@ const SQL_TABLE_COL: ColumnDef = {
   sortable: true,
   getValue: (e) => e.identifier,
   render: (e) => (
-    <span className="block truncate font-mono text-[var(--color-text-primary)]" title={e.identifier}>
+    <span
+      className="block min-w-0 break-words font-mono text-[var(--color-text-primary)] whitespace-normal"
+      title={e.identifier}
+    >
       {e.identifier || '—'}
     </span>
   ),
@@ -378,13 +394,12 @@ const SQL_STATEMENT_COL: ColumnDef = {
   render: (_e, p) => {
     const sql = p.sql_statement
     if (!sql) return <span className="text-[var(--color-text-tertiary)]">—</span>
-    const truncated = sql.length > 80 ? `${sql.slice(0, 80)}...` : sql
     return (
       <span
-        className="block truncate font-mono text-[11px] text-[var(--color-text-secondary)]"
+        className="block max-h-28 min-w-0 overflow-y-auto whitespace-pre-wrap break-all font-mono text-[11px] text-[var(--color-text-secondary)]"
         title={sql}
       >
-        {truncated}
+        {sql}
       </span>
     )
   },
@@ -403,6 +418,42 @@ function getColumnsForType(logType: LogType): ColumnDef[] {
     default:
       return [RANK_COL, IDENTIFIER_COL('Identifier'), FORM_COL, QUEUE_COL, DURATION_COL, USER_COL, STATUS_COL]
   }
+}
+
+function buildResizeSpec(columns: ColumnDef[], logType: LogType): ResizableColumnConfig[] {
+  return columns.map((c) => {
+    const id = `${logType}:${c.key}`
+    switch (c.key) {
+      case 'rank':
+        return { id, defaultWidth: 44, minWidth: 36, maxWidth: 88 }
+      case 'identifier':
+        return { id, defaultWidth: logType === 'SQL' ? 168 : 228, minWidth: 96, maxWidth: 640 }
+      case 'sql_statement':
+        return { id, defaultWidth: 280, minWidth: 120, maxWidth: 960 }
+      case 'form':
+        return { id, defaultWidth: 196, minWidth: 120, maxWidth: 560 }
+      case 'queue':
+        return { id, defaultWidth: 136, minWidth: 72, maxWidth: 360 }
+      case 'duration_ms':
+        return { id, defaultWidth: 164, minWidth: 120, maxWidth: 300 }
+      case 'queue_time_ms':
+        return { id, defaultWidth: 84, minWidth: 64, maxWidth: 160 }
+      case 'timestamp':
+        return { id, defaultWidth: 104, minWidth: 88, maxWidth: 200 }
+      case 'user':
+        return { id, defaultWidth: 124, minWidth: 72, maxWidth: 320 }
+      case 'success':
+        return { id, defaultWidth: 72, minWidth: 56, maxWidth: 120 }
+      case 'esc_pool':
+        return { id, defaultWidth: 124, minWidth: 72, maxWidth: 320 }
+      case 'delay_ms':
+        return { id, defaultWidth: 76, minWidth: 64, maxWidth: 140 }
+      case 'filter_level':
+        return { id, defaultWidth: 64, minWidth: 48, maxWidth: 100 }
+      default:
+        return { id, defaultWidth: 120, minWidth: 64, maxWidth: 480 }
+    }
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -516,6 +567,11 @@ function TopNTableContent({
 
   const columns = useMemo(() => getColumnsForType(logType), [logType])
 
+  const resizeSpec = useMemo(() => buildResizeSpec(columns, logType), [columns, logType])
+  const { tableLayoutStyle, thStyle, tdStyle, renderResizeHandle } = useResizableTableColumns(resizeSpec, {
+    storageKey: `remedyiq:topn:${logType}:${columns.map((c) => c.key).join(':')}`,
+  })
+
   // Parse details for all entries (memoized)
   const parsedDetailsMap = useMemo(() => {
     return entries.map((e) => parseDetails(e.details))
@@ -584,20 +640,20 @@ function TopNTableContent({
   return (
     <div>
       <div className="overflow-x-auto">
-        <table className="w-full text-xs" aria-label={title}>
+        <table className="text-xs" style={tableLayoutStyle} aria-label={title}>
           <thead>
             <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-              {columns.map((col) => (
+              {columns.map((col, colIndex) => (
                 <th
                   key={col.key}
                   scope="col"
                   tabIndex={col.sortable ? 0 : undefined}
+                  style={thStyle(colIndex)}
                   className={cn(
-                    'group/th px-3 py-2 font-semibold text-[10px] text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap',
+                    'group/th relative box-border px-3 py-2 font-semibold text-[10px] text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap',
                     col.sortable && 'cursor-pointer select-none',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-inset',
                     col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
-                    col.width
                   )}
                   onClick={col.sortable ? () => handleSort(col.key) : undefined}
                   onKeyDown={col.sortable ? (e) => {
@@ -612,10 +668,11 @@ function TopNTableContent({
                       : col.sortable ? 'none' : undefined
                   }
                 >
-                  <span className="inline-flex items-center gap-1">
+                  <span className="inline-flex items-center gap-1 pr-2">
                     {col.label}
                     {col.sortable && <SortIcon active={sortKey === col.key} dir={sortDir} />}
                   </span>
+                  {renderResizeHandle(colIndex)}
                 </th>
               ))}
             </tr>
@@ -637,14 +694,13 @@ function TopNTableContent({
                     )}
                     title="Click to view details"
                   >
-                    {columns.map((col) => (
+                    {columns.map((col, colIndex) => (
                       <td
                         key={col.key}
+                        style={tdStyle(colIndex)}
                         className={cn(
-                          'px-3 py-2',
+                          'box-border px-3 py-2 align-top',
                           col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
-                          col.width,
-                          col.key === 'identifier' && 'max-w-0'
                         )}
                       >
                         {col.render(entry, parsed, maxDuration)}

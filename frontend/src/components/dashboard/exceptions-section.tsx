@@ -10,7 +10,8 @@
  *   <ExceptionsSection data={exceptionsData} />
  */
 
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
+import { useResizableTableColumns, type ResizableColumnConfig } from '@/hooks/use-resizable-table-columns'
 import { cn } from '@/lib/utils'
 import { LOG_TYPE_COLORS } from '@/lib/constants'
 import type { ExceptionsResponse, ExceptionEntry } from '@/lib/api-types'
@@ -24,11 +25,26 @@ interface ExceptionsSectionProps {
   className?: string
 }
 
+const EXCEPTIONS_RESIZE_SPEC: ResizableColumnConfig[] = [
+  { id: 'line', defaultWidth: 56, minWidth: 44, maxWidth: 100 },
+  { id: 'type', defaultWidth: 64, minWidth: 48, maxWidth: 100 },
+  { id: 'time', defaultWidth: 96, minWidth: 72, maxWidth: 160 },
+  { id: 'user', defaultWidth: 100, minWidth: 64, maxWidth: 220 },
+  { id: 'message', defaultWidth: 280, minWidth: 120, maxWidth: 720 },
+  { id: 'stack', defaultWidth: 72, minWidth: 56, maxWidth: 120 },
+]
+
 // ---------------------------------------------------------------------------
 // ExceptionRow
 // ---------------------------------------------------------------------------
 
-function ExceptionRow({ entry }: { entry: ExceptionEntry }) {
+function ExceptionRow({
+  entry,
+  tdStyle,
+}: {
+  entry: ExceptionEntry
+  tdStyle: (i: number) => CSSProperties
+}) {
   const [expanded, setExpanded] = useState(false)
   const typeConfig = LOG_TYPE_COLORS[entry.log_type]
 
@@ -38,10 +54,10 @@ function ExceptionRow({ entry }: { entry: ExceptionEntry }) {
         'border-b border-[var(--color-border-light)] hover:bg-[var(--color-bg-secondary)] transition-colors',
         'bg-[var(--color-error-light)]/20'
       )}>
-        <td className="px-4 py-2 font-mono text-[10px] text-[var(--color-text-tertiary)] whitespace-nowrap">
+        <td style={tdStyle(0)} className="box-border px-4 py-2 align-top font-mono text-[10px] text-[var(--color-text-tertiary)] whitespace-nowrap">
           L{entry.line_number}
         </td>
-        <td className="px-4 py-2 whitespace-nowrap">
+        <td style={tdStyle(1)} className="box-border px-4 py-2 align-top whitespace-nowrap">
           <span
             className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase"
             style={{ backgroundColor: typeConfig.bg, color: typeConfig.text }}
@@ -49,21 +65,21 @@ function ExceptionRow({ entry }: { entry: ExceptionEntry }) {
             {entry.log_type}
           </span>
         </td>
-        <td className="px-4 py-2 whitespace-nowrap font-mono text-xs text-[var(--color-text-secondary)]">
+        <td style={tdStyle(2)} className="box-border px-4 py-2 align-top whitespace-nowrap font-mono text-xs text-[var(--color-text-secondary)]">
           {new Date(entry.timestamp).toLocaleTimeString()}
         </td>
-        <td className="px-4 py-2 text-xs text-[var(--color-text-secondary)] whitespace-nowrap truncate max-w-[8rem]" title={entry.user}>
+        <td style={tdStyle(3)} className="box-border min-w-0 px-4 py-2 align-top font-mono text-xs text-[var(--color-text-secondary)] break-words whitespace-normal" title={entry.user ?? undefined}>
           {entry.user || '—'}
         </td>
-        <td className="max-w-0 px-4 py-2">
+        <td style={tdStyle(4)} className="box-border min-w-0 px-4 py-2 align-top">
           <span
-            className="block truncate text-xs text-[var(--color-error)]"
+            className="block text-xs text-[var(--color-error)] break-words whitespace-normal"
             title={entry.message}
           >
             {entry.message}
           </span>
         </td>
-        <td className="px-4 py-2 text-right">
+        <td style={tdStyle(5)} className="box-border px-4 py-2 align-top text-right">
           {entry.stack_trace && (
             <button
               type="button"
@@ -95,6 +111,45 @@ function ExceptionRow({ entry }: { entry: ExceptionEntry }) {
         </tr>
       )}
     </>
+  )
+}
+
+function ExceptionsTable({ exceptions }: { exceptions: ExceptionEntry[] }) {
+  const { tableLayoutStyle, thStyle, tdStyle, renderResizeHandle } = useResizableTableColumns(EXCEPTIONS_RESIZE_SPEC, {
+    storageKey: 'remedyiq:exceptions:v1',
+  })
+
+  const headers = ['Line', 'Type', 'Time', 'User', 'Message', 'Stack'] as const
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="text-xs" style={tableLayoutStyle} aria-label="Exceptions list">
+        <thead>
+          <tr className="bg-[var(--color-bg-secondary)]">
+            {headers.map((label, colIndex) => (
+              <th
+                key={label}
+                scope="col"
+                style={thStyle(colIndex)}
+                className={cn(
+                  'relative box-border border-b border-[var(--color-border)] px-4 py-2 font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider',
+                  colIndex === 5 ? 'text-right' : 'text-left',
+                  colIndex < 4 && 'whitespace-nowrap',
+                )}
+              >
+                <span className="pr-2">{label}</span>
+                {renderResizeHandle(colIndex)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {exceptions.map((entry, idx) => (
+            <ExceptionRow key={`${entry.trace_id}-${idx}`} entry={entry} tdStyle={tdStyle} />
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -132,37 +187,7 @@ export function ExceptionsSection({ data, className }: ExceptionsSectionProps) {
         </span>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs" aria-label="Exceptions list">
-          <thead>
-            <tr className="bg-[var(--color-bg-secondary)]">
-              <th scope="col" className="border-b border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap">
-                Line
-              </th>
-              <th scope="col" className="border-b border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap">
-                Type
-              </th>
-              <th scope="col" className="border-b border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap">
-                Time
-              </th>
-              <th scope="col" className="border-b border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap">
-                User
-              </th>
-              <th scope="col" className="border-b border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider min-w-[16rem]">
-                Message
-              </th>
-              <th scope="col" className="border-b border-[var(--color-border)] px-4 py-2 text-right font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap">
-                Stack
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.exceptions.map((entry, idx) => (
-              <ExceptionRow key={`${entry.trace_id}-${idx}`} entry={entry} />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ExceptionsTable exceptions={data.exceptions} />
     </div>
   )
 }

@@ -19,6 +19,11 @@ export const ROUTES = {
   AI: '/ai',
 } as const
 
+/** Fired before in-page hash scroll so `CollapsibleSection` can open targeted `section-*` blocks. */
+export const DASHBOARD_EXPAND_SECTION_EVENT = 'remedyiq:dashboard-expand-section' as const
+
+export type DashboardExpandSectionDetail = { sectionId: string }
+
 // ---------------------------------------------------------------------------
 // Log type display configuration
 // ---------------------------------------------------------------------------

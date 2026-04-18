@@ -10,6 +10,8 @@
  *   <GapsSection data={gapsData} />
  */
 
+import type { CSSProperties } from 'react'
+import { useResizableTableColumns, type ResizableColumnConfig } from '@/hooks/use-resizable-table-columns'
 import { cn } from '@/lib/utils'
 import type { GapsResponse, GapEntry, QueueHealthSummary } from '@/lib/api-types'
 
@@ -32,11 +34,37 @@ function formatDuration(ms: number): string {
   return `${ms}ms`
 }
 
+const GAPS_LIST_RESIZE_SPEC: ResizableColumnConfig[] = [
+  { id: 'idx', defaultWidth: 48, minWidth: 36, maxWidth: 72 },
+  { id: 'duration', defaultWidth: 88, minWidth: 64, maxWidth: 140 },
+  { id: 'start', defaultWidth: 96, minWidth: 72, maxWidth: 160 },
+  { id: 'end', defaultWidth: 96, minWidth: 72, maxWidth: 160 },
+  { id: 'lines', defaultWidth: 120, minWidth: 88, maxWidth: 200 },
+  { id: 'description', defaultWidth: 220, minWidth: 120, maxWidth: 640 },
+]
+
+const QUEUE_HEALTH_RESIZE_SPEC: ResizableColumnConfig[] = [
+  { id: 'queue', defaultWidth: 140, minWidth: 88, maxWidth: 400 },
+  { id: 'requests', defaultWidth: 92, minWidth: 72, maxWidth: 160 },
+  { id: 'errors', defaultWidth: 72, minWidth: 56, maxWidth: 120 },
+  { id: 'avg', defaultWidth: 108, minWidth: 88, maxWidth: 200 },
+  { id: 'max', defaultWidth: 108, minWidth: 88, maxWidth: 200 },
+  { id: 'gaps', defaultWidth: 72, minWidth: 56, maxWidth: 120 },
+]
+
 // ---------------------------------------------------------------------------
 // GapRow
 // ---------------------------------------------------------------------------
 
-function GapRow({ gap, index }: { gap: GapEntry; index: number }) {
+function GapRow({
+  gap,
+  index,
+  tdStyle,
+}: {
+  gap: GapEntry
+  index: number
+  tdStyle: (i: number) => CSSProperties
+}) {
   const severity = gap.duration_ms > 30_000 ? 'critical' : gap.duration_ms > 5_000 ? 'warning' : 'ok'
 
   return (
@@ -45,10 +73,10 @@ function GapRow({ gap, index }: { gap: GapEntry; index: number }) {
       severity === 'critical' && 'bg-[var(--color-error-light)]/20',
       severity === 'warning' && 'bg-[var(--color-warning-light)]/20',
     )}>
-      <td className="px-4 py-2 font-mono text-[10px] text-[var(--color-text-tertiary)] whitespace-nowrap">
+      <td style={tdStyle(0)} className="box-border px-4 py-2 align-top font-mono text-[10px] text-[var(--color-text-tertiary)] whitespace-nowrap">
         #{index + 1}
       </td>
-      <td className="px-4 py-2 whitespace-nowrap">
+      <td style={tdStyle(1)} className="box-border px-4 py-2 align-top whitespace-nowrap">
         <span
           className={cn(
             'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold',
@@ -60,21 +88,58 @@ function GapRow({ gap, index }: { gap: GapEntry; index: number }) {
           {formatDuration(gap.duration_ms)}
         </span>
       </td>
-      <td className="px-4 py-2 font-mono text-xs text-[var(--color-text-secondary)] whitespace-nowrap">
+      <td style={tdStyle(2)} className="box-border px-4 py-2 align-top font-mono text-xs text-[var(--color-text-secondary)] whitespace-nowrap">
         {new Date(gap.start_time).toLocaleTimeString()}
       </td>
-      <td className="px-4 py-2 font-mono text-xs text-[var(--color-text-secondary)] whitespace-nowrap">
+      <td style={tdStyle(3)} className="box-border px-4 py-2 align-top font-mono text-xs text-[var(--color-text-secondary)] whitespace-nowrap">
         {new Date(gap.end_time).toLocaleTimeString()}
       </td>
-      <td className="px-4 py-2 font-mono text-xs text-[var(--color-text-tertiary)] whitespace-nowrap">
+      <td style={tdStyle(4)} className="box-border px-4 py-2 align-top font-mono text-xs text-[var(--color-text-tertiary)] whitespace-nowrap">
         L{gap.before_line} → L{gap.after_line}
       </td>
-      <td className="max-w-0 px-4 py-2 text-xs text-[var(--color-text-secondary)]">
-        <span className="block truncate" title={gap.description}>
-          {gap.description || '—'}
-        </span>
+      <td style={tdStyle(5)} className="box-border min-w-0 px-4 py-2 align-top text-xs text-[var(--color-text-secondary)] break-words whitespace-normal" title={gap.description ?? undefined}>
+        {gap.description || '—'}
       </td>
     </tr>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// GapsListTable
+// ---------------------------------------------------------------------------
+
+function GapsListTable({ gaps }: { gaps: GapEntry[] }) {
+  const { tableLayoutStyle, thStyle, tdStyle, renderResizeHandle } = useResizableTableColumns(GAPS_LIST_RESIZE_SPEC, {
+    storageKey: 'remedyiq:gaps:list:v1',
+  })
+
+  const headers = ['#', 'Duration', 'Start', 'End', 'Lines', 'Description'] as const
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="text-xs" style={tableLayoutStyle} aria-label="Timing gaps">
+        <thead>
+          <tr className="bg-[var(--color-bg-secondary)]">
+            {headers.map((h, colIndex) => (
+              <th
+                key={h}
+                scope="col"
+                style={thStyle(colIndex)}
+                className="relative box-border border-b border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap"
+              >
+                <span className="pr-2">{h}</span>
+                {renderResizeHandle(colIndex)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {gaps.map((gap, idx) => (
+            <GapRow key={idx} gap={gap} index={idx} tdStyle={tdStyle} />
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -83,7 +148,13 @@ function GapRow({ gap, index }: { gap: GapEntry; index: number }) {
 // ---------------------------------------------------------------------------
 
 function QueueHealthTable({ health }: { health: QueueHealthSummary[] }) {
+  const { tableLayoutStyle, thStyle, tdStyle, renderResizeHandle } = useResizableTableColumns(QUEUE_HEALTH_RESIZE_SPEC, {
+    storageKey: 'remedyiq:gaps:queue-health:v1',
+  })
+
   if (health.length === 0) return null
+
+  const headers = ['Queue', 'Requests', 'Errors', 'Avg Duration', 'Max Duration', 'Gaps'] as const
 
   return (
     <div className="border-t border-[var(--color-border)]">
@@ -93,16 +164,18 @@ function QueueHealthTable({ health }: { health: QueueHealthSummary[] }) {
         </h4>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-xs" aria-label="Queue health summary">
+        <table className="text-xs" style={tableLayoutStyle} aria-label="Queue health summary">
           <thead>
             <tr className="bg-[var(--color-bg-secondary)]">
-              {['Queue', 'Requests', 'Errors', 'Avg Duration', 'Max Duration', 'Gaps'].map((h) => (
+              {headers.map((h, colIndex) => (
                 <th
                   key={h}
                   scope="col"
-                  className="border-b border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap"
+                  style={thStyle(colIndex)}
+                  className="relative box-border border-b border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap"
                 >
-                  {h}
+                  <span className="pr-2">{h}</span>
+                  {renderResizeHandle(colIndex)}
                 </th>
               ))}
             </tr>
@@ -113,24 +186,24 @@ function QueueHealthTable({ health }: { health: QueueHealthSummary[] }) {
                 key={q.queue}
                 className="border-b border-[var(--color-border-light)] hover:bg-[var(--color-bg-secondary)] transition-colors"
               >
-                <td className="px-4 py-2 font-mono font-medium text-[var(--color-text-primary)] whitespace-nowrap">
+                <td style={tdStyle(0)} className="box-border min-w-0 px-4 py-2 align-top font-mono font-medium text-[var(--color-text-primary)] break-words" title={q.queue}>
                   {q.queue}
                 </td>
-                <td className="px-4 py-2 font-mono text-[var(--color-text-secondary)] whitespace-nowrap">
+                <td style={tdStyle(1)} className="box-border px-4 py-2 align-top font-mono text-[var(--color-text-secondary)] whitespace-nowrap">
                   {q.total_requests.toLocaleString()}
                 </td>
-                <td className="px-4 py-2 font-mono whitespace-nowrap">
+                <td style={tdStyle(2)} className="box-border px-4 py-2 align-top font-mono whitespace-nowrap">
                   <span className={q.error_count > 0 ? 'text-[var(--color-error)] font-semibold' : 'text-[var(--color-text-secondary)]'}>
                     {q.error_count.toLocaleString()}
                   </span>
                 </td>
-                <td className="px-4 py-2 font-mono text-[var(--color-text-secondary)] whitespace-nowrap">
+                <td style={tdStyle(3)} className="box-border px-4 py-2 align-top font-mono text-[var(--color-text-secondary)] whitespace-nowrap">
                   {formatDuration(q.avg_duration_ms)}
                 </td>
-                <td className="px-4 py-2 font-mono text-[var(--color-text-secondary)] whitespace-nowrap">
+                <td style={tdStyle(4)} className="box-border px-4 py-2 align-top font-mono text-[var(--color-text-secondary)] whitespace-nowrap">
                   {formatDuration(q.max_duration_ms)}
                 </td>
-                <td className="px-4 py-2 font-mono whitespace-nowrap">
+                <td style={tdStyle(5)} className="box-border px-4 py-2 align-top font-mono whitespace-nowrap">
                   <span className={q.gap_count > 0 ? 'text-[var(--color-warning)] font-semibold' : 'text-[var(--color-text-secondary)]'}>
                     {q.gap_count}
                   </span>
@@ -179,30 +252,7 @@ export function GapsSection({ data, className }: GapsSectionProps) {
       </div>
 
       {/* Gap list */}
-      {data.gaps && data.gaps.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs" aria-label="Timing gaps">
-            <thead>
-              <tr className="bg-[var(--color-bg-secondary)]">
-                {['#', 'Duration', 'Start', 'End', 'Lines', 'Description'].map((h) => (
-                  <th
-                    key={h}
-                    scope="col"
-                    className="border-b border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider whitespace-nowrap"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.gaps.map((gap, idx) => (
-                <GapRow key={idx} gap={gap} index={idx} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {data.gaps && data.gaps.length > 0 && <GapsListTable gaps={data.gaps} />}
 
       {/* Queue health */}
       <QueueHealthTable health={data.queue_health ?? []} />

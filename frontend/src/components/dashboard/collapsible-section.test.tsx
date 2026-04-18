@@ -2,8 +2,9 @@
  * T067 — Tests for CollapsibleSection component (T057)
  */
 
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { DASHBOARD_EXPAND_SECTION_EVENT } from '@/lib/constants'
 import { CollapsibleSection } from './collapsible-section'
 
 // ---------------------------------------------------------------------------
@@ -126,5 +127,56 @@ describe('CollapsibleSection', () => {
     expect(btn).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(btn)
     expect(btn).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  describe('jump navigation / hash targeting', () => {
+    afterEach(() => {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+    })
+
+    it('expands and calls onExpand when the dashboard expand event matches this section', async () => {
+      const onExpand = vi.fn()
+      render(
+        <CollapsibleSection title="Test Section" onExpand={onExpand}>
+          <p data-testid="inner-content">Inner Content</p>
+        </CollapsibleSection>
+      )
+      await act(async () => {
+        window.dispatchEvent(
+          new CustomEvent(DASHBOARD_EXPAND_SECTION_EVENT, {
+            detail: { sectionId: 'section-test-section' },
+          })
+        )
+      })
+      await waitFor(() => expect(screen.getByTestId('inner-content')).toBeInTheDocument())
+      await waitFor(() => expect(onExpand).toHaveBeenCalledTimes(1))
+      expect(screen.getByRole('button')).toHaveAttribute('aria-expanded', 'true')
+    })
+
+    it('ignores expand events that target a different section id', () => {
+      render(
+        <CollapsibleSection title="Test Section" onExpand={vi.fn()}>
+          <p data-testid="inner-content">Inner Content</p>
+        </CollapsibleSection>
+      )
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent(DASHBOARD_EXPAND_SECTION_EVENT, {
+            detail: { sectionId: 'section-other-section' },
+          })
+        )
+      })
+      expect(screen.queryByTestId('inner-content')).toBeNull()
+    })
+
+    it('expands on mount when the URL hash matches this section id', async () => {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#section-test-section`)
+      render(
+        <CollapsibleSection title="Test Section" onExpand={vi.fn()}>
+          <p data-testid="inner-content">Inner Content</p>
+        </CollapsibleSection>
+      )
+      await waitFor(() => expect(screen.getByTestId('inner-content')).toBeInTheDocument())
+    })
   })
 })

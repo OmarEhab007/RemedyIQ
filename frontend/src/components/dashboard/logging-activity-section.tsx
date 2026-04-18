@@ -7,8 +7,16 @@
  * Helps admins verify that all expected log types were captured.
  */
 
+import { useResizableTableColumns, type ResizableColumnConfig } from '@/hooks/use-resizable-table-columns'
 import { cn } from '@/lib/utils'
 import type { LoggingActivityEntry } from '@/lib/api-types'
+
+const LOGGING_ACTIVITY_RESIZE_SPEC: ResizableColumnConfig[] = [
+  { id: 'type', defaultWidth: 140, minWidth: 96, maxWidth: 280 },
+  { id: 'first', defaultWidth: 180, minWidth: 120, maxWidth: 320 },
+  { id: 'last', defaultWidth: 180, minWidth: 120, maxWidth: 320 },
+  { id: 'duration', defaultWidth: 100, minWidth: 72, maxWidth: 200 },
+]
 
 interface LoggingActivitySectionProps {
   data: LoggingActivityEntry[]
@@ -44,6 +52,10 @@ const LOG_TYPE_LABELS: Record<string, string> = {
 }
 
 export function LoggingActivitySection({ data, className }: LoggingActivitySectionProps) {
+  const { tableLayoutStyle, thStyle, tdStyle, renderResizeHandle } = useResizableTableColumns(LOGGING_ACTIVITY_RESIZE_SPEC, {
+    storageKey: 'remedyiq:logging-activity:v1',
+  })
+
   if (!data || data.length === 0) {
     return (
       <div className={cn('px-5 py-4 text-sm text-[var(--color-text-secondary)]', className)}>
@@ -54,13 +66,25 @@ export function LoggingActivitySection({ data, className }: LoggingActivitySecti
 
   return (
     <div className={cn('overflow-x-auto', className)} role="region" aria-label="Logging activity by type">
-      <table className="w-full text-sm" role="table">
+      <table className="text-sm" style={tableLayoutStyle} role="table">
         <thead>
           <tr className="border-b border-[var(--color-border)] text-left">
-            <th className="px-4 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">Type</th>
-            <th className="px-4 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">First Entry</th>
-            <th className="px-4 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">Last Entry</th>
-            <th className="px-4 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider text-right">Duration</th>
+            <th style={thStyle(0)} className="relative box-border px-4 py-2.5 text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">
+              <span className="pr-2">Type</span>
+              {renderResizeHandle(0)}
+            </th>
+            <th style={thStyle(1)} className="relative box-border px-4 py-2.5 text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">
+              <span className="pr-2">First Entry</span>
+              {renderResizeHandle(1)}
+            </th>
+            <th style={thStyle(2)} className="relative box-border px-4 py-2.5 text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">
+              <span className="pr-2">Last Entry</span>
+              {renderResizeHandle(2)}
+            </th>
+            <th style={thStyle(3)} className="relative box-border px-4 py-2.5 text-right text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">
+              <span className="pr-2">Duration</span>
+              {renderResizeHandle(3)}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -69,16 +93,16 @@ export function LoggingActivitySection({ data, className }: LoggingActivitySecti
               key={entry.log_type}
               className="border-b border-[var(--color-border-light)] hover:bg-[var(--color-bg-secondary)] transition-colors"
             >
-              <td className="px-4 py-2.5 font-medium text-[var(--color-text-primary)]">
+              <td style={tdStyle(0)} className="box-border min-w-0 px-4 py-2.5 align-top font-medium text-[var(--color-text-primary)] break-words">
                 {LOG_TYPE_LABELS[entry.log_type] ?? entry.log_type}
               </td>
-              <td className="px-4 py-2.5 font-mono text-xs text-[var(--color-text-secondary)]">
+              <td style={tdStyle(1)} className="box-border min-w-0 px-4 py-2.5 align-top font-mono text-xs text-[var(--color-text-secondary)] break-words">
                 {formatTimestamp(entry.first_timestamp)}
               </td>
-              <td className="px-4 py-2.5 font-mono text-xs text-[var(--color-text-secondary)]">
+              <td style={tdStyle(2)} className="box-border min-w-0 px-4 py-2.5 align-top font-mono text-xs text-[var(--color-text-secondary)] break-words">
                 {formatTimestamp(entry.last_timestamp)}
               </td>
-              <td className="px-4 py-2.5 text-right font-mono text-xs text-[var(--color-text-primary)]">
+              <td style={tdStyle(3)} className="box-border px-4 py-2.5 align-top text-right font-mono text-xs text-[var(--color-text-primary)]">
                 {formatDuration(entry.duration_ms)}
               </td>
             </tr>

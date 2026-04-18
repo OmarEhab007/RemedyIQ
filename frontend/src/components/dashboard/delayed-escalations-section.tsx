@@ -8,8 +8,18 @@
  * (average delay, max delay, total count).
  */
 
+import { useResizableTableColumns, type ResizableColumnConfig } from '@/hooks/use-resizable-table-columns'
 import { cn } from '@/lib/utils'
 import type { DelayedEscalationsResponse } from '@/lib/api-types'
+
+const DELAYED_ESCL_RESIZE_SPEC: ResizableColumnConfig[] = [
+  { id: 'escalation', defaultWidth: 200, minWidth: 120, maxWidth: 560 },
+  { id: 'pool', defaultWidth: 120, minWidth: 72, maxWidth: 320 },
+  { id: 'scheduled', defaultWidth: 168, minWidth: 120, maxWidth: 280 },
+  { id: 'actual', defaultWidth: 168, minWidth: 120, maxWidth: 280 },
+  { id: 'delay', defaultWidth: 88, minWidth: 64, maxWidth: 160 },
+  { id: 'thread', defaultWidth: 120, minWidth: 72, maxWidth: 320 },
+]
 
 interface DelayedEscalationsSectionProps {
   data: DelayedEscalationsResponse
@@ -38,6 +48,10 @@ function delaySeverity(ms: number): 'critical' | 'warning' | 'ok' {
 }
 
 export function DelayedEscalationsSection({ data, className }: DelayedEscalationsSectionProps) {
+  const { tableLayoutStyle, thStyle, tdStyle, renderResizeHandle } = useResizableTableColumns(DELAYED_ESCL_RESIZE_SPEC, {
+    storageKey: 'remedyiq:delayed-escalations:v1',
+  })
+
   if (!data || !data.entries || data.entries.length === 0) {
     return (
       <div className={cn('px-5 py-4 text-sm text-[var(--color-text-secondary)]', className)}>
@@ -66,15 +80,33 @@ export function DelayedEscalationsSection({ data, className }: DelayedEscalation
 
       {/* Entries table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-sm" role="table">
+        <table className="text-sm" style={tableLayoutStyle} role="table">
           <thead>
             <tr className="border-b border-[var(--color-border)] text-left">
-              <th className="px-4 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">Escalation</th>
-              <th className="px-4 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">Pool</th>
-              <th className="px-4 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">Scheduled</th>
-              <th className="px-4 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">Actual</th>
-              <th className="px-4 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider text-right">Delay</th>
-              <th className="px-4 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">Thread</th>
+              <th style={thStyle(0)} className="relative box-border px-4 py-2.5 text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">
+                <span className="pr-2">Escalation</span>
+                {renderResizeHandle(0)}
+              </th>
+              <th style={thStyle(1)} className="relative box-border px-4 py-2.5 text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">
+                <span className="pr-2">Pool</span>
+                {renderResizeHandle(1)}
+              </th>
+              <th style={thStyle(2)} className="relative box-border px-4 py-2.5 text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">
+                <span className="pr-2">Scheduled</span>
+                {renderResizeHandle(2)}
+              </th>
+              <th style={thStyle(3)} className="relative box-border px-4 py-2.5 text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">
+                <span className="pr-2">Actual</span>
+                {renderResizeHandle(3)}
+              </th>
+              <th style={thStyle(4)} className="relative box-border px-4 py-2.5 text-right text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">
+                <span className="pr-2">Delay</span>
+                {renderResizeHandle(4)}
+              </th>
+              <th style={thStyle(5)} className="relative box-border px-4 py-2.5 text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">
+                <span className="pr-2">Thread</span>
+                {renderResizeHandle(5)}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -89,19 +121,19 @@ export function DelayedEscalationsSection({ data, className }: DelayedEscalation
                     severity === 'warning' && 'bg-[var(--color-warning-light)]/20',
                   )}
                 >
-                  <td className="px-4 py-2.5 font-medium text-[var(--color-text-primary)] truncate max-w-[200px]" title={entry.esc_name}>
+                  <td style={tdStyle(0)} className="box-border min-w-0 px-4 py-2.5 align-top font-medium text-[var(--color-text-primary)] break-words whitespace-normal" title={entry.esc_name}>
                     {entry.esc_name}
                   </td>
-                  <td className="px-4 py-2.5 text-[var(--color-text-secondary)]">
+                  <td style={tdStyle(1)} className="box-border min-w-0 px-4 py-2.5 align-top text-[var(--color-text-secondary)] break-words" title={entry.esc_pool ?? undefined}>
                     {entry.esc_pool || '—'}
                   </td>
-                  <td className="px-4 py-2.5 font-mono text-xs text-[var(--color-text-secondary)]">
+                  <td style={tdStyle(2)} className="box-border min-w-0 px-4 py-2.5 align-top font-mono text-xs text-[var(--color-text-secondary)] break-words">
                     {formatTimestamp(entry.scheduled_time)}
                   </td>
-                  <td className="px-4 py-2.5 font-mono text-xs text-[var(--color-text-secondary)]">
+                  <td style={tdStyle(3)} className="box-border min-w-0 px-4 py-2.5 align-top font-mono text-xs text-[var(--color-text-secondary)] break-words">
                     {formatTimestamp(entry.actual_time)}
                   </td>
-                  <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                  <td style={tdStyle(4)} className="box-border px-4 py-2.5 align-top text-right whitespace-nowrap">
                     <span
                       className={cn(
                         'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold',
@@ -113,7 +145,7 @@ export function DelayedEscalationsSection({ data, className }: DelayedEscalation
                       {formatDelay(entry.delay_ms)}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 font-mono text-xs text-[var(--color-text-tertiary)]">
+                  <td style={tdStyle(5)} className="box-border min-w-0 px-4 py-2.5 align-top font-mono text-xs text-[var(--color-text-tertiary)] break-all">
                     {entry.thread_id || '—'}
                   </td>
                 </tr>

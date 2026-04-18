@@ -19,7 +19,8 @@
  *   />
  */
 
-import { useCallback, useState, useEffect, useRef, type CSSProperties } from 'react'
+import { useCallback, useState, useEffect, useRef, useMemo, type CSSProperties, type ReactNode } from 'react'
+import { useResizableTableColumns, type ResizableColumnConfig } from '@/hooks/use-resizable-table-columns'
 import type { LogEntry, LogType } from '@/lib/api-types'
 import { LOG_TYPE_COLORS, AR_API_CODES } from '@/lib/constants'
 import { cn } from '@/lib/utils'
@@ -32,7 +33,6 @@ import { ApiCodeBadge } from '@/components/shared/api-code-badge'
 // ---------------------------------------------------------------------------
 
 /* eslint-disable @typescript-eslint/no-require-imports */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { FixedSizeList: List } = require('react-window') as {
   FixedSizeList: React.ComponentType<FixedSizeListProps>
 }
@@ -59,6 +59,15 @@ interface RowChildProps {
 // ---------------------------------------------------------------------------
 
 const ROW_HEIGHT = 44
+
+const LOG_TABLE_RESIZE_SPEC: ResizableColumnConfig[] = [
+  { id: 'timestamp', defaultWidth: 172, minWidth: 128, maxWidth: 280 },
+  { id: 'type', defaultWidth: 64, minWidth: 52, maxWidth: 100 },
+  { id: 'identifier', defaultWidth: 360, minWidth: 160, maxWidth: 900 },
+  { id: 'user', defaultWidth: 112, minWidth: 72, maxWidth: 240 },
+  { id: 'duration', defaultWidth: 80, minWidth: 64, maxWidth: 140 },
+  { id: 'status', defaultWidth: 44, minWidth: 36, maxWidth: 72 },
+]
 
 // ---------------------------------------------------------------------------
 // Types
@@ -197,22 +206,44 @@ function StatusIcon({ success }: { success: boolean | null }) {
 }
 
 // ---------------------------------------------------------------------------
-// TableHeader — static column headers
+// TableHeader — resizable column headers (CSS grid, matches LogRow)
 // ---------------------------------------------------------------------------
 
-function TableHeader() {
+const HEADER_LABELS = ['Timestamp', 'Type', 'Identifier', 'User', 'Duration', 'St.'] as const
+
+function TableHeader({
+  gridTemplateColumns,
+  totalWidth,
+  renderResizeHandle,
+}: {
+  gridTemplateColumns: string
+  totalWidth: number
+  renderResizeHandle: (colIndex: number) => ReactNode
+}) {
   return (
     <div
       role="row"
       aria-rowindex={1}
-      className="flex h-9 shrink-0 items-center border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]"
+      className="grid shrink-0 items-center border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]"
+      style={{
+        gridTemplateColumns,
+        minWidth: totalWidth,
+        width: '100%',
+      }}
     >
-      <span className="w-[172px] shrink-0">Timestamp</span>
-      <span className="w-16 shrink-0">Type</span>
-      <span className="min-w-0 flex-1">Identifier</span>
-      <span className="w-28 shrink-0 truncate">User</span>
-      <span className="w-20 shrink-0 text-right">Duration</span>
-      <span className="w-8 shrink-0 text-center">St.</span>
+      {HEADER_LABELS.map((label, i) => (
+        <div
+          key={label}
+          className={cn(
+            'relative flex min-w-0 items-center',
+            label === 'Duration' && 'justify-end text-right',
+            label === 'St.' && 'justify-center text-center',
+          )}
+        >
+          <span className={cn('truncate pr-2', (label === 'Duration' || label === 'St.') && 'pr-3')}>{label}</span>
+          {renderResizeHandle(i)}
+        </div>
+      ))}
     </div>
   )
 }
@@ -225,6 +256,7 @@ interface RowData {
   entries: LogEntry[]
   selectedEntryId: string | null
   onSelectEntry: (id: string) => void
+  gridTemplateColumns: string
 }
 
 // ---------------------------------------------------------------------------
@@ -232,7 +264,7 @@ interface RowData {
 // ---------------------------------------------------------------------------
 
 function LogRow({ index, style, data }: RowChildProps) {
-  const { entries, selectedEntryId, onSelectEntry } = data
+  const { entries, selectedEntryId, onSelectEntry, gridTemplateColumns } = data
   const entry = entries[index]
   if (!entry) return null
 
@@ -241,7 +273,16 @@ function LogRow({ index, style, data }: RowChildProps) {
 
   return (
     <div
-      style={style}
+      style={{
+        ...style,
+        display: 'grid',
+        gridTemplateColumns,
+        columnGap: '12px',
+        alignItems: 'center',
+        boxSizing: 'border-box',
+        paddingLeft: 12,
+        paddingRight: 12,
+      }}
       role="row"
       aria-rowindex={index + 2} // +2 because header is row 1
       aria-selected={isSelected}
@@ -254,7 +295,7 @@ function LogRow({ index, style, data }: RowChildProps) {
         }
       }}
       className={cn(
-        'flex cursor-pointer items-center border-b border-[var(--color-border-light)] px-3 text-sm transition-colors',
+        'cursor-pointer border-b border-[var(--color-border-light)] text-sm transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-primary)]',
         isSelected
           ? 'bg-[var(--color-primary-light)]'
@@ -264,20 +305,20 @@ function LogRow({ index, style, data }: RowChildProps) {
     >
       {/* Timestamp */}
       <span
-        className="w-[172px] shrink-0 font-mono text-xs text-[var(--color-text-secondary)]"
+        className="min-w-0 font-mono text-xs text-[var(--color-text-secondary)]"
         aria-label={`Timestamp: ${entry.timestamp}`}
       >
         {formatTimestamp(entry.timestamp)}
       </span>
 
       {/* Log type badge */}
-      <span className="w-16 shrink-0">
+      <span className="min-w-0">
         <LogTypeBadge logType={entry.log_type} />
       </span>
 
       {/* Identifier */}
       <span
-        className="min-w-0 flex-1 truncate font-mono text-xs text-[var(--color-text-primary)]"
+        className="min-w-0 truncate font-mono text-xs text-[var(--color-text-primary)]"
         title={identifier}
         aria-label={`Identifier: ${identifier}`}
       >
@@ -290,7 +331,7 @@ function LogRow({ index, style, data }: RowChildProps) {
 
       {/* User */}
       <span
-        className="w-28 shrink-0 truncate text-xs text-[var(--color-text-secondary)]"
+        className="min-w-0 truncate text-xs text-[var(--color-text-secondary)]"
         title={entry.user}
         aria-label={`User: ${entry.user}`}
       >
@@ -300,7 +341,7 @@ function LogRow({ index, style, data }: RowChildProps) {
       {/* Duration */}
       <span
         className={cn(
-          'w-20 shrink-0 text-right font-mono text-xs',
+          'min-w-0 text-right font-mono text-xs',
           entry.duration_ms !== null && entry.duration_ms >= 5000
             ? 'text-[var(--color-error)]'
             : entry.duration_ms !== null && entry.duration_ms >= 1000
@@ -314,7 +355,7 @@ function LogRow({ index, style, data }: RowChildProps) {
 
       {/* Status */}
       <span
-        className="flex w-8 shrink-0 items-center justify-center"
+        className="flex min-w-0 items-center justify-center"
         aria-label={`Status: ${entry.success === null ? 'unknown' : entry.success ? 'success' : 'error'}`}
       >
         <StatusIcon success={entry.success} />
@@ -381,6 +422,15 @@ export function LogTable({
   onLoadMore,
   className,
 }: LogTableProps) {
+  const { columnWidths, totalWidth, renderResizeHandle } = useResizableTableColumns(LOG_TABLE_RESIZE_SPEC, {
+    storageKey: 'remedyiq:explorer:log-table:v1',
+  })
+
+  const gridTemplateColumns = useMemo(
+    () => columnWidths.map((w) => `${w}px`).join(' '),
+    [columnWidths],
+  )
+
   const handleSelect = useCallback(
     (entryId: string) => {
       onSelectEntry(entryId === selectedEntryId ? null : entryId)
@@ -388,17 +438,24 @@ export function LogTable({
     [onSelectEntry, selectedEntryId],
   )
 
-  // Build item data (stable reference avoids re-renders)
-  const itemData: RowData = {
-    entries,
-    selectedEntryId,
-    onSelectEntry: handleSelect,
-  }
+  const itemData: RowData = useMemo(
+    () => ({
+      entries,
+      selectedEntryId,
+      onSelectEntry: handleSelect,
+      gridTemplateColumns,
+    }),
+    [entries, selectedEntryId, handleSelect, gridTemplateColumns],
+  )
 
   if (isLoading) {
     return (
       <div className={cn('flex flex-col overflow-hidden rounded-lg border border-[var(--color-border)]', className)}>
-        <TableHeader />
+        <TableHeader
+          gridTemplateColumns={gridTemplateColumns}
+          totalWidth={totalWidth}
+          renderResizeHandle={renderResizeHandle}
+        />
         <PageState variant="loading" rows={8} />
       </div>
     )
@@ -407,7 +464,11 @@ export function LogTable({
   if (entries.length === 0) {
     return (
       <div className={cn('flex flex-col overflow-hidden rounded-lg border border-[var(--color-border)]', className)}>
-        <TableHeader />
+        <TableHeader
+          gridTemplateColumns={gridTemplateColumns}
+          totalWidth={totalWidth}
+          renderResizeHandle={renderResizeHandle}
+        />
         <PageState
           variant="empty"
           title="No log entries found"
@@ -424,46 +485,55 @@ export function LogTable({
         className,
       )}
     >
-      {/* Column header */}
-      <TableHeader />
-
-      {/* Footer count + Load More */}
-      {total !== undefined && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-1 text-[11px] text-[var(--color-text-tertiary)]">
-          <span>Showing {entries.length.toLocaleString()} of {total.toLocaleString()} entries</span>
-          {hasMore && onLoadMore && (
-            <button
-              onClick={onLoadMore}
-              className="rounded bg-[var(--color-accent)] px-2 py-0.5 text-[11px] font-medium text-white hover:opacity-90 transition-opacity"
-            >
-              Load next page
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Virtualized list — fills remaining height */}
       <div
-        className="flex-1"
+        className="flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-hidden"
         role="grid"
         aria-label="Log entries"
         aria-rowcount={entries.length + 1}
         aria-colcount={6}
       >
-        <AutoSizerWrapper>
-          {({ height, width }) => (
-            <List
-              height={height}
-              width={width}
-              itemCount={entries.length}
-              itemSize={ROW_HEIGHT}
-              itemData={itemData}
-              overscanCount={5}
-            >
-              {LogRow}
-            </List>
+        <div style={{ minWidth: totalWidth }} className="flex h-full min-h-0 w-full flex-col">
+          <TableHeader
+            gridTemplateColumns={gridTemplateColumns}
+            totalWidth={totalWidth}
+            renderResizeHandle={renderResizeHandle}
+          />
+
+          {total !== undefined && (
+            <div className="flex shrink-0 items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-3 py-1 text-[11px] text-[var(--color-text-tertiary)]">
+              <span>Showing {entries.length.toLocaleString()} of {total.toLocaleString()} entries</span>
+              {hasMore && onLoadMore && (
+                <button
+                  type="button"
+                  onClick={onLoadMore}
+                  className="rounded bg-[var(--color-accent)] px-2 py-0.5 text-[11px] font-medium text-white hover:opacity-90 transition-opacity"
+                >
+                  Load next page
+                </button>
+              )}
+            </div>
           )}
-        </AutoSizerWrapper>
+
+          <div className="min-h-0 flex-1">
+            <AutoSizerWrapper>
+              {({ height, width }) => {
+                const listWidth = Math.max(width, totalWidth)
+                return (
+                  <List
+                    height={height}
+                    width={listWidth}
+                    itemCount={entries.length}
+                    itemSize={ROW_HEIGHT}
+                    itemData={itemData}
+                    overscanCount={5}
+                  >
+                    {LogRow}
+                  </List>
+                )
+              }}
+            </AutoSizerWrapper>
+          </div>
+        </div>
       </div>
     </div>
   )

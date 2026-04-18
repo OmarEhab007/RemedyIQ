@@ -10,6 +10,10 @@ interface PageHeaderProps {
   description?: string
   actions?: ReactNode
   className?: string
+  /** Optional classes for the `<h1>` (e.g. dashboard display sizing). */
+  headingClassName?: string
+  /** Optional classes for the description paragraph. */
+  descriptionClassName?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -23,7 +27,14 @@ interface PageHeaderProps {
 //   />
 // ---------------------------------------------------------------------------
 
-export function PageHeader({ title, description, actions, className }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  description,
+  actions,
+  className,
+  headingClassName,
+  descriptionClassName,
+}: PageHeaderProps) {
   return (
     <div
       className={cn(
@@ -32,11 +43,21 @@ export function PageHeader({ title, description, actions, className }: PageHeade
       )}
     >
       <div className="min-w-0 flex-1">
-        <h1 className="text-xl font-semibold leading-tight text-[var(--color-text-primary)] truncate">
+        <h1
+          className={cn(
+            'text-xl font-semibold leading-tight text-[var(--color-text-primary)] truncate',
+            headingClassName
+          )}
+        >
           {title}
         </h1>
         {description && (
-          <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">
+          <p
+            className={cn(
+              'mt-0.5 text-sm text-[var(--color-text-secondary)]',
+              descriptionClassName
+            )}
+          >
             {description}
           </p>
         )}
