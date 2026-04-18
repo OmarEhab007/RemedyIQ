@@ -12,8 +12,8 @@
  *   [FilterPanel | LogTable | DetailPanel]
  */
 
-import { useParams, useRouter } from 'next/navigation'
-import { useMemo, useCallback, useState } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useMemo, useCallback, useState, useEffect, useRef, Suspense } from 'react'
 
 import { useExplorerStore } from '@/stores/explorer-store'
 import { useSearchLogs } from '@/hooks/use-api'
@@ -35,9 +35,10 @@ import { useDebounce } from '@/hooks/use-debounce'
 // Page component
 // ---------------------------------------------------------------------------
 
-export default function JobExplorerPage() {
+function JobExplorerPageInner() {
   const params = useParams()
   const router = useRouter()
+  const urlSearchParams = useSearchParams()
   const jobId = typeof params.id === 'string' ? params.id : null
 
   // Explorer store
@@ -49,6 +50,16 @@ export default function JobExplorerPage() {
   const removeFilter = useExplorerStore((s) => s.removeFilter)
   const clearFilters = useExplorerStore((s) => s.clearFilters)
   const selectEntry = useExplorerStore((s) => s.selectEntry)
+
+  const appliedUrlQuery = useRef(false)
+  useEffect(() => {
+    if (appliedUrlQuery.current) return
+    const q = urlSearchParams.get('q')?.trim()
+    if (q) {
+      setQuery(q)
+      appliedUrlQuery.current = true
+    }
+  }, [urlSearchParams, setQuery])
 
   // Debounce the search query for the API call
   const debouncedQuery = useDebounce(query, 300)
@@ -64,7 +75,7 @@ export default function JobExplorerPage() {
   }
 
   // Build search params from store state
-  const searchParams = useMemo<SearchLogsParams>(() => {
+  const logSearchParams = useMemo<SearchLogsParams>(() => {
     const params: SearchLogsParams = {
       page,
       page_size: pageSize,
@@ -106,7 +117,7 @@ export default function JobExplorerPage() {
     isLoading,
     isError,
     refetch,
-  } = useSearchLogs(jobId, searchParams)
+  } = useSearchLogs(jobId, logSearchParams)
 
   const entries = searchData?.entries ?? []
   const total = searchData?.total ?? 0
@@ -161,7 +172,7 @@ export default function JobExplorerPage() {
         />
         <ExportButton
           jobId={jobId}
-          searchParams={searchParams}
+          searchParams={logSearchParams}
           disabled={entries.length === 0}
         />
       </div>
@@ -218,5 +229,13 @@ export default function JobExplorerPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function JobExplorerPage() {
+  return (
+    <Suspense fallback={<PageState variant="loading" rows={4} />}>
+      <JobExplorerPageInner />
+    </Suspense>
   )
 }

@@ -7,7 +7,7 @@
  * Renders: header + ViewSwitcher + TraceFilters + active view + SpanDetail sidebar.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -61,6 +61,15 @@ export default function TraceDetailPage() {
   const [filters, setFilters] = useState<WaterfallFilters>(DEFAULT_FILTERS)
 
   const { data, isLoading, isError, refetch } = useWaterfall(jobId, traceId)
+
+  const firstErrorMessage = useMemo(() => {
+    if (!data?.flat_spans) return ''
+    for (const s of data.flat_spans) {
+      const m = s.error_message?.trim()
+      if (m) return m
+    }
+    return ''
+  }, [data])
 
   const handleSelectSpan = useCallback((span: SpanNode | null) => {
     setSelectedSpan(span)
@@ -117,6 +126,15 @@ export default function TraceDetailPage() {
             {data.error_count > 0 && (
               <span className="text-[var(--color-error)]">
                 <strong>{data.error_count}</strong> error{data.error_count !== 1 ? 's' : ''}
+              </span>
+            )}
+            {firstErrorMessage && (
+              <span
+                className="basis-full mt-1 max-w-full truncate text-xs text-[var(--color-error)]"
+                title={firstErrorMessage}
+              >
+                <span className="font-semibold text-[var(--color-text-secondary)]">First error: </span>
+                {firstErrorMessage}
               </span>
             )}
             {/* Type breakdown */}

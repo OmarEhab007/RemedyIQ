@@ -166,6 +166,32 @@ export interface TimeSeriesPoint {
   error_count: number;
 }
 
+/** Grouped error pattern (JAR-primary + derived supplement). */
+export interface ErrorSummaryMessage {
+  message: string;
+  count: number;
+  sample_trace?: string;
+}
+
+/** API errors attributed to a queue (AR admin triage). */
+export interface ErrorSummaryQueue {
+  queue: string;
+  errors: number;
+}
+
+/**
+ * Error operations summary embedded in dashboard payload.
+ * `source`: jar_primary | jar_plus_timeseries | derived_topn
+ */
+export interface ErrorSummary {
+  source: string;
+  jar_event_total: number;
+  timeseries_error_events: number;
+  unique_messages: number;
+  top_messages?: ErrorSummaryMessage[];
+  top_error_queues?: ErrorSummaryQueue[];
+}
+
 // ---------------------------------------------------------------------------
 // Dashboard — distribution
 // ---------------------------------------------------------------------------
@@ -204,6 +230,7 @@ export interface DashboardData {
   time_series: TimeSeriesPoint[];
   distribution: Distribution;
   health_score: HealthScore;
+  error_summary?: ErrorSummary;
 }
 
 // ---------------------------------------------------------------------------

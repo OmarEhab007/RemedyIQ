@@ -138,6 +138,7 @@ describe('ExceptionsSection', () => {
       expect(within(table).getByText('Time')).toBeInTheDocument()
       expect(within(table).getByText('User')).toBeInTheDocument()
       expect(within(table).getByText('Message')).toBeInTheDocument()
+      expect(within(table).getByText('Explore')).toBeInTheDocument()
       expect(within(table).getByText('Stack')).toBeInTheDocument()
     })
 

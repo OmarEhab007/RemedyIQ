@@ -43,6 +43,8 @@ import { GapsSection } from '@/components/dashboard/gaps-section'
 import { ThreadsSection } from '@/components/dashboard/threads-section'
 import { FiltersSection } from '@/components/dashboard/filters-section'
 import { ReportButton } from '@/components/dashboard/report-button'
+import { ErrorOpsSummary } from '@/components/dashboard/error-ops-summary'
+import { DashboardJobCompare } from '@/components/dashboard/dashboard-job-compare'
 import { LoggingActivitySection } from '@/components/dashboard/logging-activity-section'
 import { SourceFilesSection } from '@/components/dashboard/source-files-section'
 import { DelayedEscalationsSection } from '@/components/dashboard/delayed-escalations-section'
@@ -636,9 +638,17 @@ export default function AnalysisDashboardPage() {
                 </div>
               )}
               <div className={health_score ? 'lg:col-span-2' : 'lg:col-span-3'}>
-                <StatsCards stats={general_stats} distribution={distribution} />
+                <StatsCards
+                  stats={general_stats}
+                  distribution={distribution}
+                  errorSummary={dashboard.error_summary}
+                />
               </div>
             </div>
+
+            <ErrorOpsSummary jobId={jobId} summary={dashboard.error_summary} />
+
+            <DashboardJobCompare currentJobId={jobId} />
           </div>
 
           <div id="dashboard-activity" className="scroll-mt-24">
@@ -722,7 +732,7 @@ export default function AnalysisDashboardPage() {
               onExpand={handleExcExpand}
               isLoading={excLoading}
             >
-              {exceptions && <ExceptionsSection data={exceptions} />}
+              {exceptions && <ExceptionsSection data={exceptions} jobId={jobId} />}
             </CollapsibleSection>
 
             <CollapsibleSection

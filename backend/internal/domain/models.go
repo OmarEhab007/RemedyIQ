@@ -271,6 +271,31 @@ type TimeSeriesPoint struct {
 	ErrorCount    int       `json:"error_count"`
 }
 
+// ErrorSummaryMessage is a grouped error message with optional sample trace ID.
+type ErrorSummaryMessage struct {
+	Message     string `json:"message"`
+	Count       int64  `json:"count"`
+	SampleTrace string `json:"sample_trace,omitempty"`
+}
+
+// ErrorSummaryQueue counts API errors attributed to a queue (AR admin focus).
+type ErrorSummaryQueue struct {
+	Queue  string `json:"queue"`
+	Errors int64  `json:"errors"`
+}
+
+// ErrorSummary combines JAR-native exception rows with lightweight derived signals.
+// JarEventTotal is the primary count from JAR exception sections when present.
+// TimeseriesErrorEvents sums error_count buckets from the derived throughput series.
+type ErrorSummary struct {
+	Source                  string                `json:"source"`
+	JarEventTotal           int64                 `json:"jar_event_total"`
+	TimeseriesErrorEvents   int64                 `json:"timeseries_error_events"`
+	UniqueMessages          int                   `json:"unique_messages"`
+	TopMessages             []ErrorSummaryMessage `json:"top_messages,omitempty"`
+	TopErrorQueues          []ErrorSummaryQueue   `json:"top_error_queues,omitempty"`
+}
+
 // DashboardData holds all data needed for the analysis dashboard.
 type DashboardData struct {
 	GeneralStats   GeneralStatistics         `json:"general_stats"`
@@ -281,6 +306,7 @@ type DashboardData struct {
 	TimeSeries     []TimeSeriesPoint         `json:"time_series"`
 	Distribution   map[string]map[string]int `json:"distribution"`
 	HealthScore    *HealthScore              `json:"health_score,omitempty"`
+	ErrorSummary   *ErrorSummary             `json:"error_summary,omitempty"`
 }
 
 // --- Enhanced Analysis Dashboard Types ---

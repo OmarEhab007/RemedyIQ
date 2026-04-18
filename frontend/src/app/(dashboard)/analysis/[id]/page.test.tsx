@@ -57,6 +57,7 @@ vi.mock('recharts', () => ({
 vi.mock('@/hooks/use-api', () => ({
   useDashboard: vi.fn(),
   useAnalysis: vi.fn(),
+  useAnalyses: vi.fn(),
   useDashboardAggregates: vi.fn(),
   useDashboardExceptions: vi.fn(),
   useDashboardGaps: vi.fn(),
@@ -72,6 +73,7 @@ vi.mock('@/hooks/use-api', () => ({
 import {
   useDashboard,
   useAnalysis,
+  useAnalyses,
   useDashboardAggregates,
   useDashboardExceptions,
   useDashboardGaps,
@@ -179,6 +181,13 @@ function setupMocks(opts: {
   })
   ;(useAnalysis as Mock).mockReturnValue({
     data: makeJob(),
+    isLoading: false,
+  })
+  ;(useAnalyses as Mock).mockReturnValue({
+    data: {
+      jobs: [makeJob('other-complete-job')],
+      pagination: { page: 1, page_size: 100, total: 1, total_pages: 1 },
+    },
     isLoading: false,
   })
   ;(useDashboardAggregates as Mock).mockReturnValue({

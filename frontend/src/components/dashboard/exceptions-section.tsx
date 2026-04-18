@@ -11,9 +11,11 @@
  */
 
 import { useState, type CSSProperties } from 'react'
+import Link from 'next/link'
 import { useResizableTableColumns, type ResizableColumnConfig } from '@/hooks/use-resizable-table-columns'
 import { cn } from '@/lib/utils'
 import { LOG_TYPE_COLORS } from '@/lib/constants'
+import { analysisExplorerHref, buildTraceExplorerQuery } from '@/lib/explorer-query'
 import type { ExceptionsResponse, ExceptionEntry } from '@/lib/api-types'
 
 // ---------------------------------------------------------------------------
@@ -22,6 +24,8 @@ import type { ExceptionsResponse, ExceptionEntry } from '@/lib/api-types'
 
 interface ExceptionsSectionProps {
   data: ExceptionsResponse
+  /** When set, adds deep links into Log Explorer scoped to the trace. */
+  jobId?: string
   className?: string
 }
 
@@ -31,6 +35,7 @@ const EXCEPTIONS_RESIZE_SPEC: ResizableColumnConfig[] = [
   { id: 'time', defaultWidth: 96, minWidth: 72, maxWidth: 160 },
   { id: 'user', defaultWidth: 100, minWidth: 64, maxWidth: 220 },
   { id: 'message', defaultWidth: 280, minWidth: 120, maxWidth: 720 },
+  { id: 'explore', defaultWidth: 76, minWidth: 64, maxWidth: 120 },
   { id: 'stack', defaultWidth: 72, minWidth: 56, maxWidth: 120 },
 ]
 
@@ -41,9 +46,11 @@ const EXCEPTIONS_RESIZE_SPEC: ResizableColumnConfig[] = [
 function ExceptionRow({
   entry,
   tdStyle,
+  jobId,
 }: {
   entry: ExceptionEntry
   tdStyle: (i: number) => CSSProperties
+  jobId?: string
 }) {
   const [expanded, setExpanded] = useState(false)
   const typeConfig = LOG_TYPE_COLORS[entry.log_type]
@@ -79,7 +86,19 @@ function ExceptionRow({
             {entry.message}
           </span>
         </td>
-        <td style={tdStyle(5)} className="box-border px-4 py-2 align-top text-right">
+        <td style={tdStyle(5)} className="box-border px-4 py-2 align-top text-center">
+          {jobId && entry.trace_id ? (
+            <Link
+              href={analysisExplorerHref(jobId, buildTraceExplorerQuery(entry.trace_id, { errorsOnly: true }))}
+              className="text-[10px] font-semibold text-[var(--color-primary)] hover:underline"
+            >
+              Explorer
+            </Link>
+          ) : (
+            <span className="text-[10px] text-[var(--color-text-tertiary)]">—</span>
+          )}
+        </td>
+        <td style={tdStyle(6)} className="box-border px-4 py-2 align-top text-right">
           {entry.stack_trace && (
             <button
               type="button"
@@ -101,7 +120,7 @@ function ExceptionRow({
       {expanded && entry.stack_trace && (
         <tr>
           <td
-            colSpan={6}
+            colSpan={7}
             className="bg-[var(--color-bg-tertiary)] px-4 py-3"
           >
             <pre className="max-h-48 overflow-y-auto rounded text-[10px] font-mono leading-relaxed text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
@@ -114,12 +133,12 @@ function ExceptionRow({
   )
 }
 
-function ExceptionsTable({ exceptions }: { exceptions: ExceptionEntry[] }) {
+function ExceptionsTable({ exceptions, jobId }: { exceptions: ExceptionEntry[]; jobId?: string }) {
   const { tableLayoutStyle, thStyle, tdStyle, renderResizeHandle } = useResizableTableColumns(EXCEPTIONS_RESIZE_SPEC, {
-    storageKey: 'remedyiq:exceptions:v1',
+    storageKey: 'remedyiq:exceptions:v2',
   })
 
-  const headers = ['Line', 'Type', 'Time', 'User', 'Message', 'Stack'] as const
+  const headers = ['Line', 'Type', 'Time', 'User', 'Message', 'Explore', 'Stack'] as const
 
   return (
     <div className="overflow-x-auto">
@@ -133,7 +152,7 @@ function ExceptionsTable({ exceptions }: { exceptions: ExceptionEntry[] }) {
                 style={thStyle(colIndex)}
                 className={cn(
                   'relative box-border border-b border-[var(--color-border)] px-4 py-2 font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider',
-                  colIndex === 5 ? 'text-right' : 'text-left',
+                  colIndex === 6 ? 'text-right' : colIndex === 5 ? 'text-center' : 'text-left',
                   colIndex < 4 && 'whitespace-nowrap',
                 )}
               >
@@ -145,7 +164,7 @@ function ExceptionsTable({ exceptions }: { exceptions: ExceptionEntry[] }) {
         </thead>
         <tbody>
           {exceptions.map((entry, idx) => (
-            <ExceptionRow key={`${entry.trace_id}-${idx}`} entry={entry} tdStyle={tdStyle} />
+            <ExceptionRow key={`${entry.trace_id}-${idx}`} entry={entry} tdStyle={tdStyle} jobId={jobId} />
           ))}
         </tbody>
       </table>
@@ -157,7 +176,7 @@ function ExceptionsTable({ exceptions }: { exceptions: ExceptionEntry[] }) {
 // ExceptionsSection
 // ---------------------------------------------------------------------------
 
-export function ExceptionsSection({ data, className }: ExceptionsSectionProps) {
+export function ExceptionsSection({ data, jobId, className }: ExceptionsSectionProps) {
   if (!data.exceptions || data.exceptions.length === 0) {
     return (
       <div className="px-5 py-8 text-center text-sm text-[var(--color-success)]">
@@ -187,7 +206,7 @@ export function ExceptionsSection({ data, className }: ExceptionsSectionProps) {
         </span>
       </div>
 
-      <ExceptionsTable exceptions={data.exceptions} />
+      <ExceptionsTable exceptions={data.exceptions} jobId={jobId} />
     </div>
   )
 }

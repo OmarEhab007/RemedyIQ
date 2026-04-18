@@ -81,6 +81,9 @@ type templateContext struct {
 	TopFilters  []domain.TopNEntry
 	TopEsc      []domain.TopNEntry
 
+	// Error operations summary (JAR-primary + derived supplement)
+	ErrorSummary *domain.ErrorSummary
+
 	// JAR-native aggregates (if available)
 	HasJARAggregates bool
 	JARAPIByForm     *domain.JARAggregateTable
@@ -135,13 +138,14 @@ type templateContext struct {
 
 func buildTemplateContext(data *reportData) *templateContext {
 	ctx := &templateContext{
-		JobID:       data.JobID,
-		GeneratedAt: data.GeneratedAt.Format("2006-01-02 15:04:05 UTC"),
-		Stats:       data.Dashboard.GeneralStats,
-		TopAPI:      data.Dashboard.TopAPICalls,
-		TopSQL:      data.Dashboard.TopSQL,
-		TopFilters:  data.Dashboard.TopFilters,
-		TopEsc:      data.Dashboard.TopEscalations,
+		JobID:        data.JobID,
+		GeneratedAt:  data.GeneratedAt.Format("2006-01-02 15:04:05 UTC"),
+		Stats:        data.Dashboard.GeneralStats,
+		TopAPI:       data.Dashboard.TopAPICalls,
+		TopSQL:       data.Dashboard.TopSQL,
+		TopFilters:   data.Dashboard.TopFilters,
+		TopEsc:       data.Dashboard.TopEscalations,
+		ErrorSummary: data.Dashboard.ErrorSummary,
 	}
 
 	// Resolve aggregates type.
@@ -449,6 +453,56 @@ var reportTemplate = strings.TrimSpace(`
     </div>
   </div>
 </div>
+
+{{if .ErrorSummary}}
+<div class="section">
+  <div class="section-title">Error Operations Summary</div>
+  <div class="section-body">
+    <p style="color: var(--text-dim); font-size: 13px; margin-bottom: 12px;">
+      Source: <strong style="color: var(--text)">{{.ErrorSummary.Source}}</strong>
+      &nbsp;|&nbsp; JAR events: <strong style="color: var(--text)">{{.ErrorSummary.JarEventTotal}}</strong>
+      &nbsp;|&nbsp; Timeline error buckets: <strong style="color: var(--text)">{{.ErrorSummary.TimeseriesErrorEvents}}</strong>
+      &nbsp;|&nbsp; Unique patterns: <strong style="color: var(--text)">{{.ErrorSummary.UniqueMessages}}</strong>
+    </p>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+      <div>
+        <h3 style="font-size: 13px; color: var(--accent-light); margin-bottom: 8px;">Top error queues</h3>
+        {{if .ErrorSummary.TopErrorQueues}}
+        <table>
+          <thead><tr><th>Queue</th><th>Errors</th></tr></thead>
+          <tbody>
+          {{range .ErrorSummary.TopErrorQueues}}
+            <tr><td>{{.Queue}}</td><td>{{.Errors}}</td></tr>
+          {{end}}
+          </tbody>
+        </table>
+        {{else}}
+        <p style="color: var(--text-dim); font-size: 12px;">No per-queue API error breakdown in this export.</p>
+        {{end}}
+      </div>
+      <div>
+        <h3 style="font-size: 13px; color: var(--accent-light); margin-bottom: 8px;">Top error patterns</h3>
+        {{if .ErrorSummary.TopMessages}}
+        <table>
+          <thead><tr><th>Pattern</th><th>Count</th><th>Sample trace</th></tr></thead>
+          <tbody>
+          {{range .ErrorSummary.TopMessages}}
+            <tr>
+              <td title="{{.Message}}">{{truncate .Message 72}}</td>
+              <td>{{.Count}}</td>
+              <td style="font-family: monospace; font-size: 11px;">{{truncate .SampleTrace 24}}</td>
+            </tr>
+          {{end}}
+          </tbody>
+        </table>
+        {{else}}
+        <p style="color: var(--text-dim); font-size: 12px;">No grouped error messages in this export.</p>
+        {{end}}
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}
 
 <!-- Top API Calls -->
 {{if .TopAPI}}
