@@ -45,6 +45,8 @@ import type {
   ReportResponse,
   SavedSearch,
   SearchHistoryResponse,
+  SearchLogsFacetEntry,
+  SearchLogsHistogramBucket,
   SearchLogsParams,
   SearchLogsResponse,
   SpanNode,
@@ -189,6 +191,60 @@ function toQueryString(params: Record<string, unknown>): string {
     )
     .join("&");
   return `?${qs}`;
+}
+
+export type SearchLogsQueryStringOptions = {
+  /**
+   * When true, omits pagination / sort / histogram flags so export URLs stay small.
+   * Export handler only honors a subset of params (see backend export handler).
+   */
+  forExport?: boolean;
+};
+
+/**
+ * Builds a query string for log search or export.
+ * Supports repeated keys for array fields (`log_type`, `user`, `queue`) and booleans.
+ */
+export function buildSearchLogsQueryString(
+  params: SearchLogsParams,
+  options?: SearchLogsQueryStringOptions,
+): string {
+  const parts: string[] = [];
+  const append = (key: string, value: string) => {
+    parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
+  };
+
+  const skipKeys = new Set<string>();
+  if (options?.forExport) {
+    skipKeys.add("page");
+    skipKeys.add("page_size");
+    skipKeys.add("include_histogram");
+    skipKeys.add("sort_by");
+    skipKeys.add("sort_order");
+  }
+
+  for (const [key, raw] of Object.entries(params)) {
+    if (skipKeys.has(key)) continue;
+    if (raw === undefined || raw === null) continue;
+    if (raw === "") continue;
+
+    if (Array.isArray(raw)) {
+      for (const item of raw) {
+        if (item === undefined || item === null || item === "") continue;
+        append(key, String(item));
+      }
+      continue;
+    }
+
+    if (typeof raw === "boolean") {
+      append(key, raw ? "true" : "false");
+      continue;
+    }
+
+    append(key, String(raw));
+  }
+
+  return parts.length === 0 ? "" : `?${parts.join("&")}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -481,7 +537,7 @@ export async function searchLogs(
   params: SearchLogsParams,
   token?: string,
 ): Promise<SearchLogsResponse> {
-  const qs = toQueryString(params as Record<string, unknown>);
+  const qs = buildSearchLogsQueryString(params);
   // Backend returns { results: [{id, score, fields: {...}}], total, page, page_size, total_pages }
   // Transform to the frontend-expected shape { entries: LogEntry[], total, pagination }
   const raw = await apiFetch<{
@@ -490,6 +546,18 @@ export async function searchLogs(
     page?: number;
     page_size?: number;
     total_pages?: number;
+    facets?: Record<string, SearchLogsFacetEntry[]>;
+    histogram?: Array<{
+      timestamp?: string;
+      counts?: {
+        api?: number;
+        sql?: number;
+        fltr?: number;
+        escl?: number;
+        total?: number;
+      };
+    }>;
+    took_ms?: number;
   }>(
     `/analysis/${encodeURIComponent(jobId)}/search${qs}`,
     {},
@@ -520,6 +588,19 @@ export async function searchLogs(
       error_message: (r.fields.error_message as string) ?? null,
     }));
 
+  const histogram: SearchLogsHistogramBucket[] | undefined = raw.histogram?.map(
+    (b) => ({
+      timestamp: b.timestamp ?? "",
+      counts: {
+        api: b.counts?.api ?? 0,
+        sql: b.counts?.sql ?? 0,
+        fltr: b.counts?.fltr ?? 0,
+        escl: b.counts?.escl ?? 0,
+        total: b.counts?.total ?? 0,
+      },
+    }),
+  );
+
   return {
     entries,
     total: raw.total ?? entries.length,
@@ -529,6 +610,9 @@ export async function searchLogs(
       total_pages: raw.total_pages ?? 1,
       total: raw.total ?? entries.length,
     },
+    facets: raw.facets,
+    histogram: histogram && histogram.length > 0 ? histogram : undefined,
+    took_ms: raw.took_ms,
   };
 }
 
@@ -543,7 +627,8 @@ export async function exportSearchResults(
   format: "csv" | "json" = "csv",
   token?: string,
 ): Promise<Blob> {
-  const qs = toQueryString({ ...params, format } as Record<string, unknown>);
+  const exportParams: SearchLogsParams = { ...params, format };
+  const qs = buildSearchLogsQueryString(exportParams, { forExport: true });
   const url = `${API_BASE}/analysis/${encodeURIComponent(jobId)}/search/export${qs}`;
 
   const headers: Record<string, string> = {

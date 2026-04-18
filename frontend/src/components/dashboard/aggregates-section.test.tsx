@@ -155,7 +155,7 @@ describe('AggregatesSection', () => {
   })
 
   describe('no headers', () => {
-    it('renders a synthetic header row when headers are empty but values exist', () => {
+    it('renders a label column and numeric placeholder headers when headers are empty', () => {
       const dataNoHeaders: AggregatesResponse = {
         job_id: 'job-002',
         sections: [
@@ -174,8 +174,8 @@ describe('AggregatesSection', () => {
       render(<AggregatesSection data={dataNoHeaders} />)
       const table = screen.getByRole('table', { name: 'Group A' })
       const headers = within(table).getAllByRole('columnheader')
-      expect(headers.length).toBeGreaterThanOrEqual(1)
-      expect(headers[0]).toHaveTextContent('Label')
+      expect(headers.length).toBeGreaterThanOrEqual(2)
+      expect(headers[0]).toHaveTextContent(/label/i)
     })
   })
 

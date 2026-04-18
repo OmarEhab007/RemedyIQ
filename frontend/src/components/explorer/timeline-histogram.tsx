@@ -21,7 +21,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts'
-import type { LogEntry, LogType } from '@/lib/api-types'
+import type { LogEntry, LogType, SearchLogsHistogramBucket } from '@/lib/api-types'
 import { LOG_TYPE_COLORS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 
@@ -31,6 +31,8 @@ import { cn } from '@/lib/utils'
 
 export interface TimelineHistogramProps {
   entries: LogEntry[]
+  /** When present (from search API `include_histogram`), drives the chart for the full result set. */
+  serverHistogram?: SearchLogsHistogramBucket[]
   /** Number of time buckets to split the range into. Defaults to 20. */
   buckets?: number
   className?: string
@@ -103,6 +105,39 @@ function bucketEntries(entries: LogEntry[], numBuckets: number): BucketData[] {
   return bucketArray
 }
 
+function serverHistogramToBucketData(
+  buckets: SearchLogsHistogramBucket[],
+): BucketData[] {
+  if (buckets.length === 0) return []
+  const timestamps = buckets
+    .map((b) => new Date(b.timestamp).getTime())
+    .filter((t) => !Number.isNaN(t) && t > 0)
+  if (timestamps.length === 0) return []
+  const minTs = Math.min(...timestamps)
+  const maxTs = Math.max(...timestamps)
+  const range = maxTs - minTs || 1
+
+  return buckets.map((b) => {
+    const bucketStart = new Date(b.timestamp)
+    const label =
+      range < 60_000
+        ? bucketStart.toISOString().slice(14, 19)
+        : range < 3_600_000
+          ? bucketStart.toISOString().slice(11, 16)
+          : range < 86_400_000
+            ? bucketStart.toISOString().slice(11, 16)
+            : bucketStart.toISOString().slice(5, 10)
+
+    return {
+      label,
+      API: b.counts.api,
+      SQL: b.counts.sql,
+      FLTR: b.counts.fltr,
+      ESCL: b.counts.escl,
+    }
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Custom tooltip
 // ---------------------------------------------------------------------------
@@ -153,16 +188,24 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
 
 export function TimelineHistogram({
   entries,
+  serverHistogram,
   buckets = 20,
   className,
   height = 120,
 }: TimelineHistogramProps) {
-  const data = useMemo(
-    () => bucketEntries(entries, buckets),
-    [entries, buckets],
-  )
+  const data = useMemo(() => {
+    if (serverHistogram && serverHistogram.length > 0) {
+      return serverHistogramToBucketData(serverHistogram)
+    }
+    return bucketEntries(entries, buckets)
+  }, [serverHistogram, entries, buckets])
 
-  if (entries.length === 0) {
+  const entryCountLabel =
+    serverHistogram && serverHistogram.length > 0
+      ? `${serverHistogram.length} time buckets (server)`
+      : `${entries.length} log entries across ${buckets} time buckets`
+
+  if (data.length === 0) {
     return (
       <div
         className={cn(
@@ -187,7 +230,7 @@ export function TimelineHistogram({
       )}
       style={{ height }}
       role="img"
-      aria-label={`Timeline histogram showing ${entries.length} log entries across ${buckets} time buckets`}
+      aria-label={`Timeline histogram showing ${entryCountLabel}`}
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart

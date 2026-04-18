@@ -26,7 +26,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/hooks/use-api', () => ({
-  useSearchLogs: vi.fn(),
+  useLogExplorerSearch: vi.fn(),
   useAutocomplete: vi.fn(),
   useSavedSearches: vi.fn(),
 }))
@@ -58,11 +58,11 @@ vi.mock('@/components/explorer/export-button', () => ({
 }))
 
 import { useParams } from 'next/navigation'
-import { useSearchLogs, useAutocomplete, useSavedSearches } from '@/hooks/use-api'
+import { useLogExplorerSearch, useAutocomplete, useSavedSearches } from '@/hooks/use-api'
 import { useExplorerStore } from '@/stores/explorer-store'
 
 const mockUseParams = useParams as ReturnType<typeof vi.fn>
-const mockUseSearchLogs = useSearchLogs as ReturnType<typeof vi.fn>
+const mockUseLogExplorerSearch = useLogExplorerSearch as ReturnType<typeof vi.fn>
 const mockUseAutocomplete = useAutocomplete as ReturnType<typeof vi.fn>
 const mockUseSavedSearches = useSavedSearches as ReturnType<typeof vi.fn>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -151,11 +151,16 @@ interface MockExplorerState {
   query: string
   filters: ExplorerFilter[]
   selectedEntryId: string | null
+  timeRange: null
+  sortBy: 'timestamp'
+  sortOrder: 'desc'
   setQuery: ReturnType<typeof vi.fn>
   addFilter: ReturnType<typeof vi.fn>
   removeFilter: ReturnType<typeof vi.fn>
   clearFilters: ReturnType<typeof vi.fn>
   selectEntry: ReturnType<typeof vi.fn>
+  setTimeRange: ReturnType<typeof vi.fn>
+  setSortColumn: ReturnType<typeof vi.fn>
 }
 
 function setupStoreMock(selectedEntryId: string | null = null) {
@@ -164,23 +169,55 @@ function setupStoreMock(selectedEntryId: string | null = null) {
   const removeFilter = vi.fn()
   const clearFilters = vi.fn()
   const selectEntry = vi.fn()
+  const setTimeRange = vi.fn()
+  const setSortColumn = vi.fn()
 
   const state: MockExplorerState = {
     query: '',
     filters: [],
     selectedEntryId,
+    timeRange: null,
+    sortBy: 'timestamp',
+    sortOrder: 'desc',
     setQuery,
     addFilter,
     removeFilter,
     clearFilters,
     selectEntry,
+    setTimeRange,
+    setSortColumn,
   }
 
   mockUseExplorerStore.mockImplementation(
     (selector: (s: MockExplorerState) => unknown) => selector(state),
   )
 
-  return { setQuery, addFilter, removeFilter, clearFilters, selectEntry }
+  return { setQuery, addFilter, removeFilter, clearFilters, selectEntry, setTimeRange, setSortColumn }
+}
+
+function mockExplorerSearch(overrides: {
+  entries?: LogEntry[]
+  total?: number
+  isInitialLoading?: boolean
+  isError?: boolean
+} = {}) {
+  return {
+    entries: overrides.entries ?? mockSearchResponse.entries,
+    total: overrides.total ?? mockSearchResponse.total,
+    facets: undefined,
+    histogram: undefined,
+    took_ms: 12,
+    exportSearchParams: {},
+    fetchNextPage: vi.fn(),
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    isLoading: false,
+    isInitialLoading: overrides.isInitialLoading ?? false,
+    isFetching: false,
+    isError: overrides.isError ?? false,
+    error: undefined,
+    refetch: vi.fn(),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -197,48 +234,28 @@ describe('JobExplorerPage', () => {
 
   it('renders the page heading', () => {
     setupStoreMock()
-    mockUseSearchLogs.mockReturnValue({
-      data: mockSearchResponse,
-      isLoading: false,
-      isError: false,
-      refetch: vi.fn(),
-    })
+    mockUseLogExplorerSearch.mockReturnValue(mockExplorerSearch())
     render(<JobExplorerPage />)
     expect(screen.getByRole('heading', { name: /log explorer/i })).toBeInTheDocument()
   })
 
   it('shows the job ID in the toolbar', () => {
     setupStoreMock()
-    mockUseSearchLogs.mockReturnValue({
-      data: mockSearchResponse,
-      isLoading: false,
-      isError: false,
-      refetch: vi.fn(),
-    })
+    mockUseLogExplorerSearch.mockReturnValue(mockExplorerSearch())
     render(<JobExplorerPage />)
     expect(screen.getByText(JOB_ID)).toBeInTheDocument()
   })
 
   it('renders the search bar', () => {
     setupStoreMock()
-    mockUseSearchLogs.mockReturnValue({
-      data: mockSearchResponse,
-      isLoading: false,
-      isError: false,
-      refetch: vi.fn(),
-    })
+    mockUseLogExplorerSearch.mockReturnValue(mockExplorerSearch())
     render(<JobExplorerPage />)
     expect(screen.getByRole('combobox')).toBeInTheDocument()
   })
 
   it('renders filter panel and log table when data is available', () => {
     setupStoreMock()
-    mockUseSearchLogs.mockReturnValue({
-      data: mockSearchResponse,
-      isLoading: false,
-      isError: false,
-      refetch: vi.fn(),
-    })
+    mockUseLogExplorerSearch.mockReturnValue(mockExplorerSearch())
     render(<JobExplorerPage />)
     expect(screen.getByRole('complementary', { name: /log filters/i })).toBeInTheDocument()
     expect(screen.getByRole('grid', { name: /log entries/i })).toBeInTheDocument()
@@ -246,36 +263,25 @@ describe('JobExplorerPage', () => {
 
   it('renders loading state while fetching', () => {
     setupStoreMock()
-    mockUseSearchLogs.mockReturnValue({
-      data: undefined,
-      isLoading: true,
-      isError: false,
-      refetch: vi.fn(),
-    })
+    mockUseLogExplorerSearch.mockReturnValue(
+      mockExplorerSearch({ entries: [], total: 0, isInitialLoading: true }),
+    )
     render(<JobExplorerPage />)
     expect(screen.getByRole('status', { name: /loading content/i })).toBeInTheDocument()
   })
 
   it('renders error state when fetch fails', () => {
     setupStoreMock()
-    mockUseSearchLogs.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: true,
-      refetch: vi.fn(),
-    })
+    mockUseLogExplorerSearch.mockReturnValue(
+      mockExplorerSearch({ entries: [], total: 0, isError: true }),
+    )
     render(<JobExplorerPage />)
     expect(screen.getByRole('alert')).toBeInTheDocument()
   })
 
   it('renders detail panel when an entry is selected', () => {
     setupStoreMock('e1')
-    mockUseSearchLogs.mockReturnValue({
-      data: mockSearchResponse,
-      isLoading: false,
-      isError: false,
-      refetch: vi.fn(),
-    })
+    mockUseLogExplorerSearch.mockReturnValue(mockExplorerSearch())
     render(<JobExplorerPage />)
     const panel = screen.getByTestId('detail-panel')
     expect(panel).toBeInTheDocument()
@@ -284,12 +290,7 @@ describe('JobExplorerPage', () => {
 
   it('does not render detail panel when no entry is selected', () => {
     setupStoreMock(null)
-    mockUseSearchLogs.mockReturnValue({
-      data: mockSearchResponse,
-      isLoading: false,
-      isError: false,
-      refetch: vi.fn(),
-    })
+    mockUseLogExplorerSearch.mockReturnValue(mockExplorerSearch())
     render(<JobExplorerPage />)
     expect(screen.queryByTestId('detail-panel')).not.toBeInTheDocument()
   })
@@ -297,12 +298,7 @@ describe('JobExplorerPage', () => {
   it('shows error message for invalid jobId', () => {
     setupStoreMock()
     mockUseParams.mockReturnValue({ id: undefined })
-    mockUseSearchLogs.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: false,
-      refetch: vi.fn(),
-    })
+    mockUseLogExplorerSearch.mockReturnValue(mockExplorerSearch())
     render(<JobExplorerPage />)
     expect(screen.getByRole('alert')).toBeInTheDocument()
     expect(screen.getByText(/invalid job id/i)).toBeInTheDocument()
@@ -310,12 +306,7 @@ describe('JobExplorerPage', () => {
 
   it('renders timeline histogram when entries are present', () => {
     setupStoreMock()
-    mockUseSearchLogs.mockReturnValue({
-      data: mockSearchResponse,
-      isLoading: false,
-      isError: false,
-      refetch: vi.fn(),
-    })
+    mockUseLogExplorerSearch.mockReturnValue(mockExplorerSearch())
     render(<JobExplorerPage />)
     expect(screen.getByTestId('timeline-histogram')).toBeInTheDocument()
   })

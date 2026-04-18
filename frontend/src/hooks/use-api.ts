@@ -10,10 +10,18 @@
  *   mutation.mutate({ fileId: '...', flags: {} })
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMemo } from 'react'
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { useAuth } from '@clerk/nextjs'
 import * as api from '@/lib/api'
+import { buildExplorerSearchParams } from '@/lib/explorer-search-params'
 import { isHeaderAuthMode } from '@/lib/auth-mode'
+import type { ExplorerFilter, ExplorerTimeRange } from '@/stores/explorer-store'
 import type {
   AnalysisJob,
   ListAnalysesResponse,
@@ -29,6 +37,7 @@ import type {
   DelayedEscalationsResponse,
   SearchLogsParams,
   SearchLogsResponse,
+  SearchLogsSortField,
   LogEntry,
   LogEntryContext,
   WaterfallResponse,
@@ -91,6 +100,8 @@ export const queryKeys = {
     ['dashboard', jobId, 'file-metadata'] as const,
   searchLogs: (jobId: string, params: SearchLogsParams) =>
     ['logs', jobId, 'search', params] as const,
+  explorerLogsInfinite: (jobId: string, fingerprint: string) =>
+    ['logs', jobId, 'explorer', 'infinite', fingerprint] as const,
   logEntry: (jobId: string, entryId: string) =>
     ['logs', jobId, 'entry', entryId] as const,
   entryContext: (jobId: string, entryId: string) =>
@@ -316,6 +327,124 @@ export function useSearchLogs(
     enabled: Boolean(jobId),
     placeholderData: (prev) => prev,
   })
+}
+
+export type LogExplorerSearchInput = {
+  debouncedQuery: string
+  filters: ExplorerFilter[]
+  timeRange: ExplorerTimeRange | null
+  sortBy: SearchLogsSortField
+  sortOrder: 'asc' | 'desc'
+  pageSize?: number
+}
+
+/**
+ * Log Explorer search with accumulated pages (infinite query) and server histogram on page 1.
+ */
+export function useLogExplorerSearch(
+  jobId: string | null | undefined,
+  input: LogExplorerSearchInput
+) {
+  const getToken = useToken()
+  const pageSize = input.pageSize ?? 200
+
+  const fingerprint = useMemo(
+    () =>
+      JSON.stringify({
+        q: input.debouncedQuery,
+        f: input.filters,
+        t: input.timeRange,
+        sb: input.sortBy,
+        so: input.sortOrder,
+        ps: pageSize,
+      }),
+    [
+      input.debouncedQuery,
+      input.filters,
+      input.timeRange,
+      input.sortBy,
+      input.sortOrder,
+      pageSize,
+    ],
+  )
+
+  const infinite = useInfiniteQuery({
+    queryKey: queryKeys.explorerLogsInfinite(jobId ?? '', fingerprint),
+    enabled: Boolean(jobId),
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) => {
+      const token = await getToken()
+      const page = pageParam as number
+      return api.searchLogs(
+        jobId as string,
+        buildExplorerSearchParams({
+          debouncedQuery: input.debouncedQuery,
+          filters: input.filters,
+          timeRange: input.timeRange,
+          sortBy: input.sortBy,
+          sortOrder: input.sortOrder,
+          page,
+          pageSize,
+          includeHistogram: page === 1,
+        }),
+        token ?? undefined,
+      )
+    },
+    getNextPageParam: (lastPage) => {
+      const p = lastPage.pagination.page
+      const tp = lastPage.pagination.total_pages
+      return p < tp ? p + 1 : undefined
+    },
+  })
+
+  const entries = useMemo(
+    () => infinite.data?.pages.flatMap((p) => p.entries) ?? [],
+    [infinite.data?.pages],
+  )
+
+  const firstPage = infinite.data?.pages[0]
+
+  const exportSearchParams = useMemo(
+    () =>
+      buildExplorerSearchParams({
+        debouncedQuery: input.debouncedQuery,
+        filters: input.filters,
+        timeRange: input.timeRange,
+        sortBy: input.sortBy,
+        sortOrder: input.sortOrder,
+        page: 1,
+        pageSize,
+        includeHistogram: false,
+      }),
+    [
+      input.debouncedQuery,
+      input.filters,
+      input.timeRange,
+      input.sortBy,
+      input.sortOrder,
+      pageSize,
+    ],
+  )
+
+  const isInitialLoading = infinite.isPending && !infinite.data
+
+  return {
+    entries,
+    total: firstPage?.total ?? 0,
+    facets: firstPage?.facets,
+    histogram: firstPage?.histogram,
+    took_ms: firstPage?.took_ms,
+    exportSearchParams,
+    fetchNextPage: infinite.fetchNextPage,
+    hasNextPage: infinite.hasNextPage,
+    isFetchingNextPage: infinite.isFetchingNextPage,
+    isLoading: infinite.isPending,
+    isInitialLoading,
+    isFetching: infinite.isFetching,
+    isError: infinite.isError,
+    error: infinite.error,
+    refetch: infinite.refetch,
+  }
 }
 
 /** Fetches a single log entry. Disabled when either ID is falsy. */
