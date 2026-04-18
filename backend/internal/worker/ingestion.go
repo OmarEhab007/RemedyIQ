@@ -140,6 +140,9 @@ func (p *Pipeline) ProcessJob(ctx context.Context, job domain.AnalysisJob) error
 	// 5b3. Generate distribution maps from aggregates and TopN data.
 	dashboard.Distribution = generateDistribution(dashboard, parseResult)
 
+	// 5b4. Error operations summary (JAR-primary + derived time-series supplement).
+	dashboard.ErrorSummary = BuildErrorSummary(parseResult, dashboard)
+
 	// 5c. Run anomaly detection on parsed dashboard data.
 	var anomalies []Anomaly
 	if p.anomaly != nil {

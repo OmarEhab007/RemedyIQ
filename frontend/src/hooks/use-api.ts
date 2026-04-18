@@ -146,7 +146,10 @@ export function useAnalysis(jobId: string | null | undefined) {
 // ---------------------------------------------------------------------------
 
 /** Fetches the top-level dashboard data for a job. */
-export function useDashboard(jobId: string | null | undefined) {
+export function useDashboard(
+  jobId: string | null | undefined,
+  options?: { enabled?: boolean },
+) {
   const getToken = useToken()
   return useQuery<DashboardData>({
     queryKey: queryKeys.dashboard(jobId ?? ''),
@@ -154,7 +157,7 @@ export function useDashboard(jobId: string | null | undefined) {
       const token = await getToken()
       return api.getDashboard(jobId as string, token ?? undefined)
     },
-    enabled: Boolean(jobId),
+    enabled: Boolean(jobId) && (options?.enabled ?? true),
   })
 }
 

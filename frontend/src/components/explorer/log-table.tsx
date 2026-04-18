@@ -61,11 +61,12 @@ interface RowChildProps {
 const ROW_HEIGHT = 44
 
 const LOG_TABLE_RESIZE_SPEC: ResizableColumnConfig[] = [
-  { id: 'timestamp', defaultWidth: 172, minWidth: 128, maxWidth: 280 },
+  { id: 'timestamp', defaultWidth: 160, minWidth: 128, maxWidth: 280 },
   { id: 'type', defaultWidth: 64, minWidth: 52, maxWidth: 100 },
-  { id: 'identifier', defaultWidth: 360, minWidth: 160, maxWidth: 900 },
-  { id: 'user', defaultWidth: 112, minWidth: 72, maxWidth: 240 },
-  { id: 'duration', defaultWidth: 80, minWidth: 64, maxWidth: 140 },
+  { id: 'identifier', defaultWidth: 300, minWidth: 140, maxWidth: 720 },
+  { id: 'snippet', defaultWidth: 220, minWidth: 120, maxWidth: 560 },
+  { id: 'user', defaultWidth: 100, minWidth: 72, maxWidth: 220 },
+  { id: 'duration', defaultWidth: 76, minWidth: 64, maxWidth: 140 },
   { id: 'status', defaultWidth: 44, minWidth: 36, maxWidth: 72 },
 ]
 
@@ -121,6 +122,19 @@ function getIdentifier(entry: LogEntry): string {
     entry.trace_id ??
     '—'
   )
+}
+
+function getRowSnippet(entry: LogEntry): string {
+  const err = entry.error_message?.trim()
+  if (err) {
+    return err.length > 140 ? `${err.slice(0, 137)}…` : err
+  }
+  if (entry.success === false && entry.raw_text) {
+    const line = entry.raw_text.split('\n')[0]?.trim() ?? ''
+    if (!line) return '—'
+    return line.length > 140 ? `${line.slice(0, 137)}…` : line
+  }
+  return '—'
 }
 
 // ---------------------------------------------------------------------------
@@ -209,7 +223,7 @@ function StatusIcon({ success }: { success: boolean | null }) {
 // TableHeader — resizable column headers (CSS grid, matches LogRow)
 // ---------------------------------------------------------------------------
 
-const HEADER_LABELS = ['Timestamp', 'Type', 'Identifier', 'User', 'Duration', 'St.'] as const
+const HEADER_LABELS = ['Timestamp', 'Type', 'Identifier', 'Snippet', 'User', 'Duration', 'St.'] as const
 
 function TableHeader({
   gridTemplateColumns,
@@ -238,6 +252,7 @@ function TableHeader({
             'relative flex min-w-0 items-center',
             label === 'Duration' && 'justify-end text-right',
             label === 'St.' && 'justify-center text-center',
+            label === 'Snippet' && 'text-left',
           )}
         >
           <span className={cn('truncate pr-2', (label === 'Duration' || label === 'St.') && 'pr-3')}>{label}</span>
@@ -270,6 +285,7 @@ function LogRow({ index, style, data }: RowChildProps) {
 
   const isSelected = entry.entry_id === selectedEntryId
   const identifier = getIdentifier(entry)
+  const snippet = getRowSnippet(entry)
 
   return (
     <div
@@ -327,6 +343,20 @@ function LogRow({ index, style, data }: RowChildProps) {
         ) : (
           identifier
         )}
+      </span>
+
+      {/* Snippet — error_message or first line of raw on failures */}
+      <span
+        className={cn(
+          'min-w-0 truncate text-[11px] leading-snug',
+          entry.success === false || entry.error_message
+            ? 'text-[var(--color-error)]'
+            : 'text-[var(--color-text-tertiary)]',
+        )}
+        title={snippet === '—' ? undefined : snippet}
+        aria-label={snippet === '—' ? 'No snippet' : `Snippet: ${snippet}`}
+      >
+        {snippet}
       </span>
 
       {/* User */}
@@ -490,7 +520,7 @@ export function LogTable({
         role="grid"
         aria-label="Log entries"
         aria-rowcount={entries.length + 1}
-        aria-colcount={6}
+        aria-colcount={7}
       >
         <div style={{ minWidth: totalWidth }} className="flex h-full min-h-0 w-full flex-col">
           <TableHeader

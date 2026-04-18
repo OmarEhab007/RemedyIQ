@@ -12,7 +12,7 @@
 
 import { cn } from '@/lib/utils'
 import { LOG_TYPE_COLORS } from '@/lib/constants'
-import type { GeneralStatistics, Distribution } from '@/lib/api-types'
+import type { GeneralStatistics, Distribution, ErrorSummary } from '@/lib/api-types'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -21,6 +21,8 @@ import type { GeneralStatistics, Distribution } from '@/lib/api-types'
 interface StatsCardsProps {
   stats: GeneralStatistics
   distribution?: Distribution
+  /** JAR-primary error totals from dashboard.error_summary (when present). */
+  errorSummary?: ErrorSummary
   className?: string
 }
 
@@ -84,17 +86,23 @@ function StatCard({
 // StatsCards
 // ---------------------------------------------------------------------------
 
-export function StatsCards({ stats, distribution, className }: StatsCardsProps) {
+export function StatsCards({ stats, distribution, errorSummary, className }: StatsCardsProps) {
   const errorRate = distribution?.error_rate ?? 0
   const errorRateDisplay = `${(errorRate * 100).toFixed(1)}%`
 
   const totalEntries =
     stats.api_count + stats.sql_count + stats.filter_count + stats.esc_count
 
+  const gridCols =
+    errorSummary && errorSummary.jar_event_total > 0
+      ? 'grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7'
+      : 'grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6'
+
   return (
     <div
       className={cn(
-        'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6',
+        'grid',
+        gridCols,
         className
       )}
       role="region"
@@ -143,6 +151,16 @@ export function StatsCards({ stats, distribution, className }: StatsCardsProps) 
         textColor={errorRate > 0.05 ? 'var(--color-error)' : undefined}
         description={`${stats.unique_users} unique users`}
       />
+
+      {errorSummary && errorSummary.jar_event_total > 0 && (
+        <StatCard
+          label="JAR error events"
+          value={errorSummary.jar_event_total.toLocaleString()}
+          accentColor="var(--color-error)"
+          textColor="var(--color-error)"
+          description="Rows in JAR exception sections"
+        />
+      )}
     </div>
   )
 }
