@@ -14,7 +14,8 @@ make lint                   # Run go vet and go fmt on backend
 cd backend && go mod tidy   # Clean up dependencies
 make docker-up              # Start Postgres, ClickHouse, NATS, Redis, MinIO
 make docker-down            # Stop all Docker services
-make db-setup              # Complete database setup (docker-up + migrate-up + ch-init)
+make db-setup              # Complete database setup (docker-up + migrate-up + ch-init + seed-dev-tenant)
+make seed-dev-tenant       # Idempotent dev tenant row (existing DBs missing the migration INSERT)
 ```
 
 ### Frontend (Next.js/TypeScript)
@@ -169,10 +170,19 @@ className="grid-cols-2 lg:grid-cols-4 gap-4"
 
 ---
 
+## Clerk authentication
+
+1. **Session JWT claim**: Configure a Clerk [session token template](https://clerk.com/docs/backend-requests/custom-session-token) that includes claim **`internal_tenant_id`** (string) set to your Postgres `tenants.id` UUID. The API reads this in `AuthMiddleware` and rejects tokens that do not carry a resolvable UUID (legacy: `org_id` or `sub` may be used only if they are already UUIDs).
+2. **Environment variables**: `CLERK_SECRET_KEY` (backend) and `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (frontend). For `ENVIRONMENT` other than `development`, the backend also requires **`CORS_ORIGINS`** (comma-separated, no `*`) and a non-empty **`CLERK_SECRET_KEY`**.
+3. **Local dev bypass**: When `ENVIRONMENT=development`, the API accepts `X-Dev-User-ID` / `X-Dev-Tenant-ID` (tenant must be a UUID) or WebSocket `?token=dev` with fixed dev UUIDs. The frontend uses **`isHeaderAuthMode()`** (`NEXT_PUBLIC_DEV_MODE=true` **or** unset `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) to skip `ClerkProvider`, Clerk middleware, and to send the same dev headers from `getAuthHeaders()` (see `lib/auth-mode.ts`, `layout.tsx`, `middleware.ts`, `lib/api.ts`). Copy `frontend/.env.local.example` to `frontend/.env.local`; `NEXT_PUBLIC_API_URL` must include **`/api/v1`**. After `migrate-up`, run **`make seed-dev-tenant`** if your database was created before the migration gained the dev `INSERT` (or use **`make db-setup`** which runs it automatically).
+4. **NATS / workers**: Run NATS with authentication and private networking in non-dev environments. The worker verifies each job against Postgres (`queued` status, matching `file_id`) before running the pipeline.
+
+---
+
 ## Important Notes
 
 1. **Context propagation**: Always pass `context.Context` as first parameter to database/external calls
-2. **Tenant isolation**: Use PostgreSQL RLS, set tenant context via `SetTenantContext()` before queries
+2. **Tenant isolation**: Handlers scope data with `tenant_id` on queries. Row-level security policies exist in migrations; `SetTenantContext()` is available on `PostgresClient` for optional per-transaction RLS alignment when you choose to wire it through the request path.
 3. **No secrets in code**: Use environment variables (see `.env.example`)
 4. **SQL injection prevention**: Use parameterized queries (pgx.Named, clickhouse.Named)
 5. **JAR dependency**: Current architecture uses ARLogAnalyzer.jar for parsing; plan to replace with native Go parsers

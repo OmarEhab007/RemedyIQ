@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils'
 import { ROUTES } from '@/lib/constants'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
+import { SidebarAccount } from '@/components/layout/sidebar-account'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -136,8 +137,9 @@ export function Sidebar({ onClose }: SidebarProps) {
         </ul>
       </div>
 
-      {/* Bottom section: theme toggle + help */}
+      {/* Bottom section: account (Clerk or dev) + theme + help */}
       <div className="border-t border-[var(--color-border)] px-2 py-3 space-y-0.5">
+        <SidebarAccount />
         <ThemeToggle />
 
         <Link

@@ -18,12 +18,12 @@ import { TraceSearch } from '@/components/trace/trace-search'
 import { TraceComparison } from '@/components/trace/trace-comparison'
 import { useAuth } from '@clerk/nextjs'
 import type { RecentTrace } from '@/lib/api-types'
+import { isHeaderAuthMode } from '@/lib/auth-mode'
 
-const IS_DEV_MODE = process.env.NEXT_PUBLIC_DEV_MODE === 'true'
 const DEV_USER_ID = process.env.NEXT_PUBLIC_DEV_USER_ID ?? '00000000-0000-0000-0000-000000000001'
 
 function useUserId(): string | null {
-  if (IS_DEV_MODE) return DEV_USER_ID
+  if (isHeaderAuthMode()) return DEV_USER_ID
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const { userId } = useAuth()
   return userId ?? null

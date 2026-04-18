@@ -40,6 +40,8 @@ func TestLoad_DefaultValues(t *testing.T) {
 	assert.Equal(t, "development", cfg.Environment)
 	assert.Equal(t, "info", cfg.LogLevel)
 	assert.False(t, cfg.WorkerMode)
+	require.Len(t, cfg.CORSAllowedOrigins, 1)
+	assert.Equal(t, "*", cfg.CORSAllowedOrigins[0])
 }
 
 func TestLoad_CustomEnvVars(t *testing.T) {
@@ -60,6 +62,7 @@ func TestLoad_CustomEnvVars(t *testing.T) {
 		"CLERK_SECRET_KEY":  "sk_test_abc",
 		"ANTHROPIC_API_KEY": "sk-ant-abc",
 		"ENVIRONMENT":       "production",
+		"CORS_ORIGINS":      "https://app.example.com,https://admin.example.com",
 		"LOG_LEVEL":         "debug",
 	})
 
@@ -83,6 +86,41 @@ func TestLoad_CustomEnvVars(t *testing.T) {
 	assert.Equal(t, "sk-ant-abc", cfg.AnthropicAPIKey)
 	assert.Equal(t, "production", cfg.Environment)
 	assert.Equal(t, "debug", cfg.LogLevel)
+	require.Len(t, cfg.CORSAllowedOrigins, 2)
+	assert.Equal(t, "https://app.example.com", cfg.CORSAllowedOrigins[0])
+}
+
+func TestLoad_Production_MissingClerkSecret(t *testing.T) {
+	setEnvs(t, map[string]string{
+		"ENVIRONMENT":  "production",
+		"CLERK_SECRET_KEY": "",
+		"CORS_ORIGINS": "https://app.example.com",
+	})
+	_, err := Load()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "CLERK_SECRET_KEY")
+}
+
+func TestLoad_Production_MissingCORS(t *testing.T) {
+	setEnvs(t, map[string]string{
+		"ENVIRONMENT":       "production",
+		"CLERK_SECRET_KEY":  "sk_live_not_empty_secret_key_value_here",
+		"CORS_ORIGINS":      "",
+	})
+	_, err := Load()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "CORS_ORIGINS")
+}
+
+func TestLoad_Production_CORSWildcardRejected(t *testing.T) {
+	setEnvs(t, map[string]string{
+		"ENVIRONMENT":       "production",
+		"CLERK_SECRET_KEY":  "sk_live_not_empty_secret_key_value_here",
+		"CORS_ORIGINS":      "*",
+	})
+	_, err := Load()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "CORS_ORIGINS")
 }
 
 func TestLoad_Validate_MissingPostgresURL(t *testing.T) {
@@ -130,9 +168,11 @@ func TestLoad_Validate_MissingNATSURL(t *testing.T) {
 
 func TestLoad_Validate_AllPresent(t *testing.T) {
 	cfg := &Config{
-		PostgresURL:   "postgres://localhost:5432/db",
-		ClickHouseURL: "clickhouse://localhost:9004/db",
-		NATSURL:       "nats://localhost:4222",
+		Environment:   "development",
+		PostgresURL:     "postgres://localhost:5432/db",
+		ClickHouseURL:   "clickhouse://localhost:9004/db",
+		NATSURL:         "nats://localhost:4222",
+		CORSAllowedOrigins: []string{"*"},
 	}
 	err := cfg.validate()
 	require.NoError(t, err)

@@ -97,11 +97,11 @@ func main() {
 		redis.Ping,
 	)
 
-	uploadHandler := handlers.NewUploadHandler(pg, s3Client)
+	uploadHandler := handlers.NewUploadHandler(pg, s3Client, redis)
 	fileHandlers := handlers.NewFileHandlers(pg)
 	analysisHandlers := handlers.NewAnalysisHandlers(pg, natsClient)
 	dashboardHandler := handlers.NewDashboardHandler(pg, ch, redis)
-	streamHandler := handlers.NewStreamHandler(wsHub, []string{"*"})
+	streamHandler := handlers.NewStreamHandler(wsHub, cfg.CORSAllowedOrigins)
 
 	reportHandler := handlers.NewReportHandler(pg, redis)
 
@@ -137,7 +137,7 @@ func main() {
 
 	// --- Build router ---
 	router := api.NewRouter(api.RouterConfig{
-		AllowedOrigins:            []string{"*"},
+		AllowedOrigins:            cfg.CORSAllowedOrigins,
 		DevMode:                   cfg.IsDevelopment(),
 		ClerkSecretKey:            cfg.ClerkSecretKey,
 		HealthHandler:             healthHandler,

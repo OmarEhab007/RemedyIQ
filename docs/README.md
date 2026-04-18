@@ -90,7 +90,7 @@ RemedyIQ is an **Enterprise Log Intelligence Platform** for BMC Remedy AR Server
 | **Queue** | NATS JetStream | 2.x |
 | **Storage** | MinIO | Latest |
 | **AI** | Google Gemini | gemini-2.5-flash |
-| **Auth** | Clerk | 6.x |
+| **Auth** | Clerk (prod) · dev headers (local) | 6.x |
 | **Search** | Bleve | 2.5 |
 
 ## Quick Links
@@ -117,7 +117,7 @@ RemedyIQ is an **Enterprise Log Intelligence Platform** for BMC Remedy AR Server
 
 ### Multi-Tenancy
 
-- Clerk JWT authentication
+- Clerk JWT authentication in deployed environments; optional **header-auth** local mode without Clerk (see root `README.md` and `AGENTS.md`)
 - PostgreSQL Row-Level Security (RLS)
 - S3 tenant-prefixed storage
 - NATS tenant-specific subjects
@@ -148,5 +148,5 @@ When updating documentation:
 ## Version
 
 - Documentation Version: 1.0.0
-- Last Updated: 2024-01-15
+- Last Updated: 2026-04-18
 - RemedyIQ Version: 1.0.0

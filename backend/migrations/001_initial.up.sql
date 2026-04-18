@@ -150,3 +150,14 @@ BEGIN
             WITH CHECK (tenant_id::TEXT = current_setting('app.tenant_id', true));
     END IF;
 END $$;
+
+-- Fixed tenant for local dev (matches NEXT_PUBLIC_DEV_TENANT_ID default in frontend).
+INSERT INTO tenants (id, clerk_org_id, name, plan, storage_limit_gb)
+VALUES (
+    '00000000-0000-0000-0000-000000000001'::uuid,
+    'dev_local',
+    'Local development',
+    'free',
+    1000
+)
+ON CONFLICT (clerk_org_id) DO NOTHING;

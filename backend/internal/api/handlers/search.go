@@ -73,6 +73,10 @@ func (h *SearchLogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !enforceTenantRateLimit(w, r, h.redis, tenantID, "search_logs", searchPerMinuteLimit) {
+		return
+	}
+
 	vars := mux.Vars(r)
 	jobID := vars["job_id"]
 	if jobID == "" {

@@ -1,4 +1,4 @@
-.PHONY: all help dev api worker frontend test test-coverage lint build migrate-up migrate-down ch-init db-setup docker-up docker-down docker-build docker-logs docker-restart docker-clean clean deps setup run check-services docker-up-all helm-lint helm-dry-run
+.PHONY: all help dev api worker frontend test test-coverage lint build migrate-up migrate-down ch-init seed-dev-tenant db-setup docker-up docker-down docker-build docker-logs docker-restart docker-clean clean deps setup run check-services docker-up-all helm-lint helm-dry-run
 
 # Default target
 .DEFAULT_GOAL := help
@@ -37,7 +37,7 @@ deps: ## Install all dependencies (Go + npm)
 	@echo "$(GREEN)Installing Go dependencies...$(RESET)"
 	cd backend && go mod download && go mod tidy
 	@echo "$(GREEN)Installing frontend dependencies...$(RESET)"
-	cd frontend && npm install
+	cd frontend && npm install --legacy-peer-deps
 
 ##@ Testing & Quality
 
@@ -106,7 +106,11 @@ ch-init: ## Initialize ClickHouse schema
 	@echo "$(GREEN)Initializing ClickHouse schema...$(RESET)"
 	docker compose exec -T clickhouse clickhouse-client --queries-file /dev/stdin < backend/migrations/clickhouse/001_init.sql
 
-db-setup: docker-up migrate-up ch-init ## Complete database setup (Docker + migrations + ClickHouse)
+seed-dev-tenant: ## Ensure local dev tenant row exists (run after migrate-up; idempotent)
+	@echo "$(GREEN)Seeding dev tenant...$(RESET)"
+	docker compose exec -T postgres psql -U remedyiq -d remedyiq -v ON_ERROR_STOP=1 < scripts/seed_dev_tenant.sql
+
+db-setup: docker-up migrate-up ch-init seed-dev-tenant ## Complete database setup (Docker + migrations + ClickHouse + dev tenant)
 	@echo "$(GREEN)Database setup complete!$(RESET)"
 
 ##@ Docker

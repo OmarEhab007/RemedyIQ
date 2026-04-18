@@ -97,7 +97,13 @@ func main() {
 		jobCtx, jobCancel := context.WithTimeout(context.Background(), 30*time.Minute)
 		defer jobCancel()
 
-		if err := pipeline.ProcessJob(jobCtx, job); err != nil {
+		dbJob, err := worker.VerifyJobFromDatabase(jobCtx, pg, job)
+		if err != nil {
+			logger.Warn("skipping NATS job", "error", err)
+			return
+		}
+
+		if err := pipeline.ProcessJob(jobCtx, *dbJob); err != nil {
 			logger.Error("job processing failed", "error", err)
 			return
 		}

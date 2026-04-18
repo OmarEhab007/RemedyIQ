@@ -46,6 +46,10 @@ vi.mock('@/components/layout/theme-toggle', () => ({
   ThemeToggle: () => <button>Toggle theme</button>,
 }))
 
+vi.mock('@/lib/auth-mode', () => ({
+  isHeaderAuthMode: () => true,
+}))
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -71,6 +75,14 @@ describe('Sidebar', () => {
     expect(
       screen.getByRole('navigation', { name: 'Main navigation' })
     ).toBeInTheDocument()
+  })
+
+  it('shows local development account panel when not using Clerk', () => {
+    renderSidebar()
+    expect(
+      screen.getByRole('region', { name: 'Account and environment' })
+    ).toBeInTheDocument()
+    expect(screen.getByText('Local development')).toBeInTheDocument()
   })
 
   it('renders all 5 navigation links', () => {

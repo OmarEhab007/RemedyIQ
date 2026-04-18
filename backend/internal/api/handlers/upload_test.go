@@ -97,7 +97,7 @@ func TestDetectLogTypes_CaseInsensitive(t *testing.T) {
 
 func TestUploadHandler_MissingTenantContext(t *testing.T) {
 	// nil storage clients is fine -- we will not reach storage operations
-	h := NewUploadHandler(nil, nil)
+	h := NewUploadHandler(nil, nil, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/files/upload", nil)
 	// No tenant context set
@@ -112,7 +112,7 @@ func TestUploadHandler_MissingTenantContext(t *testing.T) {
 }
 
 func TestUploadHandler_InvalidMultipartForm(t *testing.T) {
-	h := NewUploadHandler(nil, nil)
+	h := NewUploadHandler(nil, nil, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/files/upload", bytes.NewBufferString("not a multipart form"))
 	req.Header.Set("Content-Type", "text/plain")
@@ -130,7 +130,7 @@ func TestUploadHandler_InvalidMultipartForm(t *testing.T) {
 }
 
 func TestUploadHandler_MissingFileField(t *testing.T) {
-	h := NewUploadHandler(nil, nil)
+	h := NewUploadHandler(nil, nil, nil)
 
 	// Create a valid multipart form without the "file" field
 	var body bytes.Buffer

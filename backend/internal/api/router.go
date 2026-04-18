@@ -90,7 +90,8 @@ func NewRouter(cfg RouterConfig) *mux.Router {
 	v1 := r.PathPrefix("/api/v1").Subrouter()
 
 	// ---- Public routes (no auth) -----------------------------------------
-	v1.Handle("/health", handlerOrStub(cfg.HealthHandler)).Methods(http.MethodGet, http.MethodOptions)
+	// Include HEAD so wget --spider / load balancers that probe with HEAD succeed.
+	v1.Handle("/health", handlerOrStub(cfg.HealthHandler)).Methods(http.MethodGet, http.MethodHead, http.MethodOptions)
 
 	// ---- Authenticated routes --------------------------------------------
 	auth := v1.NewRoute().Subrouter()

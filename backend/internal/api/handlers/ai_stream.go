@@ -54,6 +54,10 @@ func (h *AIStreamHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !enforceTenantRateLimit(w, r, h.redis, tenantID, "ai_stream", aiStreamPerMinuteLimit) {
+		return
+	}
+
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {
 		api.Error(w, http.StatusUnauthorized, api.ErrCodeUnauthorized, "missing user context")

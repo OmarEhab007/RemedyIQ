@@ -13,6 +13,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useAuth } from '@clerk/nextjs'
+import { isHeaderAuthMode } from '@/lib/auth-mode'
 import {
   RemedyWebSocket,
   type ConnectionStatus,
@@ -42,13 +43,11 @@ export interface WebSocketHook {
 // WebSocket singleton reference (module-level, shared across hook instances)
 // ---------------------------------------------------------------------------
 
-const IS_DEV_MODE = process.env.NEXT_PUBLIC_DEV_MODE === 'true'
-
-/** Stable no-op token getter for dev mode (same reference across renders). */
+/** Stable no-op token getter for header-auth mode (same reference across renders). */
 const DEV_GET_TOKEN = () => Promise.resolve(null as string | null)
 
 function useGetToken() {
-  if (IS_DEV_MODE) {
+  if (isHeaderAuthMode()) {
     return DEV_GET_TOKEN
   }
   // eslint-disable-next-line react-hooks/rules-of-hooks

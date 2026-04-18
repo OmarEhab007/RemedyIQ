@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Config holds all application configuration.
@@ -53,6 +54,10 @@ type Config struct {
 
 	// Bleve search index
 	BlevePath string
+
+	// CORSAllowedOrigins lists allowed browser origins (no wildcard in non-development).
+	// Populated from CORS_ORIGINS (comma-separated).
+	CORSAllowedOrigins []string
 }
 
 // Load reads configuration from environment variables.
@@ -81,6 +86,11 @@ func Load() (*Config, error) {
 		BlevePath:                getEnv("BLEVE_PATH", "./data/bleve"),
 	}
 
+	cfg.CORSAllowedOrigins = parseCommaSeparated(getEnv("CORS_ORIGINS", ""))
+	if cfg.IsDevelopment() && len(cfg.CORSAllowedOrigins) == 0 {
+		cfg.CORSAllowedOrigins = []string{"*"}
+	}
+
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
@@ -98,12 +108,40 @@ func (c *Config) validate() error {
 	if c.NATSURL == "" {
 		return fmt.Errorf("NATS_URL is required")
 	}
+	if !c.IsDevelopment() {
+		if strings.TrimSpace(c.ClerkSecretKey) == "" {
+			return fmt.Errorf("CLERK_SECRET_KEY is required when ENVIRONMENT is not development")
+		}
+		if len(c.CORSAllowedOrigins) == 0 {
+			return fmt.Errorf("CORS_ORIGINS is required when ENVIRONMENT is not development (comma-separated list, no wildcard)")
+		}
+		for _, o := range c.CORSAllowedOrigins {
+			if o == "*" {
+				return fmt.Errorf("CORS_ORIGINS cannot contain * when ENVIRONMENT is not development")
+			}
+		}
+	}
 	return nil
 }
 
 // IsDevelopment returns true if running in development mode.
 func (c *Config) IsDevelopment() bool {
 	return c.Environment == "development"
+}
+
+func parseCommaSeparated(s string) []string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if t := strings.TrimSpace(p); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 func getEnv(key, fallback string) string {

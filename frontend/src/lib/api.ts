@@ -8,6 +8,8 @@
  * @module api
  */
 
+import { isHeaderAuthMode } from "./auth-mode";
+
 import type {
   AnalysisJob,
   AggregatesResponse,
@@ -62,9 +64,6 @@ import type {
 export const API_BASE: string =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api/v1";
 
-const IS_DEV_MODE: boolean =
-  process.env.NEXT_PUBLIC_DEV_MODE === "true";
-
 const DEV_USER_ID: string =
   process.env.NEXT_PUBLIC_DEV_USER_ID ?? "00000000-0000-0000-0000-000000000001";
 
@@ -100,7 +99,7 @@ export class ApiError extends Error {
  * - Production: empty object (caller must provide Bearer token)
  */
 export function getAuthHeaders(): Record<string, string> {
-  if (IS_DEV_MODE) {
+  if (isHeaderAuthMode()) {
     return {
       "X-Dev-User-Id": DEV_USER_ID,
       "X-Dev-Tenant-Id": DEV_TENANT_ID,

@@ -13,6 +13,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@clerk/nextjs'
 import * as api from '@/lib/api'
+import { isHeaderAuthMode } from '@/lib/auth-mode'
 import type {
   AnalysisJob,
   ListAnalysesResponse,
@@ -50,13 +51,11 @@ import type {
 // Internal helper
 // ---------------------------------------------------------------------------
 
-const IS_DEV_MODE = process.env.NEXT_PUBLIC_DEV_MODE === 'true'
-
-/** Retrieves the Clerk JWT (production) or returns a no-op in dev mode. */
+/** Retrieves the Clerk JWT (production) or returns a no-op in header-auth mode. */
 function useToken() {
-  // In dev mode, the API client uses X-Dev-* headers instead of Bearer tokens.
+  // Header-auth mode uses X-Dev-* headers instead of Bearer tokens.
   // Calling useAuth() when Clerk is not configured would throw or hang.
-  if (IS_DEV_MODE) {
+  if (isHeaderAuthMode()) {
     return () => Promise.resolve(null as string | null)
   }
   // eslint-disable-next-line react-hooks/rules-of-hooks

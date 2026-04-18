@@ -55,4 +55,10 @@ vi.mock('@clerk/nextjs', () => ({
   }),
   SignIn: () => <div data-testid="sign-in" />,
   SignUp: () => <div data-testid="sign-up" />,
+  SignedIn: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SignedOut: () => null,
+  SignInButton: ({ children }: { children: React.ReactNode }) => (
+    <button type="button">{children}</button>
+  ),
+  UserButton: () => <div data-testid="clerk-user-button" />,
 }))

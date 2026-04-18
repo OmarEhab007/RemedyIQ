@@ -158,6 +158,8 @@ make dev
 make frontend
 ```
 
+Copy `frontend/.env.local.example` to `frontend/.env.local` if you use `npm run dev` (API URL must include `/api/v1`). `make setup` creates a sensible default when the example file is present.
+
 Open:
 - **Frontend**: `http://localhost:3000`
 - **API health**: `http://localhost:8080/api/v1/health`
@@ -170,6 +172,20 @@ make run
 
 This starts infrastructure, API, Worker, and Frontend together.
 
+### Full Stack in Docker (API + Worker + Frontend + data services)
+
+From the repository root, create a root **`.env`** once (`cp .env.example .env`) so Compose can load secrets for the API and worker. Then:
+
+```bash
+docker compose up -d --build
+```
+
+- **Frontend**: http://localhost:3000 (built with local dev headers; no Clerk key required)
+- **API**: http://localhost:8080/api/v1/health
+- **MinIO console**: http://localhost:9001 (default `minioadmin` / `minioadmin`)
+
+Stop containers (keeps volumes): `docker compose down`.
+
 ---
 
 ## Useful Commands
@@ -181,7 +197,8 @@ make docker-down         # Stop all Docker services
 make check-services      # Verify all services are healthy
 
 # Database
-make db-setup            # Full database initialisation (docker-up + migrate + ch-init)
+make db-setup            # Full database initialisation (docker-up + migrate + ch-init + dev tenant seed)
+make seed-dev-tenant     # Idempotent dev tenant row (for older Postgres volumes)
 
 # Tests
 make test                # Backend unit + integration tests (with race detector)
@@ -222,30 +239,31 @@ The backend loads from environment variables (`.env` if present) with sensible l
 | `JAR_DEFAULT_HEAP_MB` | JVM heap allocation for JAR (MB) | `4096` |
 | `JAR_TIMEOUT_SEC` | JAR analysis timeout (seconds) | `1800` |
 | `BLEVE_PATH` | Bleve index storage directory | `./data/bleve` |
-| `CLERK_SECRET_KEY` | Clerk JWT signing secret | — |
+| `CLERK_SECRET_KEY` | Clerk JWT signing secret (required when `ENVIRONMENT` is not `development`) | — |
+| `CORS_ORIGINS` | Comma-separated browser origins (no `*` outside `development`) | `*` in dev if unset |
 | `GOOGLE_API_KEY` | Gemini API key (streaming AI) | — |
 | `GOOGLE_MODEL` | Gemini model override | `gemini-2.5-flash` |
 | `ANTHROPIC_API_KEY` | Anthropic API key (non-streaming paths) | — |
 
 ### Frontend
 
-Create `frontend/.env.local`:
+See `frontend/.env.local.example`. Typical local file:
 
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=<your-clerk-key>
+NEXT_PUBLIC_DEV_MODE=true
+NEXT_PUBLIC_DEV_USER_ID=00000000-0000-0000-0000-000000000001
+NEXT_PUBLIC_DEV_TENANT_ID=00000000-0000-0000-0000-000000000001
+# NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...   # omit or set for Clerk sign-in
 ```
 
-### Development Authentication
+### Authentication
 
-In `ENVIRONMENT=development`, the API accepts dev bypass headers — no Clerk token required:
+**Production / staging** — Use [Clerk](https://clerk.com). Configure a session token template with claim **`internal_tenant_id`** (UUID equal to `tenants.id` in Postgres). Set `CLERK_SECRET_KEY` (API) and `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (frontend). Outside `development`, the API requires `CORS_ORIGINS` and a non-wildcard allow list.
 
-```
-X-Dev-User-ID: <any-uuid>
-X-Dev-Tenant-ID: <any-uuid>
-```
+**Local header-auth** — When `ENVIRONMENT=development`, the API accepts dev headers (tenant UUID must exist in Postgres; migrations seed a dev tenant). The UI treats **header-auth mode** as `NEXT_PUBLIC_DEV_MODE=true` **or** an unset `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: it skips Clerk, injects `X-Dev-User-ID` / `X-Dev-Tenant-Id` on API calls, and shows a **“Local development”** panel in the sidebar instead of Sign in.
 
-The frontend sends these automatically when no auth token is present.
+WebSocket dev bypass: append `?token=dev` when not using Clerk (see `AGENTS.md`).
 
 ### CI and Deployment Workflows
 
@@ -259,7 +277,8 @@ All routes are prefixed `/api/v1`.
 
 ### Health
 ```
-GET  /health
+GET  /api/v1/health
+HEAD /api/v1/health
 ```
 
 ### Files
@@ -336,8 +355,8 @@ GET  /ws                           (WebSocket — job status events)
 │   └── src/              # Next.js app, components, hooks, API client
 ├── helm/                 # Helm charts for EKS deployment
 ├── docs/                 # Architecture docs, design plans, screenshots
-├── scripts/              # Local setup utilities
-├── docker-compose.yml    # Local infrastructure (Postgres, ClickHouse, NATS, Redis, MinIO)
+├── scripts/              # Local setup utilities (`setup.sh`, `seed_dev_tenant.sql`)
+├── docker-compose.yml    # Local stack: data services + API + worker + frontend
 └── Makefile              # Primary developer workflow commands
 ```
 

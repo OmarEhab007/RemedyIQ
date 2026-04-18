@@ -9,9 +9,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // contextKey is an unexported type used for context keys to avoid collisions.
@@ -28,12 +29,18 @@ const (
 
 // Error codes used within middleware responses.
 const (
-	errCodeUnauthorized = "unauthorized"
+	errCodeUnauthorized   = "unauthorized"
+	errCodeInvalidRequest = "invalid_request"
 )
 
 // clockSkewSeconds is the tolerance in seconds applied to both the `exp`
 // and `nbf` JWT claims to account for clock drift between servers.
 const clockSkewSeconds = 30
+
+// JWTClaimInternalTenantID is the Clerk session JWT claim that carries the
+// Postgres tenants.id UUID. Configure it in the Clerk Dashboard session token
+// template (see AGENTS.md).
+const JWTClaimInternalTenantID = "internal_tenant_id"
 
 // GetUserID extracts the user ID from the request context.
 func GetUserID(ctx context.Context) string {
@@ -70,17 +77,19 @@ func WithOrgID(ctx context.Context, orgID string) context.Context {
 
 // AuthMiddleware validates JWT tokens from the Authorization header.
 type AuthMiddleware struct {
-	clerkSecretKey string
-	devMode        bool
+	clerkSecretKey   string
+	allowDevBypass   bool // true only when ENVIRONMENT=development (see cmd/api).
 }
 
 // NewAuthMiddleware creates a new AuthMiddleware.
-// When clerkSecretKey is empty and devMode is true, the middleware will accept
-// bypass headers instead of requiring a valid JWT.
-func NewAuthMiddleware(clerkSecretKey string, devMode bool) *AuthMiddleware {
+// allowDevBypass enables X-Dev-User-ID / X-Dev-Tenant-ID (and token=dev) only
+// in local development; it must be false for staging/production.
+// When clerkSecretKey is empty and allowDevBypass is true, JWT validation is
+// skipped only for requests that use the dev header bypass.
+func NewAuthMiddleware(clerkSecretKey string, allowDevBypass bool) *AuthMiddleware {
 	return &AuthMiddleware{
 		clerkSecretKey: clerkSecretKey,
-		devMode:        devMode,
+		allowDevBypass: allowDevBypass,
 	}
 }
 
@@ -90,28 +99,26 @@ func NewAuthMiddleware(clerkSecretKey string, devMode bool) *AuthMiddleware {
 func (am *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// --- Development bypass -------------------------------------------
-		if am.devMode {
-			// Block dev bypass in production even if devMode was misconfigured.
-			if env := os.Getenv("APP_ENV"); env == "production" {
-				slog.Error("dev mode bypass attempted in production environment",
-					"remote_addr", r.RemoteAddr,
-				)
-			} else {
-				devUser := r.Header.Get("X-Dev-User-ID")
-				devTenant := r.Header.Get("X-Dev-Tenant-ID")
-				// WebSocket connections cannot set custom headers, so also
-				// check query parameters for the dev bypass token.
-				if devUser == "" && devTenant == "" && r.URL.Query().Get("token") == "dev" {
-					devUser = "dev-user"
-					devTenant = "dev-tenant"
-				}
-				if devUser != "" && devTenant != "" {
-					ctx := context.WithValue(r.Context(), UserIDKey, devUser)
-					ctx = context.WithValue(ctx, TenantIDKey, devTenant)
-					ctx = context.WithValue(ctx, OrgIDKey, devTenant)
-					next.ServeHTTP(w, r.WithContext(ctx))
+		if am.allowDevBypass {
+			devUser := r.Header.Get("X-Dev-User-ID")
+			devTenant := r.Header.Get("X-Dev-Tenant-ID")
+			// WebSocket connections cannot set custom headers, so also
+			// check query parameters for the dev bypass token.
+			// Align with frontend defaults (api.ts NEXT_PUBLIC_DEV_*).
+			if devUser == "" && devTenant == "" && r.URL.Query().Get("token") == "dev" {
+				devUser = "00000000-0000-0000-0000-000000000001"
+				devTenant = "00000000-0000-0000-0000-000000000001"
+			}
+			if devUser != "" && devTenant != "" {
+				if _, err := uuid.Parse(devTenant); err != nil {
+					writeError(w, http.StatusBadRequest, errCodeInvalidRequest, "X-Dev-Tenant-ID must be a valid UUID")
 					return
 				}
+				ctx := context.WithValue(r.Context(), UserIDKey, devUser)
+				ctx = context.WithValue(ctx, TenantIDKey, devTenant)
+				ctx = context.WithValue(ctx, OrgIDKey, "")
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
 			}
 		}
 
@@ -146,14 +153,13 @@ func (am *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			return
 		}
 
-		// Clerk stores the org ID in the "org_id" claim.
 		orgID, _ := claims["org_id"].(string)
 
-		// Use org_id as the tenant identifier; fall back to user_id for
-		// personal accounts that have no organization.
-		tenantID := orgID
-		if tenantID == "" {
-			tenantID = userID
+		tenantID, ok := resolveInternalTenantUUID(claims)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, errCodeUnauthorized,
+				"token missing "+JWTClaimInternalTenantID+" claim or valid UUID org_id/sub")
+			return
 		}
 
 		ctx := context.WithValue(r.Context(), UserIDKey, userID)
@@ -162,6 +168,30 @@ func (am *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// resolveInternalTenantUUID returns the Postgres tenant UUID string from JWT claims.
+// Priority: internal_tenant_id (Clerk session template) → org_id if UUID → sub if UUID.
+func resolveInternalTenantUUID(claims clerkJWTClaims) (string, bool) {
+	if raw, ok := claims[JWTClaimInternalTenantID].(string); ok {
+		raw = strings.TrimSpace(raw)
+		if _, err := uuid.Parse(raw); err == nil {
+			return raw, true
+		}
+	}
+	if raw, ok := claims["org_id"].(string); ok {
+		raw = strings.TrimSpace(raw)
+		if _, err := uuid.Parse(raw); err == nil {
+			return raw, true
+		}
+	}
+	if raw, ok := claims["sub"].(string); ok {
+		raw = strings.TrimSpace(raw)
+		if _, err := uuid.Parse(raw); err == nil {
+			return raw, true
+		}
+	}
+	return "", false
 }
 
 // clerkJWTClaims is a minimal representation of the JWT payload.

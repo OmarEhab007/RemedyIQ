@@ -24,7 +24,9 @@ func setupConversationTest(t *testing.T) (*storage.PostgresClient, *domain.Tenan
 
 	dsn := "postgres://remedyiq:remedyiq@localhost:5432/remedyiq?sslmode=disable"
 	client, err := storage.NewPostgresClient(ctx, dsn)
-	require.NoError(t, err)
+	if err != nil {
+		t.Skip("postgres not available:", err)
+	}
 	t.Cleanup(func() { client.Close() })
 
 	tenant := &domain.Tenant{

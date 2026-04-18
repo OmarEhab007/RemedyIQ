@@ -92,21 +92,24 @@ func TestContextHelpers_WrongType(t *testing.T) {
 
 // --- Dev mode tests ---------------------------------------------------------
 
+// Matches frontend NEXT_PUBLIC_DEV_TENANT_ID default and Postgres seed tenant.
+const testDevTenantUUID = "00000000-0000-0000-0000-000000000001"
+
 func TestAuthMiddleware_DevMode_ValidHeaders(t *testing.T) {
 	am := NewAuthMiddleware(testSecret, true)
 	handler := am.Authenticate(echoHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("X-Dev-User-ID", "dev-user-1")
-	req.Header.Set("X-Dev-Tenant-ID", "dev-tenant-1")
+	req.Header.Set("X-Dev-Tenant-ID", testDevTenantUUID)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "dev-user-1", w.Header().Get("X-User-ID"))
-	assert.Equal(t, "dev-tenant-1", w.Header().Get("X-Tenant-ID"))
-	assert.Equal(t, "dev-tenant-1", w.Header().Get("X-Org-ID"))
+	assert.Equal(t, testDevTenantUUID, w.Header().Get("X-Tenant-ID"))
+	assert.Equal(t, "", w.Header().Get("X-Org-ID"))
 }
 
 func TestAuthMiddleware_DevMode_MissingHeaders_NoBearer(t *testing.T) {
@@ -142,7 +145,7 @@ func TestAuthMiddleware_DevMode_OnlyTenantHeader(t *testing.T) {
 	handler := am.Authenticate(echoHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("X-Dev-Tenant-ID", "dev-tenant-1")
+	req.Header.Set("X-Dev-Tenant-ID", testDevTenantUUID)
 	// Missing X-Dev-User-ID.
 	w := httptest.NewRecorder()
 
@@ -151,21 +154,18 @@ func TestAuthMiddleware_DevMode_OnlyTenantHeader(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestAuthMiddleware_DevMode_BlockedInProduction(t *testing.T) {
-	t.Setenv("APP_ENV", "production")
-
-	am := NewAuthMiddleware(testSecret, true)
+func TestAuthMiddleware_DevBypassDisabled_RejectsDevHeaders(t *testing.T) {
+	am := NewAuthMiddleware(testSecret, false)
 	handler := am.Authenticate(echoHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("X-Dev-User-ID", "dev-user-1")
-	req.Header.Set("X-Dev-Tenant-ID", "dev-tenant-1")
+	req.Header.Set("X-Dev-Tenant-ID", testDevTenantUUID)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
 
-	// Dev bypass is blocked in production -- falls through to JWT validation
-	// which fails because there is no Authorization header.
+	// allowDevBypass false (staging/production) — dev headers ignored.
 	require.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
@@ -174,10 +174,12 @@ func TestAuthMiddleware_DevMode_FallsThroughToValidJWT(t *testing.T) {
 	am := NewAuthMiddleware(testSecret, true)
 	handler := am.Authenticate(echoHandler())
 
+	tenantUUID := "a1111111-1111-4111-8111-111111111111"
 	claims := map[string]interface{}{
-		"sub":    "user_jwt",
-		"org_id": "org_jwt",
-		"exp":    float64(time.Now().Add(1 * time.Hour).Unix()),
+		"sub":                   "user_jwt",
+		"org_id":                "org_jwt",
+		JWTClaimInternalTenantID: tenantUUID,
+		"exp":                   float64(time.Now().Add(1 * time.Hour).Unix()),
 	}
 	token := createTestJWT(testSecret, claims)
 
@@ -189,6 +191,7 @@ func TestAuthMiddleware_DevMode_FallsThroughToValidJWT(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "user_jwt", w.Header().Get("X-User-ID"))
+	assert.Equal(t, tenantUUID, w.Header().Get("X-Tenant-ID"))
 }
 
 func TestAuthMiddleware_DevMode_Disabled(t *testing.T) {
@@ -198,7 +201,7 @@ func TestAuthMiddleware_DevMode_Disabled(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("X-Dev-User-ID", "dev-user-1")
-	req.Header.Set("X-Dev-Tenant-ID", "dev-tenant-1")
+	req.Header.Set("X-Dev-Tenant-ID", testDevTenantUUID)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -212,10 +215,12 @@ func TestAuthMiddleware_ValidJWT_WithOrg(t *testing.T) {
 	am := NewAuthMiddleware(testSecret, false)
 	handler := am.Authenticate(echoHandler())
 
+	tenantUUID := "b1111111-1111-4111-8111-111111111111"
 	claims := map[string]interface{}{
-		"sub":    "user_abc123",
-		"org_id": "org_xyz789",
-		"exp":    float64(time.Now().Add(1 * time.Hour).Unix()),
+		"sub":                    "user_abc123",
+		"org_id":                 "org_xyz789",
+		JWTClaimInternalTenantID: tenantUUID,
+		"exp":                    float64(time.Now().Add(1 * time.Hour).Unix()),
 	}
 	token := createTestJWT(testSecret, claims)
 
@@ -227,17 +232,19 @@ func TestAuthMiddleware_ValidJWT_WithOrg(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "user_abc123", w.Header().Get("X-User-ID"))
-	assert.Equal(t, "org_xyz789", w.Header().Get("X-Tenant-ID"))
+	assert.Equal(t, tenantUUID, w.Header().Get("X-Tenant-ID"))
 	assert.Equal(t, "org_xyz789", w.Header().Get("X-Org-ID"))
 }
 
-func TestAuthMiddleware_ValidJWT_NoOrg_FallsBackToUserID(t *testing.T) {
+func TestAuthMiddleware_ValidJWT_NoOrg_UsesInternalTenantClaim(t *testing.T) {
 	am := NewAuthMiddleware(testSecret, false)
 	handler := am.Authenticate(echoHandler())
 
+	tenantUUID := "c2222222-2222-4222-8222-222222222222"
 	claims := map[string]interface{}{
-		"sub": "user_personal",
-		"exp": float64(time.Now().Add(1 * time.Hour).Unix()),
+		"sub":                    "user_personal",
+		JWTClaimInternalTenantID: tenantUUID,
+		"exp":                    float64(time.Now().Add(1 * time.Hour).Unix()),
 	}
 	token := createTestJWT(testSecret, claims)
 
@@ -249,18 +256,61 @@ func TestAuthMiddleware_ValidJWT_NoOrg_FallsBackToUserID(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "user_personal", w.Header().Get("X-User-ID"))
-	// Without org_id, tenant falls back to user_id.
-	assert.Equal(t, "user_personal", w.Header().Get("X-Tenant-ID"))
+	assert.Equal(t, tenantUUID, w.Header().Get("X-Tenant-ID"))
 	assert.Equal(t, "", w.Header().Get("X-Org-ID"))
+}
+
+func TestAuthMiddleware_ValidJWT_LegacyOrgIDAsUUID(t *testing.T) {
+	am := NewAuthMiddleware(testSecret, false)
+	handler := am.Authenticate(echoHandler())
+
+	orgAsTenant := "d3333333-3333-4333-8333-333333333333"
+	claims := map[string]interface{}{
+		"sub":    "user_abc123",
+		"org_id": orgAsTenant,
+		"exp":    float64(time.Now().Add(1 * time.Hour).Unix()),
+	}
+	token := createTestJWT(testSecret, claims)
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, orgAsTenant, w.Header().Get("X-Tenant-ID"))
+}
+
+func TestAuthMiddleware_ValidJWT_MissingTenantUUIDRejected(t *testing.T) {
+	am := NewAuthMiddleware(testSecret, false)
+	handler := am.Authenticate(echoHandler())
+
+	claims := map[string]interface{}{
+		"sub":    "user_abc123",
+		"org_id": "org_not_a_uuid",
+		"exp":    float64(time.Now().Add(1 * time.Hour).Unix()),
+	}
+	token := createTestJWT(testSecret, claims)
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
 func TestAuthMiddleware_ValidJWT_CaseInsensitiveBearer(t *testing.T) {
 	am := NewAuthMiddleware(testSecret, false)
 	handler := am.Authenticate(echoHandler())
 
+	tenantUUID := "e4444444-4444-4444-8444-444444444444"
 	claims := map[string]interface{}{
-		"sub": "user_1",
-		"exp": float64(time.Now().Add(1 * time.Hour).Unix()),
+		"sub":                    "user_1",
+		JWTClaimInternalTenantID: tenantUUID,
+		"exp":                    float64(time.Now().Add(1 * time.Hour).Unix()),
 	}
 	token := createTestJWT(testSecret, claims)
 
@@ -273,6 +323,7 @@ func TestAuthMiddleware_ValidJWT_CaseInsensitiveBearer(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "user_1", w.Header().Get("X-User-ID"))
+	assert.Equal(t, tenantUUID, w.Header().Get("X-Tenant-ID"))
 }
 
 // --- Expired JWT tests ------------------------------------------------------
@@ -306,9 +357,11 @@ func TestAuthMiddleware_ExpiredJWT_WithinClockSkew(t *testing.T) {
 	am := NewAuthMiddleware(testSecret, false)
 	handler := am.Authenticate(echoHandler())
 
+	tenantUUID := "f5555555-5555-4555-8555-555555555555"
 	claims := map[string]interface{}{
-		"sub": "user_skew",
-		"exp": float64(time.Now().Add(-10 * time.Second).Unix()),
+		"sub":                    "user_skew",
+		JWTClaimInternalTenantID: tenantUUID,
+		"exp":                    float64(time.Now().Add(-10 * time.Second).Unix()),
 	}
 	token := createTestJWT(testSecret, claims)
 
@@ -320,6 +373,7 @@ func TestAuthMiddleware_ExpiredJWT_WithinClockSkew(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "user_skew", w.Header().Get("X-User-ID"))
+	assert.Equal(t, tenantUUID, w.Header().Get("X-Tenant-ID"))
 }
 
 // --- Missing / malformed Authorization header tests -------------------------
@@ -460,10 +514,12 @@ func TestAuthMiddleware_NBF_SlightlyInFuture_WithinSkew(t *testing.T) {
 	handler := am.Authenticate(echoHandler())
 
 	// nbf is 10 seconds in the future -- within the 30-second tolerance.
+	tenantUUID := "10101010-1010-4010-8010-101010101010"
 	claims := map[string]interface{}{
-		"sub": "user_nbf",
-		"exp": float64(time.Now().Add(1 * time.Hour).Unix()),
-		"nbf": float64(time.Now().Add(10 * time.Second).Unix()),
+		"sub":                    "user_nbf",
+		JWTClaimInternalTenantID: tenantUUID,
+		"exp":                    float64(time.Now().Add(1 * time.Hour).Unix()),
+		"nbf":                    float64(time.Now().Add(10 * time.Second).Unix()),
 	}
 	token := createTestJWT(testSecret, claims)
 
@@ -475,6 +531,7 @@ func TestAuthMiddleware_NBF_SlightlyInFuture_WithinSkew(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "user_nbf", w.Header().Get("X-User-ID"))
+	assert.Equal(t, tenantUUID, w.Header().Get("X-Tenant-ID"))
 }
 
 func TestAuthMiddleware_NBF_FarInFuture_BeyondSkew(t *testing.T) {
@@ -483,9 +540,10 @@ func TestAuthMiddleware_NBF_FarInFuture_BeyondSkew(t *testing.T) {
 
 	// nbf is 5 minutes in the future -- well beyond 30-second skew.
 	claims := map[string]interface{}{
-		"sub": "user_nbf_far",
-		"exp": float64(time.Now().Add(1 * time.Hour).Unix()),
-		"nbf": float64(time.Now().Add(5 * time.Minute).Unix()),
+		"sub":                    "user_nbf_far",
+		JWTClaimInternalTenantID: "20202020-2020-4020-8020-202020202020",
+		"exp":                    float64(time.Now().Add(1 * time.Hour).Unix()),
+		"nbf":                    float64(time.Now().Add(5 * time.Minute).Unix()),
 	}
 	token := createTestJWT(testSecret, claims)
 
@@ -561,12 +619,12 @@ func TestNewAuthMiddleware(t *testing.T) {
 	am := NewAuthMiddleware("my-secret", true)
 	require.NotNil(t, am)
 	assert.Equal(t, "my-secret", am.clerkSecretKey)
-	assert.True(t, am.devMode)
+	assert.True(t, am.allowDevBypass)
 
 	am2 := NewAuthMiddleware("", false)
 	require.NotNil(t, am2)
 	assert.Equal(t, "", am2.clerkSecretKey)
-	assert.False(t, am2.devMode)
+	assert.False(t, am2.allowDevBypass)
 }
 
 // --- Response content-type test ---------------------------------------------

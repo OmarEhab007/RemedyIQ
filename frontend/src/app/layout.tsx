@@ -6,9 +6,8 @@ import React from 'react'
 
 import { QueryProvider } from '@/providers/query-provider'
 import { ThemeProvider } from '@/providers/theme-provider'
+import { isHeaderAuthMode } from '@/lib/auth-mode'
 import './globals.css'
-
-const IS_DEV_MODE = process.env.NEXT_PUBLIC_DEV_MODE === 'true'
 
 // ---------------------------------------------------------------------------
 // Font
@@ -91,8 +90,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
     </html>
   )
 
-  // In dev mode, skip ClerkProvider to avoid auth-related loading issues
-  if (IS_DEV_MODE) {
+  // Skip Clerk when using header-auth local mode or when keys are absent (e.g. CI build).
+  if (isHeaderAuthMode()) {
     return inner
   }
 

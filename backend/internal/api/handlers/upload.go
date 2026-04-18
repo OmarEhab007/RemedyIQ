@@ -24,12 +24,13 @@ const maxUploadSize = 2 << 30 // 2 GB
 
 // UploadHandler handles POST /api/v1/files/upload.
 type UploadHandler struct {
-	pg storage.PostgresStore
-	s3 storage.S3Storage
+	pg    storage.PostgresStore
+	s3    storage.S3Storage
+	redis storage.RedisCache
 }
 
-func NewUploadHandler(pg storage.PostgresStore, s3 storage.S3Storage) *UploadHandler {
-	return &UploadHandler{pg: pg, s3: s3}
+func NewUploadHandler(pg storage.PostgresStore, s3 storage.S3Storage, redis storage.RedisCache) *UploadHandler {
+	return &UploadHandler{pg: pg, s3: s3, redis: redis}
 }
 
 func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -65,6 +66,10 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !enforceTenantRateLimit(w, r, h.redis, tenantID, "upload", uploadPerMinuteLimit) {
+		return
+	}
+
 	// Detect log types from filename.
 	detectedTypes := detectLogTypes(header.Filename)
 
@@ -96,7 +101,8 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Generate S3 key and upload.
 	fileID := uuid.New()
-	s3Key := path.Join("tenants", tenantID, "jobs", fileID.String(), header.Filename)
+	safeName := sanitizeUploadBasename(header.Filename)
+	s3Key := path.Join("tenants", tenantID, "jobs", fileID.String(), safeName)
 
 	if err := h.s3.Upload(r.Context(), s3Key, tmpFile, size); err != nil {
 		slog.Error("S3 upload failed", "key", s3Key, "error", err)
@@ -149,4 +155,20 @@ func detectLogTypes(filename string) []string {
 		types = []string{string(domain.LogTypeAPI), string(domain.LogTypeSQL), string(domain.LogTypeFilter), string(domain.LogTypeEscalation)}
 	}
 	return types
+}
+
+const maxUploadBasenameLen = 200
+
+// sanitizeUploadBasename returns a single path segment safe for S3 object keys.
+func sanitizeUploadBasename(name string) string {
+	clean := strings.ReplaceAll(name, "\\", "/")
+	base := path.Base(clean)
+	base = strings.TrimSpace(base)
+	if base == "." || base == "/" || base == "" {
+		return "upload.bin"
+	}
+	if len(base) > maxUploadBasenameLen {
+		base = base[:maxUploadBasenameLen]
+	}
+	return base
 }

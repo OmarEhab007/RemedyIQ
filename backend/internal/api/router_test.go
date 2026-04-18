@@ -39,6 +39,14 @@ func TestNewRouter_HealthEndpoint(t *testing.T) {
 	if resp["status"] != "healthy" {
 		t.Fatalf("expected healthy, got %s", resp["status"])
 	}
+
+	// HEAD must succeed (e.g. wget --spider, Docker HEALTHCHECK patterns).
+	reqHead := httptest.NewRequest(http.MethodHead, "/api/v1/health", nil)
+	wHead := httptest.NewRecorder()
+	router.ServeHTTP(wHead, reqHead)
+	if wHead.Code != http.StatusOK {
+		t.Fatalf("HEAD health: expected 200, got %d", wHead.Code)
+	}
 }
 
 func TestNewRouter_HealthNoAuth(t *testing.T) {

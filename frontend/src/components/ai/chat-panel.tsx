@@ -17,11 +17,10 @@ import { useRef, useEffect, useCallback, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@clerk/nextjs'
 import { cn } from '@/lib/utils'
-
-const IS_DEV_MODE = process.env.NEXT_PUBLIC_DEV_MODE === 'true'
+import { isHeaderAuthMode } from '@/lib/auth-mode'
 
 function useGetToken() {
-  if (IS_DEV_MODE) {
+  if (isHeaderAuthMode()) {
     return () => Promise.resolve(null as string | null)
   }
   // eslint-disable-next-line react-hooks/rules-of-hooks

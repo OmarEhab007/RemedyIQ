@@ -133,8 +133,11 @@ if [ ! -f frontend/.env.local ]; then
         echo -e "  ${GREEN}✓${NC} Created frontend/.env.local from .env.local.example"
     else
         cat > frontend/.env.local << 'ENVEOF'
-# Frontend Environment Configuration for Local Development
-NEXT_PUBLIC_API_URL=http://localhost:8080
+# Frontend — local stack without Clerk (see frontend/.env.local.example in repo)
+NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+NEXT_PUBLIC_DEV_MODE=true
+NEXT_PUBLIC_DEV_USER_ID=00000000-0000-0000-0000-000000000001
+NEXT_PUBLIC_DEV_TENANT_ID=00000000-0000-0000-0000-000000000001
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
 ENVEOF
         echo -e "  ${GREEN}✓${NC} Created frontend/.env.local with defaults"
@@ -228,7 +231,7 @@ echo ""
 echo -e "${YELLOW}[8/8] Installing frontend dependencies...${NC}"
 
 cd frontend
-npm install --prefer-offline 2>/dev/null || npm install
+npm install --legacy-peer-deps --prefer-offline 2>/dev/null || npm install --legacy-peer-deps
 cd ..
 echo -e "  ${GREEN}✓${NC} Frontend dependencies installed"
 
