@@ -199,7 +199,7 @@ describe('ConversationList', () => {
   // -------------------------------------------------------------------------
 
   it('shows empty state when no conversations exist', () => {
-    render(<ConversationList />)
+    render(<ConversationList jobId="job-1" />)
     expect(screen.getByText(/no conversations yet/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /start one/i })).toBeInTheDocument()
   })
@@ -212,10 +212,20 @@ describe('ConversationList', () => {
     } as unknown as ReturnType<typeof useCreateConversation>)
 
     const user = userEvent.setup()
-    render(<ConversationList />)
+    render(<ConversationList jobId="job-1" />)
     await user.click(screen.getByRole('button', { name: /start one/i }))
 
-    expect(mutate).toHaveBeenCalled()
+    expect(mutate).toHaveBeenCalledWith(
+      { jobId: 'job-1', title: 'New conversation' },
+      expect.any(Object),
+    )
+  })
+
+  it('disables new conversation actions when no job is selected', () => {
+    mockUseCreateConversation.mockReturnValue(makeCreateMutation() as unknown as ReturnType<typeof useCreateConversation>)
+    render(<ConversationList />)
+    expect(screen.getByRole('button', { name: /new conversation/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /start one/i })).toBeDisabled()
   })
 
   // -------------------------------------------------------------------------
@@ -411,7 +421,7 @@ describe('ConversationList', () => {
       isPending: true,
     } as unknown as ReturnType<typeof useCreateConversation>)
 
-    render(<ConversationList />)
+    render(<ConversationList jobId="job-1" />)
     expect(screen.getByRole('button', { name: /new conversation/i })).toBeDisabled()
   })
 })

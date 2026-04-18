@@ -127,7 +127,19 @@ func main() {
 		slog.Warn("Gemini client initialization failed; AI streaming will not work", "error", err)
 	}
 
-	aiStreamHandler := handlers.NewAIStreamHandler(geminiClient, aiRegistry, aiRouter, pg, ch, redis)
+	aiStreamHandler := handlers.NewAIStreamHandler(
+		geminiClient,
+		aiRegistry,
+		aiRouter,
+		pg,
+		ch,
+		redis,
+		ai.ServerLLMDefaults{
+			OpenAIAPIKey:  cfg.OpenAIAPIKey,
+			OpenAIBaseURL: cfg.OpenAIBaseURL,
+			OllamaBaseURL: cfg.OllamaBaseURL,
+		},
+	)
 	conversationsHandler := handlers.NewConversationsHandler(pg)
 	conversationDetailHandler := handlers.NewConversationDetailHandler(pg)
 

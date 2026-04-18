@@ -821,6 +821,13 @@ export interface AIStreamRequest {
   conversation_id: string;
   query: string;
   skill?: string;
+  skill_name?: string;
+  auto_route?: boolean;
+  /** gemini | openai | ollama */
+  provider?: string;
+  model?: string;
+  api_key?: string;
+  openai_base_url?: string;
 }
 
 // ---------------------------------------------------------------------------

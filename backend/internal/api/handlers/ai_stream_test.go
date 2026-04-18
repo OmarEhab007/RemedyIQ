@@ -20,7 +20,7 @@ import (
 func TestAIStreamHandler_MissingTenantContext(t *testing.T) {
 	registry := ai.NewRegistry()
 	router := ai.NewRouter()
-	h := NewAIStreamHandler(nil, registry, router, nil, nil, nil)
+	h := NewAIStreamHandler(nil, registry, router, nil, nil, nil, ai.ServerLLMDefaults{})
 
 	body := `{"query":"test"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/ai/stream", bytes.NewBufferString(body))
@@ -34,7 +34,7 @@ func TestAIStreamHandler_MissingTenantContext(t *testing.T) {
 func TestAIStreamHandler_MissingUserContext(t *testing.T) {
 	registry := ai.NewRegistry()
 	router := ai.NewRouter()
-	h := NewAIStreamHandler(nil, registry, router, nil, nil, nil)
+	h := NewAIStreamHandler(nil, registry, router, nil, nil, nil, ai.ServerLLMDefaults{})
 
 	body := `{"query":"test","job_id":"` + uuid.New().String() + `"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/ai/stream", bytes.NewBufferString(body))
@@ -50,7 +50,7 @@ func TestAIStreamHandler_MissingUserContext(t *testing.T) {
 func TestAIStreamHandler_MissingJobID(t *testing.T) {
 	registry := ai.NewRegistry()
 	router := ai.NewRouter()
-	h := NewAIStreamHandler(nil, registry, router, nil, nil, nil)
+	h := NewAIStreamHandler(nil, registry, router, nil, nil, nil, ai.ServerLLMDefaults{})
 
 	body := `{"query":"test"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/ai/stream", bytes.NewBufferString(body))
@@ -68,7 +68,7 @@ func TestAIStreamHandler_MissingJobID(t *testing.T) {
 func TestAIStreamHandler_MissingQuery(t *testing.T) {
 	registry := ai.NewRegistry()
 	router := ai.NewRouter()
-	h := NewAIStreamHandler(nil, registry, router, nil, nil, nil)
+	h := NewAIStreamHandler(nil, registry, router, nil, nil, nil, ai.ServerLLMDefaults{})
 
 	body := `{}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/ai/stream", bytes.NewBufferString(body))
@@ -86,7 +86,7 @@ func TestAIStreamHandler_MissingQuery(t *testing.T) {
 func TestAIStreamHandler_QueryTooLong(t *testing.T) {
 	registry := ai.NewRegistry()
 	router := ai.NewRouter()
-	h := NewAIStreamHandler(nil, registry, router, nil, nil, nil)
+	h := NewAIStreamHandler(nil, registry, router, nil, nil, nil, ai.ServerLLMDefaults{})
 
 	longQuery := strings.Repeat("a", 2001)
 	body := `{"query":"` + longQuery + `"}`
@@ -137,7 +137,7 @@ func TestAIStreamHandler_SSETokenEventFormat(t *testing.T) {
 func TestAIStreamHandler_BuildSystemPrompt_UsesSummaryContext(t *testing.T) {
 	registry := ai.NewRegistry()
 	router := ai.NewRouter()
-	h := NewAIStreamHandler(nil, registry, router, nil, nil, nil)
+	h := NewAIStreamHandler(nil, registry, router, nil, nil, nil, ai.ServerLLMDefaults{})
 
 	prompt := h.buildSystemPrompt("nl_query", "## Log Analysis Summary")
 

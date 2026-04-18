@@ -28,9 +28,11 @@ type AIStreamHandler struct {
 	ch       storage.ClickHouseStore
 	redis    storage.RedisCache
 	logger   *slog.Logger
+
+	defaults ai.ServerLLMDefaults
 }
 
-func NewAIStreamHandler(gemini *ai.GeminiClient, registry *ai.Registry, router *ai.Router, db *storage.PostgresClient, ch storage.ClickHouseStore, redis storage.RedisCache) *AIStreamHandler {
+func NewAIStreamHandler(gemini *ai.GeminiClient, registry *ai.Registry, router *ai.Router, db *storage.PostgresClient, ch storage.ClickHouseStore, redis storage.RedisCache, defaults ai.ServerLLMDefaults) *AIStreamHandler {
 	return &AIStreamHandler{
 		gemini:   gemini,
 		registry: registry,
@@ -38,6 +40,7 @@ func NewAIStreamHandler(gemini *ai.GeminiClient, registry *ai.Registry, router *
 		db:       db,
 		ch:       ch,
 		redis:    redis,
+		defaults: defaults,
 		logger:   slog.Default().With("handler", "ai_stream"),
 	}
 }
@@ -96,6 +99,9 @@ func (h *AIStreamHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	skillName := req.SkillName
+	if skillName == "" && strings.TrimSpace(req.Skill) != "" {
+		skillName = strings.TrimSpace(req.Skill)
+	}
 	if skillName == "" && req.AutoRoute {
 		skillName = h.router.Route(req.Query)
 	} else if skillName == "" {
@@ -177,7 +183,7 @@ func (h *AIStreamHandler) streamSSE(ctx context.Context, w http.ResponseWriter, 
 	systemPrompt := h.buildSystemPrompt(skillName, logContext)
 	messages := h.buildConversationMessages(ctx, conversation)
 
-	stream := h.gemini.StreamQuery(ctx, systemPrompt, messages, 4096)
+	stream := h.openLLMStream(ctx, req, systemPrompt, messages)
 
 	var fullContent strings.Builder
 	var tokensIn, tokensOut int
@@ -227,6 +233,63 @@ func (h *AIStreamHandler) streamSSE(ctx context.Context, w http.ResponseWriter, 
 	h.writeSSE(w, flusher, "done", ai.SSEDoneData{
 		FollowUps: assistantMsg.FollowUps,
 	})
+}
+
+func normalizeStreamProvider(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", "google", "gemini":
+		return "gemini"
+	case "openai", "chatgpt":
+		return "openai"
+	case "ollama", "local":
+		return "ollama"
+	default:
+		return strings.ToLower(strings.TrimSpace(raw))
+	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
+}
+
+func (h *AIStreamHandler) openLLMStream(ctx context.Context, req *ai.StreamRequest, systemPrompt string, messages []ai.Message) <-chan ai.StreamChunk {
+	switch normalizeStreamProvider(req.Provider) {
+	case "openai":
+		base := firstNonEmpty(req.OpenAIBaseURL, h.defaults.OpenAIBaseURL)
+		apiKey := firstNonEmpty(req.ApiKey, h.defaults.OpenAIAPIKey)
+		model := firstNonEmpty(req.Model, "gpt-4o-mini")
+		normalized, err := ai.NormalizeOpenAICompatibleBaseURL(base)
+		if err != nil {
+			return singleStreamError(err)
+		}
+		return ai.StreamOpenAICompatible(ctx, normalized, apiKey, model, systemPrompt, messages)
+	case "ollama":
+		base := firstNonEmpty(req.OpenAIBaseURL, h.defaults.OllamaBaseURL)
+		apiKey := strings.TrimSpace(req.ApiKey)
+		model := firstNonEmpty(req.Model, "llama3.2")
+		normalized, err := ai.NormalizeOpenAICompatibleBaseURL(base)
+		if err != nil {
+			return singleStreamError(err)
+		}
+		return ai.StreamOpenAICompatible(ctx, normalized, apiKey, model, systemPrompt, messages)
+	default:
+		if h.gemini == nil {
+			return singleStreamError(fmt.Errorf("gemini client is not configured"))
+		}
+		return h.gemini.StreamQueryWithOverrides(ctx, strings.TrimSpace(req.ApiKey), strings.TrimSpace(req.Model), systemPrompt, messages, 4096)
+	}
+}
+
+func singleStreamError(err error) <-chan ai.StreamChunk {
+	ch := make(chan ai.StreamChunk, 1)
+	ch <- ai.StreamChunk{Error: err}
+	close(ch)
+	return ch
 }
 
 func (h *AIStreamHandler) buildSystemPrompt(skillName, logContext string) string {

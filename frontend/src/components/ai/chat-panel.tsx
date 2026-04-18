@@ -27,7 +27,7 @@ function useGetToken() {
   const { getToken } = useAuth()
   return getToken
 }
-import { streamAI } from '@/lib/api'
+import { streamAI, type AIStreamExtras } from '@/lib/api'
 import { queryKeys } from '@/hooks/use-api'
 import { useConversation } from '@/hooks/use-api'
 import { useAIStore } from '@/stores/ai-store'
@@ -36,6 +36,10 @@ import { ChatInput } from './chat-input'
 import { SkillSelector } from './skill-selector'
 import { FollowUpSuggestions } from './follow-up-suggestions'
 import { PageState } from '@/components/ui/page-state'
+import {
+  defaultAIProviderUserSettings,
+  type AIProviderUserSettings,
+} from '@/hooks/use-ai-provider-settings'
 import type { Message } from '@/lib/api-types'
 
 // ---------------------------------------------------------------------------
@@ -46,6 +50,8 @@ interface ChatPanelProps {
   jobId: string
   conversationId: string | null
   className?: string
+  /** LLM provider / BYOK — defaults to Gemini using server configuration. */
+  providerSettings?: AIProviderUserSettings
 }
 
 // ---------------------------------------------------------------------------
@@ -91,7 +97,12 @@ function EmptyChat({ onSuggest }: { onSuggest: (msg: string) => void }) {
 // ChatPanel
 // ---------------------------------------------------------------------------
 
-export function ChatPanel({ jobId, conversationId, className }: ChatPanelProps) {
+export function ChatPanel({
+  jobId,
+  conversationId,
+  className,
+  providerSettings = defaultAIProviderUserSettings,
+}: ChatPanelProps) {
   const getToken = useGetToken()
   const queryClient = useQueryClient()
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -135,7 +146,18 @@ export function ChatPanel({ jobId, conversationId, className }: ChatPanelProps) 
 
       try {
         const token = await getToken()
-        const gen = streamAI(jobId, conversationId, text, selectedSkill ?? undefined, token ?? undefined)
+        const ps = providerSettings
+        const extras: AIStreamExtras = {
+          provider: ps.provider,
+          auto_route: selectedSkill === null,
+          ...(selectedSkill ? { skill_name: selectedSkill } : {}),
+          ...(ps.model.trim() ? { model: ps.model.trim() } : {}),
+          ...(ps.apiKey.trim() ? { api_key: ps.apiKey.trim() } : {}),
+          ...((ps.provider === 'openai' || ps.provider === 'ollama') && ps.openaiBaseUrl.trim()
+            ? { openai_base_url: ps.openaiBaseUrl.trim() }
+            : {}),
+        }
+        const gen = streamAI(jobId, conversationId, text, extras, token ?? undefined)
 
         // Set up abort capability
         let aborted = false
@@ -180,6 +202,7 @@ export function ChatPanel({ jobId, conversationId, className }: ChatPanelProps) 
       appendToken,
       stopStreaming,
       queryClient,
+      providerSettings,
     ],
   )
 
@@ -188,6 +211,18 @@ export function ChatPanel({ jobId, conversationId, className }: ChatPanelProps) 
     stopStreaming()
     setPendingMessage(null)
   }, [stopStreaming])
+
+  useEffect(() => {
+    if (!isStreaming) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        handleStop()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isStreaming, handleStop])
 
   // No conversation selected
   if (!conversationId) {

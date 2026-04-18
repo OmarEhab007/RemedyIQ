@@ -56,24 +56,62 @@ type StreamChunk struct {
 }
 
 func (c *GeminiClient) StreamQuery(ctx context.Context, systemPrompt string, messages []Message, maxTokens int) <-chan StreamChunk {
+	return c.StreamQueryWithOverrides(ctx, "", "", systemPrompt, messages, maxTokens)
+}
+
+// StreamQueryWithOverrides streams from Gemini using the configured client by default.
+// If apiKeyOverride is non-empty, a short-lived client is created for that key (BYOK).
+// If modelOverride is non-empty, it is used as the model name for this request.
+func (c *GeminiClient) StreamQueryWithOverrides(ctx context.Context, apiKeyOverride, modelOverride string, systemPrompt string, messages []Message, maxTokens int) <-chan StreamChunk {
 	ch := make(chan StreamChunk, 64)
 
 	go func() {
 		defer close(ch)
 
-		if !c.enabled || c.client == nil {
+		if maxTokens <= 0 {
+			maxTokens = 4096
+		}
+
+		client := c.client
+		model := c.model
+		logger := c.logger
+		enabled := c.enabled && c.client != nil
+
+		if strings.TrimSpace(apiKeyOverride) != "" {
+			modelName := strings.TrimSpace(modelOverride)
+			if modelName == "" {
+				modelName = "gemini-2.5-flash"
+			}
+			tmpCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			tmpClient, err := genai.NewClient(tmpCtx, &genai.ClientConfig{
+				APIKey:  strings.TrimSpace(apiKeyOverride),
+				Backend: genai.BackendGeminiAPI,
+			})
+			cancel()
+			if err != nil {
+				c.logger.Error("gemini byok client init failed", "error", err)
+				ch <- StreamChunk{Error: fmt.Errorf("gemini client init: %w", err)}
+				return
+			}
+			client = tmpClient
+			model = modelName
+			logger = c.logger.With("byok", true)
+			enabled = client != nil
+		} else {
+			if strings.TrimSpace(modelOverride) != "" {
+				model = strings.TrimSpace(modelOverride)
+			}
+		}
+
+		if !enabled || client == nil {
 			ch <- StreamChunk{
-				Text:    "AI streaming is not configured. Please set GOOGLE_API_KEY.",
+				Text:    "AI streaming is not configured. Please set GOOGLE_API_KEY or provide a Gemini API key in AI settings.",
 				IsFinal: true,
 			}
 			return
 		}
 
-		if maxTokens <= 0 {
-			maxTokens = 4096
-		}
-
-		contents := c.buildContents(messages)
+		contents := buildGeminiContents(messages)
 		config := &genai.GenerateContentConfig{
 			SystemInstruction: &genai.Content{
 				Parts: []*genai.Part{{Text: systemPrompt}},
@@ -85,14 +123,14 @@ func (c *GeminiClient) StreamQuery(ctx context.Context, systemPrompt string, mes
 		var finalResp *genai.GenerateContentResponse
 		start := time.Now()
 
-		for resp, err := range c.client.Models.GenerateContentStream(
+		for resp, err := range client.Models.GenerateContentStream(
 			ctx,
-			c.model,
+			model,
 			contents,
 			config,
 		) {
 			if err != nil {
-				c.logger.Error("stream error", "error", err)
+				logger.Error("stream error", "error", err)
 				ch <- StreamChunk{Error: fmt.Errorf("stream error: %w", err)}
 				return
 			}
@@ -115,7 +153,7 @@ func (c *GeminiClient) StreamQuery(ctx context.Context, systemPrompt string, mes
 			tokensOut = int(finalResp.UsageMetadata.CandidatesTokenCount)
 		}
 
-		c.logger.Info("stream completed",
+		logger.Info("stream completed",
 			"latency_ms", time.Since(start).Milliseconds(),
 			"tokens_in", tokensIn,
 			"tokens_out", tokensOut,
@@ -132,7 +170,7 @@ func (c *GeminiClient) StreamQuery(ctx context.Context, systemPrompt string, mes
 	return ch
 }
 
-func (c *GeminiClient) buildContents(messages []Message) []*genai.Content {
+func buildGeminiContents(messages []Message) []*genai.Content {
 	contents := make([]*genai.Content, 0, len(messages))
 	for _, msg := range messages {
 		role := "user"
@@ -159,7 +197,18 @@ type StreamRequest struct {
 	JobID          string     `json:"job_id"`
 	ConversationID *uuid.UUID `json:"conversation_id,omitempty"`
 	SkillName      string     `json:"skill_name,omitempty"`
-	AutoRoute      bool       `json:"auto_route"`
+	// Skill is a legacy/frontend alias for SkillName.
+	Skill     string `json:"skill,omitempty"`
+	AutoRoute bool   `json:"auto_route"`
+
+	// Provider selects the LLM backend: gemini (default), openai, ollama.
+	Provider string `json:"provider,omitempty"`
+	// ApiKey optional BYOK value (never logged).
+	ApiKey string `json:"api_key,omitempty"`
+	// OpenAIBaseURL optional override for OpenAI-compatible servers (e.g. Ollama http://127.0.0.1:11434/v1).
+	OpenAIBaseURL string `json:"openai_base_url,omitempty"`
+	// Model optional per-request model id (e.g. gpt-4o-mini, llama3.2, gemini-2.5-flash).
+	Model string `json:"model,omitempty"`
 }
 
 type SSEEvent struct {
