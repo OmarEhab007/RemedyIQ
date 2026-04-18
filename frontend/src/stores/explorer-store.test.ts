@@ -259,6 +259,7 @@ describe('useExplorerStore — reset', () => {
     useExplorerStore.getState().addFilter({ field: 'level', value: 'ERROR', operator: 'eq' })
     useExplorerStore.getState().selectEntry('entry-abc')
     useExplorerStore.getState().setTimeRange({ start: '2024-01-01T00:00:00Z', end: '2024-01-02T00:00:00Z' })
+    useExplorerStore.getState().setSortColumn('user')
 
     useExplorerStore.getState().reset()
 
@@ -267,5 +268,26 @@ describe('useExplorerStore — reset', () => {
     expect(state.filters).toEqual([])
     expect(state.selectedEntryId).toBeNull()
     expect(state.timeRange).toBeNull()
+    expect(state.sortBy).toBe('timestamp')
+    expect(state.sortOrder).toBe('desc')
+  })
+})
+
+describe('useExplorerStore — setSortColumn', () => {
+  beforeEach(() => {
+    useExplorerStore.getState().reset()
+  })
+
+  it('changes sort field and defaults to desc', () => {
+    useExplorerStore.getState().setSortColumn('duration_ms')
+    expect(useExplorerStore.getState().sortBy).toBe('duration_ms')
+    expect(useExplorerStore.getState().sortOrder).toBe('desc')
+  })
+
+  it('toggles sort order when the same field is selected again', () => {
+    useExplorerStore.getState().setSortColumn('user')
+    expect(useExplorerStore.getState().sortOrder).toBe('desc')
+    useExplorerStore.getState().setSortColumn('user')
+    expect(useExplorerStore.getState().sortOrder).toBe('asc')
   })
 })

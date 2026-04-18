@@ -63,6 +63,19 @@ describe('FilterPanel', () => {
     expect(screen.getByRole('checkbox', { name: /escalation/i })).toBeInTheDocument()
   })
 
+  it('renders facet counts next to log type labels when facets are provided', () => {
+    setup([], {
+      facets: {
+        log_type: [
+          { value: 'API', count: 120 },
+          { value: 'SQL', count: 45 },
+        ],
+      },
+    })
+    expect(screen.getByText('(120)')).toBeInTheDocument()
+    expect(screen.getByText('(45)')).toBeInTheDocument()
+  })
+
   it('calls onAddFilter when API log type checkbox is checked', async () => {
     const { user, onAddFilter } = setup()
     const apiCheckbox = screen.getByRole('checkbox', { name: /API calls/i })

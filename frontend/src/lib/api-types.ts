@@ -488,23 +488,62 @@ export interface LogEntryContext {
   after: LogEntry[];
 }
 
+/** Sort fields accepted by GET /analysis/{job_id}/search (backend allowlist). */
+export type SearchLogsSortField =
+  | "timestamp"
+  | "duration_ms"
+  | "line_number"
+  | "user"
+  | "log_type";
+
+export interface SearchLogsHistogramCounts {
+  api: number;
+  sql: number;
+  fltr: number;
+  escl: number;
+  total: number;
+}
+
+export interface SearchLogsHistogramBucket {
+  timestamp: string;
+  counts: SearchLogsHistogramCounts;
+}
+
+export interface SearchLogsFacetEntry {
+  value: string;
+  count: number;
+}
+
+export type SearchLogsFacets = Record<string, SearchLogsFacetEntry[]>;
+
 export interface SearchLogsParams {
   q?: string;
-  log_type?: string;
-  user?: string;
+  /** Single value or repeated `log_type` query keys when serialized as arrays. */
+  log_type?: string | string[];
+  user?: string | string[];
   form?: string;
-  queue?: string;
+  queue?: string | string[];
   min_duration?: number;
   max_duration?: number;
   error_only?: boolean;
   page?: number;
   page_size?: number;
+  sort_by?: SearchLogsSortField;
+  sort_order?: "asc" | "desc";
+  time_from?: string;
+  time_to?: string;
+  include_histogram?: boolean;
+  /** Only used by export URL building (`/search/export`). */
+  format?: "csv" | "json";
 }
 
 export interface SearchLogsResponse {
   entries: LogEntry[];
   total: number;
   pagination: Pagination;
+  facets?: SearchLogsFacets;
+  histogram?: SearchLogsHistogramBucket[];
+  took_ms?: number;
 }
 
 // ---------------------------------------------------------------------------

@@ -98,6 +98,26 @@ describe('TimelineHistogram', () => {
     )
   })
 
+  it('prefers server histogram buckets when provided (even with no entry rows)', () => {
+    const serverHistogram = [
+      {
+        timestamp: '2025-01-15T10:00:00.000Z',
+        counts: { api: 2, sql: 1, fltr: 0, escl: 0, total: 3 },
+      },
+      {
+        timestamp: '2025-01-15T10:04:00.000Z',
+        counts: { api: 0, sql: 0, fltr: 1, escl: 1, total: 2 },
+      },
+    ]
+    render(<TimelineHistogram entries={[]} serverHistogram={serverHistogram} />)
+    expect(screen.getByTestId('bar-chart')).toBeInTheDocument()
+    const container = screen.getByRole('img')
+    expect(container).toHaveAttribute(
+      'aria-label',
+      expect.stringContaining('time buckets (server)'),
+    )
+  })
+
   it('applies custom className', () => {
     const { container } = render(
       <TimelineHistogram entries={sampleEntries} className="custom-class" />,

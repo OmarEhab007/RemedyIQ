@@ -2,23 +2,13 @@
 
 /**
  * Global Log Explorer — /explorer
- *
- * Cross-job search: user selects a job from a dropdown, then the same
- * explorer components are used to search within that job. Falls back to
- * the most recent job if only one exists.
- *
- * Layout:
- *   [Job selector | SearchBar | SavedSearches | ExportButton]
- *   [TimelineHistogram]
- *   [FilterPanel | LogTable | DetailPanel]
  */
 
 import { useState, useMemo, useCallback } from 'react'
 
 import { useExplorerStore } from '@/stores/explorer-store'
-import { useSearchLogs, useAnalyses } from '@/hooks/use-api'
+import { useLogExplorerSearch, useAnalyses } from '@/hooks/use-api'
 import type { ExplorerFilter } from '@/stores/explorer-store'
-import type { SearchLogsParams } from '@/lib/api-types'
 
 import { SearchBar } from '@/components/explorer/search-bar'
 import { FilterPanel } from '@/components/explorer/filter-panel'
@@ -28,12 +18,10 @@ import { DetailPanel } from '@/components/explorer/detail-panel'
 import { SavedSearches } from '@/components/explorer/saved-searches'
 import { ExportButton } from '@/components/explorer/export-button'
 import { PageState } from '@/components/ui/page-state'
+import { LogExplorerShell } from '@/components/explorer/log-explorer-shell'
+import { ExplorerTimeRangeBar } from '@/components/explorer/explorer-time-range-bar'
 import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
-
-// ---------------------------------------------------------------------------
-// JobSelector — dropdown to pick the active job
-// ---------------------------------------------------------------------------
 
 interface JobSelectorProps {
   jobId: string | null
@@ -81,14 +69,9 @@ function JobSelector({ jobId, onChange, className }: JobSelectorProps) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// GlobalExplorerPage
-// ---------------------------------------------------------------------------
-
 export default function GlobalExplorerPage() {
   const { data: analysesData } = useAnalyses()
 
-  // Derive default job from most recent completed job
   const defaultJobId = useMemo(() => {
     const jobs = analysesData?.jobs ?? []
     const completed = jobs
@@ -103,64 +86,32 @@ export default function GlobalExplorerPage() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const activeJobId = selectedJobId ?? defaultJobId
 
-  // Explorer store
   const query = useExplorerStore((s) => s.query)
   const filters = useExplorerStore((s) => s.filters)
   const selectedEntryId = useExplorerStore((s) => s.selectedEntryId)
+  const timeRange = useExplorerStore((s) => s.timeRange)
+  const sortBy = useExplorerStore((s) => s.sortBy)
+  const sortOrder = useExplorerStore((s) => s.sortOrder)
   const setQuery = useExplorerStore((s) => s.setQuery)
   const addFilter = useExplorerStore((s) => s.addFilter)
   const removeFilter = useExplorerStore((s) => s.removeFilter)
   const clearFilters = useExplorerStore((s) => s.clearFilters)
   const selectEntry = useExplorerStore((s) => s.selectEntry)
   const reset = useExplorerStore((s) => s.reset)
+  const setTimeRange = useExplorerStore((s) => s.setTimeRange)
+  const setSortColumn = useExplorerStore((s) => s.setSortColumn)
 
   const debouncedQuery = useDebounce(query, 300)
 
-  // Build search params from store state
-  const searchParams = useMemo<SearchLogsParams>(() => {
-    const p: SearchLogsParams = { page: 1, page_size: 200 }
-    if (debouncedQuery) p.q = debouncedQuery
+  const search = useLogExplorerSearch(activeJobId, {
+    debouncedQuery,
+    filters,
+    timeRange,
+    sortBy,
+    sortOrder,
+    pageSize: 200,
+  })
 
-    for (const filter of filters) {
-      switch (filter.field) {
-        case 'log_type':
-          p.log_type = filter.value
-          break
-        case 'user':
-          p.user = filter.value
-          break
-        case 'form':
-          p.form = filter.value
-          break
-        case 'queue':
-          p.queue = filter.value
-          break
-        case 'error_only':
-          p.error_only = true
-          break
-        case 'min_duration':
-          p.min_duration = parseInt(filter.value, 10)
-          break
-        case 'max_duration':
-          p.max_duration = parseInt(filter.value, 10)
-          break
-      }
-    }
-
-    return p
-  }, [debouncedQuery, filters])
-
-  const {
-    data: searchData,
-    isLoading,
-    isError,
-    refetch,
-  } = useSearchLogs(activeJobId, searchParams)
-
-  const entries = searchData?.entries ?? []
-  const total = searchData?.total ?? 0
-
-  // When job changes, reset store so stale selection / query is cleared
   const handleJobChange = useCallback(
     (jobId: string) => {
       setSelectedJobId(jobId)
@@ -178,7 +129,11 @@ export default function GlobalExplorerPage() {
     [setQuery, clearFilters, addFilter],
   )
 
-  if (!activeJobId && !isLoading) {
+  const showHistogram =
+    !search.isError &&
+    ((search.histogram?.length ?? 0) > 0 || search.entries.length > 0)
+
+  if (!activeJobId && !search.isLoading) {
     return (
       <div className="flex flex-col gap-3">
         <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">
@@ -194,78 +149,93 @@ export default function GlobalExplorerPage() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-3 overflow-hidden">
-      {/* Page heading */}
-      <div className="flex shrink-0 items-center gap-2">
-        <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">
-          Log Explorer
-        </h1>
-        <span className="text-[var(--color-text-tertiary)]" aria-hidden="true">
-          —
-        </span>
-        <JobSelector
-          jobId={activeJobId}
-          onChange={handleJobChange}
-        />
-      </div>
-
-      {/* Toolbar */}
-      <div className="flex shrink-0 items-center gap-2">
-        <SearchBar
-          value={query}
-          onChange={setQuery}
-          onSubmit={setQuery}
-          jobId={activeJobId}
-          className="flex-1"
-        />
-        <SavedSearches
-          currentQuery={query}
-          currentFilters={filters}
-          onLoad={handleLoadSavedSearch}
-        />
-        {activeJobId && (
-          <ExportButton
+    <LogExplorerShell
+      header={
+        <>
+          <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">
+            Log Explorer
+          </h1>
+          <span className="text-[var(--color-text-tertiary)]" aria-hidden="true">
+            —
+          </span>
+          <JobSelector jobId={activeJobId} onChange={handleJobChange} />
+        </>
+      }
+      accessory={
+        <>
+          <ExplorerTimeRangeBar timeRange={timeRange} onChange={setTimeRange} />
+          {search.took_ms !== undefined && search.took_ms >= 0 && (
+            <span className="text-xs text-[var(--color-text-tertiary)]">
+              Search took {search.took_ms} ms
+            </span>
+          )}
+        </>
+      }
+      toolbar={
+        <>
+          <SearchBar
+            value={query}
+            onChange={setQuery}
+            onSubmit={setQuery}
             jobId={activeJobId}
-            searchParams={searchParams}
-            disabled={entries.length === 0}
+            className="flex-1"
           />
-        )}
-      </div>
-
-      {/* Timeline histogram */}
-      {entries.length > 0 && (
-        <TimelineHistogram
-          entries={entries}
-          className="shrink-0"
-          height={100}
-        />
-      )}
-
-      {/* Error state */}
-      {isError && (
-        <PageState
-          variant="error"
-          message="Failed to load log entries."
-          onRetry={() => void refetch()}
-        />
-      )}
-
-      {/* Main content area */}
-      {!isError && (
-        <div className="flex min-h-0 flex-1 gap-3 overflow-hidden">
+          <SavedSearches
+            currentQuery={query}
+            currentFilters={filters}
+            onLoad={handleLoadSavedSearch}
+          />
+          {activeJobId && (
+            <ExportButton
+              jobId={activeJobId}
+              searchParams={search.exportSearchParams}
+              disabled={search.entries.length === 0}
+            />
+          )}
+        </>
+      }
+      histogram={
+        showHistogram ? (
+          <TimelineHistogram
+            entries={search.entries}
+            serverHistogram={search.histogram}
+            className="shrink-0"
+            height={100}
+          />
+        ) : undefined
+      }
+      error={
+        search.isError ? (
+          <PageState
+            variant="error"
+            message="Failed to load log entries."
+            onRetry={() => void search.refetch()}
+          />
+        ) : undefined
+      }
+    >
+      {!search.isError ? (
+        <>
           <FilterPanel
             filters={filters}
             onAddFilter={addFilter}
             onRemoveFilter={removeFilter}
             onClearFilters={clearFilters}
+            facets={search.facets}
           />
 
           <LogTable
-            entries={entries}
+            entries={search.entries}
             selectedEntryId={selectedEntryId}
             onSelectEntry={selectEntry}
-            isLoading={isLoading}
-            total={total}
+            isLoading={search.isInitialLoading}
+            total={search.total}
+            hasMore={search.hasNextPage}
+            onLoadMore={() => void search.fetchNextPage()}
+            isFetchingMore={search.isFetchingNextPage}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortColumn={setSortColumn}
             className="flex-1"
           />
 
@@ -276,8 +246,8 @@ export default function GlobalExplorerPage() {
               onClose={() => selectEntry(null)}
             />
           )}
-        </div>
-      )}
-    </div>
+        </>
+      ) : null}
+    </LogExplorerShell>
   )
 }

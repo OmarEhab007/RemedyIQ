@@ -21,7 +21,7 @@
 
 import { useCallback, useState, useEffect, useRef, useMemo, type CSSProperties, type ReactNode } from 'react'
 import { useResizableTableColumns, type ResizableColumnConfig } from '@/hooks/use-resizable-table-columns'
-import type { LogEntry, LogType } from '@/lib/api-types'
+import type { LogEntry, LogType, SearchLogsSortField } from '@/lib/api-types'
 import { LOG_TYPE_COLORS, AR_API_CODES } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { PageState } from '@/components/ui/page-state'
@@ -81,6 +81,10 @@ export interface LogTableProps {
   total?: number
   hasMore?: boolean
   onLoadMore?: () => void
+  isFetchingMore?: boolean
+  sortBy?: SearchLogsSortField
+  sortOrder?: 'asc' | 'desc'
+  onSortColumn?: (field: SearchLogsSortField) => void
   className?: string
 }
 
@@ -209,16 +213,34 @@ function StatusIcon({ success }: { success: boolean | null }) {
 // TableHeader — resizable column headers (CSS grid, matches LogRow)
 // ---------------------------------------------------------------------------
 
-const HEADER_LABELS = ['Timestamp', 'Type', 'Identifier', 'User', 'Duration', 'St.'] as const
+const TABLE_COLUMNS: Array<{
+  id: string
+  label: string
+  sortField?: SearchLogsSortField
+  headerClass?: string
+}> = [
+  { id: 'timestamp', label: 'Timestamp', sortField: 'timestamp' },
+  { id: 'type', label: 'Type', sortField: 'log_type' },
+  { id: 'identifier', label: 'Identifier' },
+  { id: 'user', label: 'User', sortField: 'user' },
+  { id: 'duration', label: 'Duration', sortField: 'duration_ms', headerClass: 'justify-end text-right' },
+  { id: 'status', label: 'St.', headerClass: 'justify-center text-center' },
+]
 
 function TableHeader({
   gridTemplateColumns,
   totalWidth,
   renderResizeHandle,
+  sortBy,
+  sortOrder,
+  onSortColumn,
 }: {
   gridTemplateColumns: string
   totalWidth: number
   renderResizeHandle: (colIndex: number) => ReactNode
+  sortBy?: SearchLogsSortField
+  sortOrder?: 'asc' | 'desc'
+  onSortColumn?: (field: SearchLogsSortField) => void
 }) {
   return (
     <div
@@ -231,19 +253,55 @@ function TableHeader({
         width: '100%',
       }}
     >
-      {HEADER_LABELS.map((label, i) => (
-        <div
-          key={label}
-          className={cn(
-            'relative flex min-w-0 items-center',
-            label === 'Duration' && 'justify-end text-right',
-            label === 'St.' && 'justify-center text-center',
-          )}
-        >
-          <span className={cn('truncate pr-2', (label === 'Duration' || label === 'St.') && 'pr-3')}>{label}</span>
-          {renderResizeHandle(i)}
-        </div>
-      ))}
+      {TABLE_COLUMNS.map((col, i) => {
+        const sortable = Boolean(col.sortField && onSortColumn)
+        return (
+          <div
+            key={col.id}
+            className={cn('relative flex min-w-0 items-center', col.headerClass)}
+          >
+            {sortable && col.sortField ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const field = col.sortField
+                  if (field) onSortColumn?.(field)
+                }}
+                className={cn(
+                  'flex min-w-0 items-center gap-0.5 truncate pr-2 text-left font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]',
+                  'hover:text-[var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/30 rounded-sm',
+                  col.headerClass?.includes('justify-end') && 'w-full justify-end pr-3',
+                  col.headerClass?.includes('justify-center') && 'w-full justify-center pr-3',
+                )}
+                title={
+                  sortBy === col.sortField
+                    ? `Sorted ${sortOrder === 'asc' ? 'ascending' : 'descending'} — click to toggle`
+                    : 'Click to sort'
+                }
+              >
+                <span className="truncate">{col.label}</span>
+                {sortBy === col.sortField && (
+                  <span className="shrink-0 font-mono text-[10px]" aria-hidden="true">
+                    {sortOrder === 'asc' ? '↑' : '↓'}
+                  </span>
+                )}
+              </button>
+            ) : (
+              <span
+                className={cn(
+                  'truncate pr-2',
+                  (col.id === 'duration' || col.id === 'status') && 'pr-3',
+                  col.headerClass?.includes('justify-end') && 'w-full text-right pr-3',
+                  col.headerClass?.includes('justify-center') && 'w-full text-center pr-3',
+                )}
+              >
+                {col.label}
+              </span>
+            )}
+            {renderResizeHandle(i)}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -420,6 +478,10 @@ export function LogTable({
   total,
   hasMore,
   onLoadMore,
+  isFetchingMore,
+  sortBy,
+  sortOrder,
+  onSortColumn,
   className,
 }: LogTableProps) {
   const { columnWidths, totalWidth, renderResizeHandle } = useResizableTableColumns(LOG_TABLE_RESIZE_SPEC, {
@@ -455,6 +517,9 @@ export function LogTable({
           gridTemplateColumns={gridTemplateColumns}
           totalWidth={totalWidth}
           renderResizeHandle={renderResizeHandle}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSortColumn={onSortColumn}
         />
         <PageState variant="loading" rows={8} />
       </div>
@@ -468,6 +533,9 @@ export function LogTable({
           gridTemplateColumns={gridTemplateColumns}
           totalWidth={totalWidth}
           renderResizeHandle={renderResizeHandle}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSortColumn={onSortColumn}
         />
         <PageState
           variant="empty"
@@ -497,6 +565,9 @@ export function LogTable({
             gridTemplateColumns={gridTemplateColumns}
             totalWidth={totalWidth}
             renderResizeHandle={renderResizeHandle}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortColumn={onSortColumn}
           />
 
           {total !== undefined && (
@@ -506,9 +577,10 @@ export function LogTable({
                 <button
                   type="button"
                   onClick={onLoadMore}
-                  className="rounded bg-[var(--color-accent)] px-2 py-0.5 text-[11px] font-medium text-white hover:opacity-90 transition-opacity"
+                  disabled={isFetchingMore}
+                  className="rounded bg-[var(--color-accent)] px-2 py-0.5 text-[11px] font-medium text-white hover:opacity-90 transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Load next page
+                  {isFetchingMore ? 'Loading…' : 'Load next page'}
                 </button>
               )}
             </div>

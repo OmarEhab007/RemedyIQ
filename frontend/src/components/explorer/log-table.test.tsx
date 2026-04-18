@@ -208,4 +208,19 @@ describe('LogTable', () => {
     const dashes = screen.getAllByText('—')
     expect(dashes.length).toBeGreaterThan(0)
   })
+
+  it('calls onSortColumn when a sortable header button is clicked', async () => {
+    const onSortColumn = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <LogTable
+        {...defaultProps}
+        sortBy="timestamp"
+        sortOrder="desc"
+        onSortColumn={onSortColumn}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: /timestamp/i }))
+    expect(onSortColumn).toHaveBeenCalledWith('timestamp')
+  })
 })

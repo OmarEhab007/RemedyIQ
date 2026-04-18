@@ -20,6 +20,8 @@
 
 import { create } from 'zustand'
 
+import type { SearchLogsSortField } from '@/lib/api-types'
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -60,6 +62,12 @@ export interface ExplorerState {
   /** Optional time window to restrict results. Null means "all time". */
   timeRange: ExplorerTimeRange | null
 
+  /** Column sort for log search (mirrors backend `sort_by`). */
+  sortBy: SearchLogsSortField
+
+  /** Sort direction for log search (mirrors backend `sort_order`). */
+  sortOrder: 'asc' | 'desc'
+
   // ---------------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------------
@@ -83,6 +91,12 @@ export interface ExplorerState {
   setTimeRange: (range: ExplorerTimeRange | null) => void
 
   /**
+   * Toggle sort for a column: first click selects column (default desc except
+   * timestamp which defaults to desc); clicking the active column toggles asc/desc.
+   */
+  setSortColumn: (field: SearchLogsSortField) => void
+
+  /**
    * Reset all state to initial values.
    * Call when navigating away from the explorer or switching jobs.
    */
@@ -95,12 +109,14 @@ export interface ExplorerState {
 
 const initialState: Pick<
   ExplorerState,
-  'query' | 'filters' | 'selectedEntryId' | 'timeRange'
+  'query' | 'filters' | 'selectedEntryId' | 'timeRange' | 'sortBy' | 'sortOrder'
 > = {
   query: '',
   filters: [],
   selectedEntryId: null,
   timeRange: null,
+  sortBy: 'timestamp',
+  sortOrder: 'desc',
 }
 
 // ---------------------------------------------------------------------------
@@ -125,6 +141,14 @@ export const useExplorerStore = create<ExplorerState>()((set) => ({
   selectEntry: (entryId) => set({ selectedEntryId: entryId }),
 
   setTimeRange: (range) => set({ timeRange: range }),
+
+  setSortColumn: (field) =>
+    set((state) => {
+      if (state.sortBy === field) {
+        return { sortOrder: state.sortOrder === 'asc' ? 'desc' : 'asc' }
+      }
+      return { sortBy: field, sortOrder: field === 'timestamp' ? 'desc' : 'desc' }
+    }),
 
   reset: () => set({ ...initialState }),
 }))

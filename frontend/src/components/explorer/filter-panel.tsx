@@ -24,7 +24,7 @@
 
 import { useState } from 'react'
 import type { ExplorerFilter } from '@/stores/explorer-store'
-import type { LogType } from '@/lib/api-types'
+import type { LogType, SearchLogsFacets } from '@/lib/api-types'
 import { LOG_TYPE_COLORS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 
@@ -37,6 +37,8 @@ export interface FilterPanelProps {
   onAddFilter: (filter: ExplorerFilter) => void
   onRemoveFilter: (index: number) => void
   onClearFilters: () => void
+  /** Optional facet counts from the latest search response (field keys: `log_type`, `user`, `queue`). */
+  facets?: SearchLogsFacets
   className?: string
 }
 
@@ -72,6 +74,13 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
       {children}
     </p>
   )
+}
+
+function facetCountForLogType(facets: SearchLogsFacets | undefined, logType: LogType): number | undefined {
+  const list = facets?.log_type
+  if (!list) return undefined
+  const hit = list.find((e) => e.value === logType)
+  return hit?.count
 }
 
 // ---------------------------------------------------------------------------
@@ -125,6 +134,7 @@ export function FilterPanel({
   onAddFilter,
   onRemoveFilter,
   onClearFilters,
+  facets,
   className,
 }: FilterPanelProps) {
   // Local state for duration inputs (not committed until blur / enter)
@@ -233,6 +243,7 @@ export function FilterPanel({
         <div className="space-y-2">
           {LOG_TYPES.map((logType) => {
             const checked = activeLogTypes.includes(logType)
+            const facetCount = facetCountForLogType(facets, logType)
             return (
               <label
                 key={logType}
@@ -248,6 +259,11 @@ export function FilterPanel({
                 <LogTypeBadge logType={logType} />
                 <span className="text-xs text-[var(--color-text-secondary)]">
                   {LOG_TYPE_COLORS[logType].label}
+                  {facetCount !== undefined && (
+                    <span className="ml-1 font-mono text-[var(--color-text-tertiary)]">
+                      ({facetCount.toLocaleString()})
+                    </span>
+                  )}
                 </span>
               </label>
             )
