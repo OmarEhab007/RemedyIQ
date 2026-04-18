@@ -910,17 +910,26 @@ export async function getSearchHistory(
  *
  * @example
  * ```ts
- * const gen = streamAI(jobId, conversationId, "Why are these queries slow?");
+ * const gen = streamAI(jobId, conversationId, "Why are these queries slow?", { auto_route: true });
  * for await (const event of gen) {
  *   if (event.type === "token") appendText(event.content ?? "");
  * }
  * ```
  */
+export type AIStreamExtras = {
+  skill_name?: string;
+  auto_route?: boolean;
+  provider?: string;
+  model?: string;
+  api_key?: string;
+  openai_base_url?: string;
+};
+
 export async function* streamAI(
   jobId: string,
   conversationId: string,
   message: string,
-  skill?: string,
+  extras: AIStreamExtras | undefined,
   token?: string,
 ): AsyncGenerator<import("./api-types").AIStreamEvent, void, unknown> {
   const url = `${API_BASE}/ai/stream`;
@@ -929,8 +938,25 @@ export async function* streamAI(
     job_id: jobId,
     conversation_id: conversationId,
     query: message,
-    skill,
   };
+  if (extras?.skill_name) {
+    body.skill_name = extras.skill_name;
+  }
+  if (extras?.auto_route !== undefined) {
+    body.auto_route = extras.auto_route;
+  }
+  if (extras?.provider) {
+    body.provider = extras.provider;
+  }
+  if (extras?.model) {
+    body.model = extras.model;
+  }
+  if (extras?.api_key) {
+    body.api_key = extras.api_key;
+  }
+  if (extras?.openai_base_url) {
+    body.openai_base_url = extras.openai_base_url;
+  }
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -1062,7 +1088,11 @@ export async function createConversation(
   title?: string,
   token?: string,
 ): Promise<Conversation> {
-  const body: CreateConversationRequest = { job_id: jobId, title };
+  const jid = jobId?.trim() ?? ''
+  if (!jid) {
+    throw new ApiError(400, 'INVALID_REQUEST', 'job_id is required to create a conversation')
+  }
+  const body: CreateConversationRequest = { job_id: jid, title };
   return apiFetch<Conversation>(
     "/ai/conversations",
     { method: "POST", body: JSON.stringify(body) },

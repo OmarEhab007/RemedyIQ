@@ -88,6 +88,7 @@ ELSIF TG_OP = 'DELETE' THEN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_message_counter ON messages;
 CREATE TRIGGER trg_message_counter
     AFTER INSERT OR DELETE ON messages
     FOR EACH ROW

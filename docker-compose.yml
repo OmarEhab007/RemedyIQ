@@ -11,7 +11,10 @@ services:
       POSTGRES_PASSWORD: remedyiq
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Init runs *.sql in this directory once (lexicographic order) on first empty data dir.
       - ./backend/migrations/001_initial.up.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+      - ./backend/migrations/002_search_features.up.sql:/docker-entrypoint-initdb.d/002_search_features.sql:ro
+      - ./backend/migrations/003_conversations.up.sql:/docker-entrypoint-initdb.d/003_conversations.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U remedyiq"]
       interval: 10s

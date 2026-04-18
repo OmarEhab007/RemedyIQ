@@ -96,7 +96,9 @@ docker-build: ## Build Docker images for API and Frontend
 
 migrate-up: ## Run PostgreSQL migrations (up)
 	@echo "$(GREEN)Running PostgreSQL migrations...$(RESET)"
-	docker compose exec -T postgres psql -U remedyiq -d remedyiq < backend/migrations/001_initial.up.sql
+	docker compose exec -T postgres psql -U remedyiq -d remedyiq -v ON_ERROR_STOP=1 < backend/migrations/001_initial.up.sql
+	docker compose exec -T postgres psql -U remedyiq -d remedyiq -v ON_ERROR_STOP=1 < backend/migrations/002_search_features.up.sql
+	docker compose exec -T postgres psql -U remedyiq -d remedyiq -v ON_ERROR_STOP=1 < backend/migrations/003_conversations.up.sql
 
 migrate-down: ## Rollback PostgreSQL migrations (down)
 	@echo "$(YELLOW)Rolling back PostgreSQL migrations...$(RESET)"

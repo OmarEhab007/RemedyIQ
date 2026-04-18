@@ -11,10 +11,13 @@ import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useAnalyses } from '@/hooks/use-api'
+import { useAIProviderSettings } from '@/hooks/use-ai-provider-settings'
 import { useAIStore } from '@/stores/ai-store'
 import { PageState } from '@/components/ui/page-state'
 import { ConversationList } from '@/components/ai/conversation-list'
 import { ChatPanel } from '@/components/ai/chat-panel'
+import { AIProviderSettings } from '@/components/ai/ai-provider-settings'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 // ---------------------------------------------------------------------------
 // Inner component (uses useSearchParams inside Suspense)
@@ -29,6 +32,7 @@ function AIPageContent() {
 
   const { activeConversationId } = useAIStore()
   const { data: analysesData, isLoading: analysesLoading } = useAnalyses()
+  const { settings: providerSettings, setSettings: setProviderSettings } = useAIProviderSettings()
   const jobs = analysesData?.jobs ?? []
 
   return (
@@ -94,9 +98,33 @@ function AIPageContent() {
           )}
         </div>
 
+        {/* Model / provider */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="ml-auto shrink-0 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-primary)] px-2.5 py-1 text-xs font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+              aria-label="AI model and provider settings"
+            >
+              Model:{' '}
+              <span className="text-[var(--color-text-primary)]">
+                {providerSettings.provider === 'gemini'
+                  ? 'Gemini'
+                  : providerSettings.provider === 'openai'
+                    ? 'OpenAI'
+                    : 'Ollama'}
+              </span>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-[min(100vw-2rem,22rem)] border-[var(--color-border)] bg-[var(--color-bg-primary)] p-3 text-[var(--color-text-primary)] shadow-lg">
+            <p className="mb-2 text-xs font-semibold text-[var(--color-text-primary)]">AI connection</p>
+            <AIProviderSettings settings={providerSettings} onChange={setProviderSettings} />
+          </PopoverContent>
+        </Popover>
+
         {/* Active conversation indicator */}
         {activeConversationId && (
-          <span className="ml-auto flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
+          <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
             <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[var(--color-success)]" aria-hidden="true" />
             Active
           </span>
@@ -115,9 +143,16 @@ function AIPageContent() {
           aria-label="Conversations"
           aria-hidden={!sidebarOpen}
         >
-          {sidebarOpen && (
-            <ConversationList jobId={selectedJobId || undefined} />
-          )}
+          {sidebarOpen &&
+            (selectedJobId ? (
+              <ConversationList jobId={selectedJobId} />
+            ) : (
+              <div className="flex flex-1 flex-col justify-center px-3 py-8 text-center">
+                <p className="text-xs leading-relaxed text-[var(--color-text-tertiary)]">
+                  Select an analysis job in the bar above to load conversations or start a new one.
+                </p>
+              </div>
+            ))}
         </aside>
 
         {/* Chat panel */}
@@ -127,6 +162,7 @@ function AIPageContent() {
               jobId={selectedJobId}
               conversationId={activeConversationId}
               className="flex-1"
+              providerSettings={providerSettings}
             />
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">

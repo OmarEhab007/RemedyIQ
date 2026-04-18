@@ -48,6 +48,13 @@ type Config struct {
 	GoogleAPIKey string
 	GoogleModel  string
 
+	// OpenAI-compatible APIs (OpenAI, LiteLLM, etc.)
+	OpenAIAPIKey  string
+	OpenAIBaseURL string
+
+	// Ollama local LLM (OpenAI-compatible /v1 base URL)
+	OllamaBaseURL string
+
 	// App
 	Environment string // development, staging, production
 	LogLevel    string
@@ -81,6 +88,9 @@ func Load() (*Config, error) {
 		AnthropicAPIKey:          getEnv("ANTHROPIC_API_KEY", ""),
 		GoogleAPIKey:             getEnv("GOOGLE_API_KEY", ""),
 		GoogleModel:              getEnv("GOOGLE_MODEL", "gemini-2.5-flash"),
+		OpenAIAPIKey:             getEnv("OPENAI_API_KEY", ""),
+		OpenAIBaseURL:            strings.TrimRight(strings.TrimSpace(getEnv("OPENAI_BASE_URL", "https://api.openai.com/v1")), "/"),
+		OllamaBaseURL:            strings.TrimRight(strings.TrimSpace(getEnv("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")), "/"),
 		Environment:              getEnv("ENVIRONMENT", "development"),
 		LogLevel:                 getEnv("LOG_LEVEL", "info"),
 		BlevePath:                getEnv("BLEVE_PATH", "./data/bleve"),

@@ -168,22 +168,25 @@ function ConversationItem({
 
 export function ConversationList({ jobId, className }: ConversationListProps) {
   const { activeConversationId, setConversation } = useAIStore()
-  const { data, isLoading, isError, refetch } = useConversations(jobId ?? undefined)
+  const jobIdTrimmed = jobId?.trim() ?? ''
+  const hasJob = jobIdTrimmed.length > 0
+  const { data, isLoading, isError, refetch } = useConversations(hasJob ? jobIdTrimmed : undefined)
   const createMutation = useCreateConversation()
   const deleteMutation = useDeleteConversation()
 
   const conversations = data?.conversations ?? []
 
   const handleNew = useCallback(() => {
+    if (!hasJob) return
     createMutation.mutate(
-      { jobId: jobId ?? undefined, title: 'New conversation' },
+      { jobId: jobIdTrimmed, title: 'New conversation' },
       {
         onSuccess: (conv) => {
           setConversation(conv.id)
         },
       },
     )
-  }, [createMutation, jobId, setConversation])
+  }, [createMutation, hasJob, jobIdTrimmed, setConversation])
 
   const handleDelete = useCallback(
     (id: string) => {
@@ -212,9 +215,9 @@ export function ConversationList({ jobId, className }: ConversationListProps) {
         <button
           type="button"
           onClick={handleNew}
-          disabled={createMutation.isPending}
+          disabled={!hasJob || createMutation.isPending}
           aria-label="New conversation"
-          title="New conversation"
+          title={hasJob ? 'New conversation' : 'Select an analysis job first'}
           className="rounded p-1 text-[var(--color-primary)] transition-colors hover:bg-[var(--color-primary-light)] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
         >
           {createMutation.isPending ? (
@@ -249,7 +252,9 @@ export function ConversationList({ jobId, className }: ConversationListProps) {
             <button
               type="button"
               onClick={handleNew}
-              className="text-xs font-medium text-[var(--color-primary)] hover:underline focus-visible:outline-none"
+              disabled={!hasJob || createMutation.isPending}
+              title={hasJob ? undefined : 'Select an analysis job first'}
+              className="text-xs font-medium text-[var(--color-primary)] hover:underline focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
             >
               Start one
             </button>
