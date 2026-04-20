@@ -50,7 +50,7 @@ function StatCard({
   return (
     <div
       className={cn(
-        'flex flex-col gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm',
+        'flex min-h-[7rem] flex-col gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm',
         'border-l-[3px] transition-[transform,box-shadow] duration-200 ease-out',
         'hover:-translate-y-0.5 hover:shadow-md',
         className
@@ -63,18 +63,25 @@ function StatCard({
           style={{ backgroundColor: accentColor }}
           aria-hidden="true"
         />
-        <span className="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-[0.12em] truncate">
+        <span
+          className="line-clamp-2 min-h-[2rem] text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-[0.12em]"
+          title={label}
+        >
           {label}
         </span>
       </div>
       <span
-        className="text-2xl font-bold tabular-nums text-[var(--color-text-primary)]"
+        className="truncate text-2xl font-bold tabular-nums text-[var(--color-text-primary)]"
+        title={typeof value === 'number' ? value.toLocaleString() : value}
         style={textColor ? { color: textColor } : undefined}
       >
         {typeof value === 'number' ? value.toLocaleString() : value}
       </span>
       {description && (
-        <span className="text-[11px] text-[var(--color-text-tertiary)] leading-tight">
+        <span
+          className="line-clamp-2 text-[11px] leading-tight text-[var(--color-text-tertiary)]"
+          title={description}
+        >
           {description}
         </span>
       )}
@@ -95,8 +102,8 @@ export function StatsCards({ stats, distribution, errorSummary, className }: Sta
 
   const gridCols =
     errorSummary && errorSummary.jar_event_total > 0
-      ? 'grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7'
-      : 'grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6'
+      ? 'grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7'
+      : 'grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6'
 
   return (
     <div

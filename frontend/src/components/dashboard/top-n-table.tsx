@@ -53,6 +53,8 @@ interface ColumnDef {
   getValue: (entry: TopNEntry, parsed: ParsedDetails) => string | number | null
   /** How to render the cell */
   render: (entry: TopNEntry, parsed: ParsedDetails, maxDuration: number) => React.ReactNode
+  /** Responsive visibility to reduce horizontal scrolling on smaller viewports. */
+  visibilityClass?: string
 }
 
 interface ParsedDetails {
@@ -182,6 +184,7 @@ const FORM_COL: ColumnDef = {
   label: 'Form',
   align: 'left',
   width: 'max-w-[10rem]',
+  visibilityClass: 'hidden lg:table-cell',
   sortable: true,
   getValue: (e) => e.form ?? '',
   render: (e) => (
@@ -196,6 +199,7 @@ const QUEUE_COL: ColumnDef = {
   label: 'Queue',
   align: 'left',
   width: 'max-w-[8rem]',
+  visibilityClass: 'hidden xl:table-cell',
   sortable: true,
   getValue: (e) => e.queue,
   render: (e) => (
@@ -223,6 +227,7 @@ const TIMESTAMP_COL: ColumnDef = {
   label: 'Time',
   align: 'left',
   width: 'w-24',
+  visibilityClass: 'hidden lg:table-cell',
   sortable: true,
   getValue: (e) => e.timestamp,
   render: (e) => (
@@ -237,6 +242,7 @@ const USER_COL: ColumnDef = {
   label: 'User',
   align: 'left',
   width: 'max-w-[7rem]',
+  visibilityClass: 'hidden xl:table-cell',
   sortable: true,
   getValue: (e) => e.user,
   render: (e) => (
@@ -261,6 +267,7 @@ const QUEUE_TIME_COL: ColumnDef = {
   label: 'Q-Time',
   align: 'right',
   width: 'w-20',
+  visibilityClass: 'hidden xl:table-cell',
   sortable: true,
   getValue: (e) => e.queue_time_ms ?? 0,
   render: (e) => {
@@ -282,6 +289,7 @@ const ESC_POOL_COL: ColumnDef = {
   label: 'Pool',
   align: 'left',
   width: 'max-w-[8rem]',
+  visibilityClass: 'hidden lg:table-cell',
   sortable: false,
   getValue: (_e, p) => p.esc_pool ?? '',
   render: (_e, p) => (
@@ -299,6 +307,7 @@ const ESC_DELAY_COL: ColumnDef = {
   label: 'Delay',
   align: 'right',
   width: 'w-20',
+  visibilityClass: 'hidden xl:table-cell',
   sortable: false,
   getValue: (_e, p) => p.delay_ms ?? 0,
   render: (_e, p) => {
@@ -317,6 +326,7 @@ const FILTER_LEVEL_COL: ColumnDef = {
   label: 'Level',
   align: 'center',
   width: 'w-14',
+  visibilityClass: 'hidden lg:table-cell',
   sortable: false,
   getValue: (_e, p) => p.filter_level ?? 0,
   render: (_e, p) => {
@@ -389,6 +399,7 @@ const SQL_STATEMENT_COL: ColumnDef = {
   key: 'sql_statement',
   label: 'SQL Statement',
   align: 'left',
+  visibilityClass: 'hidden xl:table-cell',
   sortable: false,
   getValue: (_e, p) => p.sql_statement ?? '',
   render: (_e, p) => {
@@ -654,6 +665,7 @@ function TopNTableContent({
                     col.sortable && 'cursor-pointer select-none',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-inset',
                     col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
+                    col.visibilityClass,
                   )}
                   onClick={col.sortable ? () => handleSort(col.key) : undefined}
                   onKeyDown={col.sortable ? (e) => {
@@ -701,6 +713,7 @@ function TopNTableContent({
                         className={cn(
                           'box-border px-3 py-2 align-top',
                           col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
+                          col.visibilityClass,
                         )}
                       >
                         {col.render(entry, parsed, maxDuration)}

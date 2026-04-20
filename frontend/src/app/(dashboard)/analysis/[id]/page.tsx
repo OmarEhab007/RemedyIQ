@@ -50,8 +50,8 @@ type TopNTab = 'api' | 'sql' | 'filter' | 'escalation' | 'queued'
 /** In-page anchors for the jump rail (see CollapsibleSection `id` pattern). */
 const DASHBOARD_JUMP_LINKS: DashboardJumpLink[] = [
   { href: '#dashboard-overview', label: 'Overview & KPIs', shortLabel: 'Overview' },
-  { href: '#dashboard-activity', label: 'Throughput chart', shortLabel: 'Chart' },
-  { href: '#dashboard-explorer', label: 'Top entries & distribution', shortLabel: 'Top N' },
+  { href: '#dashboard-activity', label: 'Throughput & distribution', shortLabel: 'Charts' },
+  { href: '#dashboard-explorer', label: 'Top entries table', shortLabel: 'Top N' },
 ]
 
 const TOP_N_TABS: Array<{
@@ -219,12 +219,17 @@ export default function AnalysisDashboardPage() {
             <DashboardJobCompare currentJobId={jobId} />
           </div>
 
-          <div id="dashboard-activity" className="scroll-mt-24">
-            <TimeSeriesChart data={time_series} />
+          <div id="dashboard-activity" className="scroll-mt-24 grid grid-cols-1 gap-5 xl:grid-cols-5">
+            <div className="xl:col-span-3">
+              <TimeSeriesChart data={time_series} />
+            </div>
+            <div className="xl:col-span-2">
+              <DistributionChart distribution={distribution} />
+            </div>
           </div>
 
-          <div id="dashboard-explorer" className="scroll-mt-24 grid grid-cols-1 gap-5 xl:grid-cols-5">
-            <div className="xl:col-span-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm overflow-hidden">
+          <div id="dashboard-explorer" className="scroll-mt-24">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm overflow-hidden">
               <div
                 className="flex border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]"
                 role="tablist"
@@ -275,10 +280,6 @@ export default function AnalysisDashboardPage() {
                   compact
                 />
               </div>
-            </div>
-
-            <div className="xl:col-span-2">
-              <DistributionChart distribution={distribution} />
             </div>
           </div>
 
