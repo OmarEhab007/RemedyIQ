@@ -590,3 +590,54 @@ Phase 1 validation checkpoints:
 - Confirm table column-priority strategy matches ops/admin needs.
 - Confirm chart/table pairing rules are clear for frontend implementation.
 - Confirm "deep diagnostics -> Log Explorer" guidance is acceptable for Phase 1 scope.
+
+---
+
+## 16) Implementation Constraints and Guardrails (Phase 2)
+
+### 16.1 Must-Preserve Constraints
+
+- No backend API, schema, or data-contract changes.
+- No net-new data dependencies for dashboard rendering.
+- Existing core workflows (API, SQL, Escalation, Filter) must remain functionally intact.
+- Existing auth/permissions behavior must remain unchanged.
+
+### 16.2 Release Guardrails
+
+- Do not ship layout changes that increase median click depth for any core workflow.
+- Do not ship if KPI events lose required fields (`workflow_type`, `entry_surface`, `role`).
+- Do not merge Phase 2 UI changes without updated screenshots for desktop breakpoints.
+- Do not deprecate dashboard affordances until equivalent Investigate links are verified.
+
+### 16.3 Known Risks and Mitigations
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Card compaction reduces context clarity | Users may misread KPIs | Keep concise helper text and tooltip support |
+| Table priority hides fields some teams rely on | Slower investigations for edge cases | Validate column priorities with ops/admin reviewers before freeze |
+| Chart/table co-location introduces dense rows | Reduced readability on medium screens | Enforce breakpoint stack behavior and spacing tokens |
+| Event contract drift during implementation | KPI comparison invalidated | Add event payload checks to QA validation checklist |
+
+---
+
+## 17) Phase 1 Sign-off Block (Issue #40)
+
+### Required approvals
+
+- Product owner approval (issue #40 comment)
+- UX approval that IA and interaction rules are complete
+- Frontend lead confirmation that handoff is implementation-ready
+
+### Sign-off template
+
+Use this in issue `#40`:
+
+`Approved for Phase 2 build. IA v1.0 and UX interaction handoff accepted.`
+
+### Handoff completion checklist
+
+- [x] IA hierarchy and transitions documented
+- [x] Layout and breakpoint behavior documented
+- [x] Card/table/graph behavior rules documented
+- [x] Phase 2 task breakdown documented
+- [ ] Approval comment posted on issue #40
