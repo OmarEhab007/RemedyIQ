@@ -96,7 +96,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         <Link
           href={ROUTES.HOME}
           className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] rounded-sm"
-          onClick={handleNavClick}
+          onClick={() => handleNavClick()}
           aria-label="RemedyIQ home"
         >
           <div
