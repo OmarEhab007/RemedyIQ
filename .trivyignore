@@ -14,15 +14,8 @@ CVE-2023-34455
 # snappy-java chunk length overflow → DoS
 CVE-2023-43642
 
-# --- Go stdlib CVEs requiring Go 1.25+ ---
-# Fix available in Go 1.25.x / 1.26.x — not yet stable-released.
-# Suppressed until Go 1.25 is available in the CI runner and go.mod is updated.
-
-# net/url: incorrect IPv6 host literal parsing (fixed in 1.25.8, 1.26.1)
-CVE-2026-25679
-# crypto/x509: unbounded chain-building work (fixed in 1.25.9, 1.26.2)
-CVE-2026-32280
-# internal/syscall/unix: Root.Chmod symlink follow (no upstream fix yet)
+# --- Go stdlib CVEs with no upstream fix ---
+# internal/syscall/unix: Root.Chmod symlink follow — no upstream fix available yet.
 CVE-2026-32282
 
 # --- Frontend image: npm bundled packages (node:20-alpine) ---

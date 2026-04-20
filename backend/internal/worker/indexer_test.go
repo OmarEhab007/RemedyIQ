@@ -271,6 +271,7 @@ func TestIndexEntries_ErrorWrapping(t *testing.T) {
 	tmpDir := t.TempDir()
 	bm, err := search.NewBleveManager(tmpDir)
 	require.NoError(t, err)
+	defer bm.Close() // close any index reopened by the second IndexEntries call
 
 	idx := NewIndexer(bm)
 	ctx := context.Background()
