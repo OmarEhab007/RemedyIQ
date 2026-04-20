@@ -28,6 +28,10 @@ jobs:
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
+    # Push-to-main reruns are redundant — Semgrep needs diff context and was
+    # already scanned on the PR. Restricting to pull_request avoids auth/rate-
+    # limit failures from returntocorp/semgrep-action@v1 on push events.
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -97,6 +101,12 @@ jobs:
   secrets:
     name: Secrets Detection
     runs-on: ubuntu-latest
+    # Skip on: initial push (before SHA all zeros) and force-push (before SHA
+    # may not be reachable — TruffleHog would silently widen to full-history).
+    if: |
+      github.event_name != 'push' ||
+      (github.event.before != '0000000000000000000000000000000000000000' &&
+       github.event.forced != true)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -105,8 +115,9 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          base: ${{ github.event.repository.default_branch }}
-          head: HEAD
+          # Ternary: PR? default_branch : event.before (commit before this push)
+          base: ${{ github.event_name == 'pull_request' && github.event.repository.default_branch || github.event.before }}
+          head: ${{ github.event_name == 'pull_request' && 'HEAD' || github.sha }}
           extra_args: --only-verified
 
   codeql:
