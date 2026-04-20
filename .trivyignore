@@ -18,3 +18,11 @@ CVE-2023-43642
 # internal/syscall/unix: Root.Chmod symlink follow — no upstream fix available yet.
 CVE-2026-32282
 
+# --- Frontend image: npm bundled packages (node:22-alpine) ---
+# This CVE is in npm's internal dependency (usr/local/lib/node_modules/npm/),
+# NOT in the application's own package.json. Not reachable at runtime.
+# Fix: upgrade to a future node:22-alpine image that ships npm with picomatch ≥ 4.0.4.
+
+# picomatch: ReDoS via crafted glob pattern (fixed in 4.0.4, 3.0.2, 2.3.2)
+CVE-2026-33671
+
