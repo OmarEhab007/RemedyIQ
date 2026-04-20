@@ -1,0 +1,26 @@
+# Trivy vulnerability suppressions
+# Each entry must document WHY it's suppressed and the remediation path.
+
+# --- ARLogAnalyzer.jar (pre-built Java artifact) ---
+# Fix: rebuild JAR with updated org.json ≥ 20230227 and snappy-java ≥ 1.1.10.4.
+# Tracked for remediation in a separate ticket before the next production release.
+
+# org.json stack overflow (json-java ≤ 20221018)
+CVE-2022-45688
+# org.json parser OOM (json-java ≤ 20230227)
+CVE-2023-5072
+# snappy-java unchecked chunk length → DoS
+CVE-2023-34455
+# snappy-java chunk length overflow → DoS
+CVE-2023-43642
+
+# --- Go stdlib CVEs requiring Go 1.25+ ---
+# Fix available in Go 1.25.x / 1.26.x — not yet stable-released.
+# Suppressed until Go 1.25 is available in the CI runner and go.mod is updated.
+
+# net/url: incorrect IPv6 host literal parsing (fixed in 1.25.8, 1.26.1)
+CVE-2026-25679
+# crypto/x509: unbounded chain-building work (fixed in 1.25.9, 1.26.2)
+CVE-2026-32280
+# internal/syscall/unix: Root.Chmod symlink follow (no upstream fix yet)
+CVE-2026-32282

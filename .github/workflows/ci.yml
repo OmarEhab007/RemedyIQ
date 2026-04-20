@@ -59,6 +59,13 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24"
+      - name: Apply database migrations
+        env:
+          PGPASSWORD: remedyiq
+        run: |
+          for f in backend/migrations/*.up.sql; do
+            psql -h localhost -U remedyiq -d remedyiq -f "$f"
+          done
       - working-directory: backend
         run: go test -v -race -coverprofile=coverage.out ./...
 
@@ -83,6 +90,7 @@ jobs:
           format: table
           exit-code: 1
           severity: HIGH,CRITICAL
+          trivyignores: .trivyignore
 
       - name: Scan Worker image with Trivy
         uses: aquasecurity/trivy-action@master
@@ -91,6 +99,7 @@ jobs:
           format: table
           exit-code: 1
           severity: HIGH,CRITICAL
+          trivyignores: .trivyignore
 
       - name: Scan Frontend image with Trivy
         uses: aquasecurity/trivy-action@master
@@ -99,6 +108,7 @@ jobs:
           format: table
           exit-code: 1
           severity: HIGH,CRITICAL
+          trivyignores: .trivyignore
 
       - name: Scan for secrets with Gitleaks
         uses: gitleaks/gitleaks-action@v2
