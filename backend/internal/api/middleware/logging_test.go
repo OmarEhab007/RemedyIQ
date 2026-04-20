@@ -123,7 +123,7 @@ func TestLoggingMiddleware_DefaultStatusCode200(t *testing.T) {
 
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// WriteHeader is never called -- default should be 200.
-		w.Write([]byte("ok"))
+		_ = w.Write([]byte("ok"))
 	})
 
 	handler := LoggingMiddleware(inner)
@@ -292,7 +292,7 @@ func TestLoggingMiddleware_LargeResponseBody(t *testing.T) {
 
 	largeBody := strings.Repeat("x", 10000)
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(largeBody))
+		_ = w.Write([]byte(largeBody))
 	})
 
 	handler := LoggingMiddleware(inner)

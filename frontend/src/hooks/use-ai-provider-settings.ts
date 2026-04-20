@@ -5,7 +5,7 @@
  * Keys are only stored in the browser; the backend uses them per request when provided.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 
 const STORAGE_KEY = 'remedyiq-ai-provider-v1'
 
@@ -53,11 +53,7 @@ function load(): AIProviderUserSettings {
 }
 
 export function useAIProviderSettings() {
-  const [settings, setSettingsState] = useState<AIProviderUserSettings>(defaultAIProviderUserSettings)
-
-  useEffect(() => {
-    setSettingsState(load())
-  }, [])
+  const [settings, setSettingsState] = useState<AIProviderUserSettings>(() => load())
 
   const setSettings = useCallback((next: AIProviderUserSettings) => {
     setSettingsState(next)

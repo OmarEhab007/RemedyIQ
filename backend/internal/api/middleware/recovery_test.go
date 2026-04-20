@@ -16,7 +16,7 @@ func TestRecoveryMiddleware_NoPanic_PassesThrough(t *testing.T) {
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		_ = w.Write([]byte(`{"status":"ok"}`))
 	})
 
 	handler := RecoveryMiddleware(inner)

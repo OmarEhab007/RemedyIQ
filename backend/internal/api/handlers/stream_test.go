@@ -212,7 +212,7 @@ func TestStreamHandler_InvalidJSON(t *testing.T) {
 	err = conn.WriteMessage(websocket.TextMessage, []byte("{broken"))
 	require.NoError(t, err)
 
-	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	var serverMsg streaming.ServerMessage
 	err = conn.ReadJSON(&serverMsg)
 	require.NoError(t, err)
