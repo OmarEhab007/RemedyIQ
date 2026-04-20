@@ -73,6 +73,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Build API image
         run: docker build -f backend/Dockerfile --target api -t remedyiq/api:ci .
