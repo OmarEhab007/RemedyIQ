@@ -1,25 +1,22 @@
-# Phase 1 Deliverable: UX Audit and Information Architecture Proposal (IA v0.2)
+# Phase 1 Deliverable: UX Layout and Interaction Proposal (IA v1.0)
 
 **Date**: 2026-04-20  
-**Ticket**: [https://github.com/OmarEhab007/RemedyIQ/issues/30](https://github.com/OmarEhab007/RemedyIQ/issues/30)  
-**Parent Epic**: [https://github.com/OmarEhab007/RemedyIQ/issues/28](https://github.com/OmarEhab007/RemedyIQ/issues/28)  
-**Status**: Draft v0.2 (working)
+**Ticket**: [https://github.com/OmarEhab007/RemedyIQ/issues/40](https://github.com/OmarEhab007/RemedyIQ/issues/40)  
+**Parent Epic**: [https://github.com/OmarEhab007/RemedyIQ/issues/38](https://github.com/OmarEhab007/RemedyIQ/issues/38)  
+**Related PRD**: `projects/RemedyIQ/prd-dashboard-rebuild-ops-admin.md`  
+**Status**: In Progress (ticket #40)
 
 ---
 
-## 0) Issue #30 Acceptance Criteria Traceability
+## 0) Issue #40 Acceptance Criteria Traceability
 
 
-| Issue #30 Acceptance Criteria                                            | Status | Evidence in this Draft              |
+| Issue #40 Acceptance Criteria                                            | Status | Evidence in this Draft              |
 | ------------------------------------------------------------------------ | ------ | ----------------------------------- |
-| UI audit classifies all major elements into core vs secondary            | Done   | Sections 2, 3, and 5.5              |
-| IA proposal for dashboard and navigation hierarchy is published          | Done   | Sections 4 and 5                    |
-| Final IA decisions are recorded by 2026-05-01                            | Done   | Section 10 (finalized decision log) |
-| Frontend feasibility review is completed against current architecture    | Done   | Section 7                           |
-| Required component refactors and shared primitives are identified        | Done   | Section 11                          |
-| Current event coverage is mapped to proposed IA journeys                 | Done   | Sections 8 and 12                   |
-| Tracking gaps blocking KPI measurement are identified                    | Done   | Sections 8 and 12                   |
-| Scenario matrix is drafted for system admin and operations lead personas | Done   | Section 6                           |
+| UX proposal reviewed with product owner                                  | In Progress | Sections 4, 5, 10               |
+| Table and card behavior documented for desktop breakpoints               | In Progress | Sections 5.2, 5.8, 11            |
+| Graph/table layout rules approved for frontend implementation            | In Progress | Sections 5, 11                   |
+| Handoff notes attached for implementation                                | In Progress | Sections 11, 13, 14              |
 
 
 ---
@@ -530,3 +527,66 @@ Phase 1 validation checkpoints:
 1. Maintain dual-read dashboard until two full weekly windows show stable event parity.
 2. Reject releases where mandatory event properties fall below 99% population.
 3. Publish a versioned event dictionary changelog with each Phase 1 release increment.
+
+---
+
+## 15) Frontend Handoff Package (for Issue #41)
+
+### 15.1 Dashboard Layout Contract (Desktop-First)
+
+**Target desktop breakpoints**
+
+- `xl` (>= 1280px): no frequent horizontal scrolling in primary dashboard views.
+- `lg` (>= 1024px): critical KPI cards remain readable with no text overflow.
+- `md` (< 1024px): controlled wrapping/stacking is allowed, but core workflow actions remain visible.
+
+**Row composition rules**
+
+1. **Row 1 (KPI Cards)**: health + key metric cards only; fixed visual rhythm and overflow-safe text.
+2. **Row 2 (Activity + Distribution)**: throughput trend and log-type distribution side-by-side on `xl`, stacked on lower breakpoints.
+3. **Row 3 (Top Entries + Workflow Table)**: top-N view and table view aligned as paired analysis surfaces.
+4. **Deep diagnostics**: excluded from dashboard surface; route users to Log Explorer for deep investigation.
+
+### 15.2 Card Behavior Rules
+
+- Card titles and values must never escape container bounds.
+- Truncation + tooltip pattern required for long labels.
+- Numeric hierarchy: value first, supporting label second.
+- Avoid paragraph-length explanatory text inside cards.
+
+### 15.3 Table Behavior Rules
+
+- Define column-priority tiers (`P0`, `P1`, `P2`) per workflow table.
+- `P0` columns remain visible at `lg` and above.
+- Horizontal scroll is allowed only as fallback after priority rules and width constraints are applied.
+- Sticky headers and consistent row density required for scanability.
+
+### 15.4 Graph and Table Co-location Rules
+
+- Charts and corresponding tables should share the same section when they support the same question.
+- Chart legends and table dimensions must use matching labels.
+- Avoid mixing unrelated graph/table pairs in one row.
+
+### 15.5 Build-Ready Task Breakdown (Phase 2 Input)
+
+1. Implement new dashboard section order and row contract.
+2. Refactor KPI cards for overflow-safe typography and spacing.
+3. Apply column-priority strategy to primary tables.
+4. Align chart/table pairs based on workflow context (API, SQL, Escalation, Filter).
+5. Validate no backend contract changes are required.
+
+### 15.6 Definition of Done for Phase 1 Handoff
+
+- [x] Core-vs-secondary IA documented.
+- [x] Navigation and transition matrix finalized.
+- [x] Desktop breakpoint behavior documented for cards/tables/layout.
+- [x] Frontend-ready task inputs written for issue #41.
+- [ ] Product owner sign-off comment captured on issue #40.
+
+### 15.7 Product Review Checklist (Issue #40 Sign-off)
+
+- Confirm row composition order (KPI cards -> charts -> top entries/tables).
+- Confirm top-card text treatment (truncate + tooltip) is acceptable.
+- Confirm table column-priority strategy matches ops/admin needs.
+- Confirm chart/table pairing rules are clear for frontend implementation.
+- Confirm "deep diagnostics -> Log Explorer" guidance is acceptable for Phase 1 scope.
