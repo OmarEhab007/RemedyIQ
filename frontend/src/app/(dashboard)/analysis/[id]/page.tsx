@@ -54,6 +54,7 @@ import {
   type DashboardJumpLink,
 } from '@/components/dashboard/dashboard-jump-nav'
 import { ROUTES } from '@/lib/constants'
+import { trackEvent } from '@/lib/telemetry'
 import { cn } from '@/lib/utils'
 import type {
   LogType,
@@ -559,6 +560,15 @@ export default function AnalysisDashboardPage() {
     setAutoSelected(true)
   }, [dashboard, autoSelected])
 
+  useEffect(() => {
+    if (!jobId || dashboardLoading || dashboardError || !dashboard) return
+    trackEvent('dashboard_render_complete', {
+      job_id: jobId,
+      entry_surface: 'analysis_dashboard',
+      surface_version: 'phase1',
+    })
+  }, [jobId, dashboardLoading, dashboardError, dashboard])
+
   // Loading / error states
   if (dashboardLoading) {
     return <PageState variant="loading" rows={6} />
@@ -619,7 +629,20 @@ export default function AnalysisDashboardPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => router.push(ROUTES.ANALYSIS_EXPLORER(jobId))}
+                    onClick={() => {
+                      trackEvent('core_workflow_entered', {
+                        workflow_type: activeTab === 'queued' ? 'api' : activeTabConfig.key,
+                        entry_surface: 'analysis_dashboard',
+                        job_id: jobId,
+                      })
+                      trackEvent('nav_click', {
+                        from_surface: 'analysis_dashboard',
+                        to_surface: 'investigate',
+                        workflow_type: activeTab === 'queued' ? 'api' : activeTabConfig.key,
+                        job_id: jobId,
+                      })
+                      router.push(`${ROUTES.ANALYSIS_EXPLORER(jobId)}?workflow=${activeTab === 'queued' ? 'api' : activeTabConfig.key}`)
+                    }}
                     className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-primary)] shadow-sm transition-colors hover:bg-[var(--color-bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
                   >
                     Log Explorer

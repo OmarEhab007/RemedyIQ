@@ -22,6 +22,7 @@ import { PageState } from '@/components/ui/page-state'
 import { LogExplorerShell } from '@/components/explorer/log-explorer-shell'
 import { ExplorerTimeRangeBar } from '@/components/explorer/explorer-time-range-bar'
 import { useDebounce } from '@/hooks/use-debounce'
+import { trackEvent, type WorkflowType } from '@/lib/telemetry'
 import { cn } from '@/lib/utils'
 
 interface JobSelectorProps {
@@ -73,6 +74,11 @@ function JobSelector({ jobId, onChange, className }: JobSelectorProps) {
 function GlobalExplorerPageInner() {
   const { data: analysesData, isLoading: analysesLoading } = useAnalyses()
   const urlSearchParams = useSearchParams()
+  const workflowFromUrl = (urlSearchParams.get('workflow') ?? '').toLowerCase()
+  const workflowType: WorkflowType | null =
+    workflowFromUrl === 'api' || workflowFromUrl === 'sql' || workflowFromUrl === 'escalation' || workflowFromUrl === 'filter'
+      ? workflowFromUrl
+      : null
 
   const defaultJobId = useMemo(() => {
     const jobs = analysesData?.jobs ?? []
@@ -133,10 +139,16 @@ function GlobalExplorerPageInner() {
 
   const handleJobChange = useCallback(
     (jobId: string) => {
+      trackEvent('nav_click', {
+        from_surface: 'investigate',
+        to_surface: 'investigate',
+        workflow_type: workflowType,
+        job_id: jobId,
+      })
       setSelectedJobId(jobId)
       reset()
     },
-    [reset],
+    [reset, workflowType],
   )
 
   const handleLoadSavedSearch = useCallback(
@@ -151,6 +163,22 @@ function GlobalExplorerPageInner() {
   const showHistogram =
     !search.isError &&
     ((search.histogram?.length ?? 0) > 0 || search.entries.length > 0)
+
+  useEffect(() => {
+    trackEvent('nav_click', {
+      from_surface: 'sidebar',
+      to_surface: 'investigate',
+      workflow_type: workflowType,
+      job_id: activeJobId,
+    })
+    if (workflowType) {
+      trackEvent('core_workflow_entered', {
+        workflow_type: workflowType,
+        entry_surface: 'explorer_page',
+        job_id: activeJobId,
+      })
+    }
+  }, [workflowType, activeJobId])
 
   if (!activeJobId && !analysesLoading) {
     return (

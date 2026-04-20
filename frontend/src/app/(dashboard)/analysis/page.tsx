@@ -405,8 +405,8 @@ export default function AnalysisListPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Analyses"
-        description="View and manage your log analysis jobs."
+        title="Overview"
+        description="Prioritized operational overview with fast entry into core investigation workflows."
         actions={
           <button
             type="button"
