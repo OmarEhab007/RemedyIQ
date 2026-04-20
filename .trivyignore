@@ -18,23 +18,3 @@ CVE-2023-43642
 # internal/syscall/unix: Root.Chmod symlink follow — no upstream fix available yet.
 CVE-2026-32282
 
-# --- Frontend image: npm bundled packages (node:20-alpine) ---
-# These CVEs are in npm's internal dependencies (usr/local/lib/node_modules/npm/),
-# NOT in the application's own package.json. They are not reachable at runtime.
-# Fix: upgrade base image to node:22-alpine or later — tracked as a separate ticket.
-
-# cross-spawn: ReDoS via shell metachar in command (fixed in 7.0.5, 6.0.6)
-CVE-2024-21538
-# glob: command injection via malicious pattern (fixed in 10.5.0, 11.1.0)
-CVE-2025-64756
-# minimatch: ReDoS via crafted pattern (fixed in 9.0.6+, 10.2.1+)
-CVE-2026-26996
-CVE-2026-27903
-CVE-2026-27904
-# node-tar: arbitrary file write/read via path traversal (fixed in tar ≥ 7.5.x)
-CVE-2026-23745
-CVE-2026-23950
-CVE-2026-24842
-CVE-2026-26960
-CVE-2026-29786
-CVE-2026-31802
