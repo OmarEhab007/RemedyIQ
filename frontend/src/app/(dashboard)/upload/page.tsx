@@ -10,7 +10,7 @@
  *  4. Job list below auto-refreshes via the analyses query cache invalidation.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '@/components/layout/page-header'
 import { DropZone } from '@/components/upload/drop-zone'
@@ -19,6 +19,7 @@ import { JobQueue } from '@/components/upload/job-queue'
 import { useCreateAnalysis } from '@/hooks/use-api'
 import { queryKeys } from '@/hooks/use-api'
 import type { LogFile } from '@/lib/api-types'
+import { trackEvent } from '@/lib/telemetry'
 
 // ---------------------------------------------------------------------------
 // Upload page
@@ -31,6 +32,13 @@ export default function UploadPage() {
   // Track the most-recently created job so we can show UploadProgress.
   const [activeJobId, setActiveJobId] = useState<string | null>(null)
   const [activeFileName, setActiveFileName] = useState<string | null>(null)
+
+  useEffect(() => {
+    trackEvent('nav_click', {
+      from_surface: 'sidebar',
+      to_surface: 'upload',
+    })
+  }, [])
 
   const handleUploadComplete = useCallback(
     (file: LogFile) => {
@@ -54,7 +62,7 @@ export default function UploadPage() {
       {/* Page header */}
       <PageHeader
         title="Upload Log File"
-        description="Upload an AR Server log file to start a new analysis. Supported formats: .log, .txt, and all standard AR log outputs."
+        description="Secondary surface for ingestion. Core workflow monitoring continues in Overview and Investigate."
       />
 
       {/* Upload section */}

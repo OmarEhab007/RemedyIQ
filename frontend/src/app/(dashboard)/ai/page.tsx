@@ -7,7 +7,7 @@
  * Job picker at the top to scope conversations.
  */
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useAnalyses } from '@/hooks/use-api'
@@ -18,6 +18,7 @@ import { ConversationList } from '@/components/ai/conversation-list'
 import { ChatPanel } from '@/components/ai/chat-panel'
 import { AIProviderSettings } from '@/components/ai/ai-provider-settings'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { trackEvent } from '@/lib/telemetry'
 
 // ---------------------------------------------------------------------------
 // Inner component (uses useSearchParams inside Suspense)
@@ -28,12 +29,19 @@ function AIPageContent() {
   const [selectedJobId, setSelectedJobId] = useState<string>(
     searchParams.get('job') ?? '',
   )
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const { activeConversationId } = useAIStore()
   const { data: analysesData, isLoading: analysesLoading } = useAnalyses()
   const { settings: providerSettings, setSettings: setProviderSettings } = useAIProviderSettings()
   const jobs = analysesData?.jobs ?? []
+
+  useEffect(() => {
+    trackEvent('nav_click', {
+      from_surface: 'sidebar',
+      to_surface: 'ai',
+    })
+  }, [])
 
   return (
     <div className="flex h-[calc(100vh-120px)] flex-col overflow-hidden">
@@ -129,6 +137,12 @@ function AIPageContent() {
             Active
           </span>
         )}
+      </div>
+
+      <div className="shrink-0 border-b border-[var(--color-border)] bg-[var(--color-bg-primary)] px-4 py-2">
+        <p className="text-xs text-[var(--color-text-tertiary)]">
+          AI Assistant is a secondary augmentation surface. Primary operational workflows remain in Overview and Investigate.
+        </p>
       </div>
 
       {/* Body: sidebar + chat */}

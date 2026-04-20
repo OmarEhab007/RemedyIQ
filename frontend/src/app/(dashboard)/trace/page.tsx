@@ -7,12 +7,13 @@
  * When a job is selected, searches transactions within that job.
  */
 
-import { useState, Suspense } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useResizableTableColumns, type ResizableColumnConfig } from '@/hooks/use-resizable-table-columns'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { ROUTES } from '@/lib/constants'
+import { trackEvent } from '@/lib/telemetry'
 import { useAnalyses, useRecentTraces } from '@/hooks/use-api'
 import { PageState } from '@/components/ui/page-state'
 import { TraceSearch } from '@/components/trace/trace-search'
@@ -130,13 +131,20 @@ function TracePageContent() {
   const jobs = analysesData?.jobs ?? []
   const recentTraces: RecentTrace[] = recentData?.traces ?? []
 
+  useEffect(() => {
+    trackEvent('nav_click', {
+      from_surface: 'sidebar',
+      to_surface: 'trace',
+    })
+  }, [])
+
   return (
     <div className="space-y-6">
       {/* Page header */}
       <div>
         <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Trace Explorer</h1>
         <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Search and compare distributed traces across your AR Server logs.
+          Secondary surface for deep trace analysis. Core investigations begin in Investigate.
         </p>
       </div>
 
@@ -154,7 +162,15 @@ function TracePageContent() {
           <select
             id="trace-job-picker"
             value={selectedJobId}
-            onChange={(e) => setSelectedJobId(e.target.value)}
+            onChange={(e) => {
+              const jobId = e.target.value
+              setSelectedJobId(jobId)
+              trackEvent('nav_click', {
+                from_surface: 'trace',
+                to_surface: 'trace',
+                job_id: jobId || null,
+              })
+            }}
             className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg-primary)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
             aria-label="Select analysis job"
           >
@@ -184,7 +200,13 @@ function TracePageContent() {
             aria-selected={activeTab === id}
             aria-controls={`trace-page-panel-${id}`}
             tabIndex={activeTab === id ? 0 : -1}
-            onClick={() => setActiveTab(id)}
+            onClick={() => {
+              setActiveTab(id)
+              trackEvent('nav_click', {
+                from_surface: 'trace',
+                to_surface: id === 'search' ? 'trace_search' : 'trace_compare',
+              })
+            }}
             className={cn(
               'px-4 py-2 text-sm font-medium border-b-2 transition-colors focus-visible:outline-none',
               activeTab === id
@@ -222,13 +244,20 @@ function TracePageContent() {
         hidden={activeTab !== 'compare'}
       >
         {activeTab === 'compare' && (
-          selectedJobId ? (
-            <TraceComparison jobId={selectedJobId} />
-          ) : (
-            <div className="rounded-lg border border-dashed border-[var(--color-border)] py-12 text-center text-sm text-[var(--color-text-secondary)]">
-              Select an analysis job above to compare traces.
+          <details className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-3">
+            <summary className="cursor-pointer list-none text-sm font-medium text-[var(--color-text-secondary)]">
+              Compare traces (advanced)
+            </summary>
+            <div className="mt-3">
+              {selectedJobId ? (
+                <TraceComparison jobId={selectedJobId} />
+              ) : (
+                <div className="rounded-lg border border-dashed border-[var(--color-border)] py-12 text-center text-sm text-[var(--color-text-secondary)]">
+                  Select an analysis job above to compare traces.
+                </div>
+              )}
             </div>
-          )
+          </details>
         )}
       </div>
 

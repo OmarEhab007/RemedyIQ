@@ -9,6 +9,8 @@ export type { LogType, JobStatus }
 
 export const ROUTES = {
   HOME: '/',
+  OVERVIEW: '/analysis',
+  INVESTIGATE: '/explorer',
   UPLOAD: '/upload',
   ANALYSIS: '/analysis',
   ANALYSIS_DETAIL: (id: string) => `/analysis/${id}`,
