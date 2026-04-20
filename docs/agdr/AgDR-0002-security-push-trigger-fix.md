@@ -29,6 +29,7 @@ Root causes:
 - `Security Scan / Semgrep SAST` no longer runs on push to main (CodeQL is the push-time SAST gate)
 - `Security Scan / Secrets Detection` passes after every squash-merge to main
 - Introducing secrets via a direct push to main is still caught by TruffleHog
+- Force-push events skip TruffleHog (`github.event.forced == true`); on a force-push the `event.before` SHA may not be reachable in the graph, which would cause a silent full-history scan or the same ref-resolution error — skipping is the safer default
 
 ## Artifacts
 

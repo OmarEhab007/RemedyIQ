@@ -101,9 +101,12 @@ jobs:
   secrets:
     name: Secrets Detection
     runs-on: ubuntu-latest
-    # Skip on the very first push to a branch (before SHA is all zeros — no
-    # previous commit to diff against).
-    if: github.event_name != 'push' || github.event.before != '0000000000000000000000000000000000000000'
+    # Skip on: initial push (before SHA all zeros) and force-push (before SHA
+    # may not be reachable — TruffleHog would silently widen to full-history).
+    if: |
+      github.event_name != 'push' ||
+      (github.event.before != '0000000000000000000000000000000000000000' &&
+       github.event.forced != true)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -112,9 +115,7 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          # On pull_request: diff against the base branch.
-          # On push to main: diff against the commit before this push
-          # (github.event.before) so base != head after a squash merge.
+          # Ternary: PR? default_branch : event.before (commit before this push)
           base: ${{ github.event_name == 'pull_request' && github.event.repository.default_branch || github.event.before }}
           head: ${{ github.event_name == 'pull_request' && 'HEAD' || github.sha }}
           extra_args: --only-verified
