@@ -4,7 +4,7 @@
 #############################################
 # Stage 1: Dependencies
 #############################################
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 
 # Install libc6-compat for compatibility with some npm packages
 RUN apk add --no-cache libc6-compat
@@ -21,7 +21,7 @@ RUN npm ci --legacy-peer-deps
 #############################################
 # Stage 2: Builder
 #############################################
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -54,7 +54,7 @@ RUN npm run build
 #############################################
 # Stage 3: Runner
 #############################################
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
