@@ -92,6 +92,7 @@ export function useResizableTableColumns(
 ) {
   const storageKey = options?.storageKey
   const specRef = useRef(spec)
+  // eslint-disable-next-line react-hooks/refs
   specRef.current = spec
 
   const [widths, setWidths] = useState<number[]>(() => {
@@ -100,6 +101,7 @@ export function useResizableTableColumns(
   })
 
   const widthsRef = useRef(widths)
+  // eslint-disable-next-line react-hooks/refs
   widthsRef.current = widths
 
   const fp = fingerprint(spec)

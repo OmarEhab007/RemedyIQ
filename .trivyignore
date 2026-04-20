@@ -1,0 +1,47 @@
+# Trivy vulnerability suppressions
+# Each entry must document WHY it's suppressed and the remediation path.
+
+# --- ARLogAnalyzer.jar (pre-built Java artifact) ---
+# Fix: rebuild JAR with updated org.json ≥ 20230227 and snappy-java ≥ 1.1.10.4.
+# Tracked for remediation in a separate ticket before the next production release.
+
+# org.json stack overflow (json-java ≤ 20221018)
+CVE-2022-45688
+# org.json parser OOM (json-java ≤ 20230227)
+CVE-2023-5072
+# snappy-java unchecked chunk length → DoS
+CVE-2023-34455
+# snappy-java chunk length overflow → DoS
+CVE-2023-43642
+
+# --- Go stdlib CVEs requiring Go 1.25+ ---
+# Fix available in Go 1.25.x / 1.26.x — not yet stable-released.
+# Suppressed until Go 1.25 is available in the CI runner and go.mod is updated.
+
+# net/url: incorrect IPv6 host literal parsing (fixed in 1.25.8, 1.26.1)
+CVE-2026-25679
+# crypto/x509: unbounded chain-building work (fixed in 1.25.9, 1.26.2)
+CVE-2026-32280
+# internal/syscall/unix: Root.Chmod symlink follow (no upstream fix yet)
+CVE-2026-32282
+
+# --- Frontend image: npm bundled packages (node:20-alpine) ---
+# These CVEs are in npm's internal dependencies (usr/local/lib/node_modules/npm/),
+# NOT in the application's own package.json. They are not reachable at runtime.
+# Fix: upgrade base image to node:22-alpine or later — tracked as a separate ticket.
+
+# cross-spawn: ReDoS via shell metachar in command (fixed in 7.0.5, 6.0.6)
+CVE-2024-21538
+# glob: command injection via malicious pattern (fixed in 10.5.0, 11.1.0)
+CVE-2025-64756
+# minimatch: ReDoS via crafted pattern (fixed in 9.0.6+, 10.2.1+)
+CVE-2026-26996
+CVE-2026-27903
+CVE-2026-27904
+# node-tar: arbitrary file write/read via path traversal (fixed in tar ≥ 7.5.x)
+CVE-2026-23745
+CVE-2026-23950
+CVE-2026-24842
+CVE-2026-26960
+CVE-2026-29786
+CVE-2026-31802
